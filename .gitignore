@@ -1,0 +1,11 @@
+*.2bit
+2bits/
+kent_binaries/*
+chains/*
+*.so
+*.dSYM/*
+*/*.dSYM/*
+*.zip
+*.gzip
+*.gz 
+temp/*
