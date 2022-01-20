@@ -55,7 +55,6 @@ my $debug = 0;				# flag for do not run the actual steps
 
 my $chainingQueue = "long";		# queue for chaining jobs (long is default)
 my $chainingMemory = 15000;		# memory limit for chaining jobs in MB
-my $netChainMemory = 50000;		# memory limit for netChain jobs in MB
 my $chainCleanMemory = 100000;	# memory limit for chainClean jobs in MB
 
 my $maxNumLastzJobs = 6000;		# number job limit for lastz step
@@ -901,7 +900,8 @@ if (exists $defVars{'CLEANCHAIN_PARAMETERS'}) {
 $chainingQueue = $defVars{'CHAININGQUEUE'} if (exists $defVars{'CHAININGQUEUE'});
 croak "ERROR: variable CHAININGQUEUE in DEF $chainingQueue is neither long/medium/short\n" if (! ($chainingQueue eq "long" || $chainingQueue eq "medium" || $chainingQueue eq "short"));
 $chainingMemory = defined($defVars{'CHAININGMEMORY'}) ? $defVars{'CHAININGMEMORY'} : $chainingMemory;
-$netChainMemory = defined($defVars{'NETCHAINMEMORY'}) ? $defVars{'NETCHAINMEMORY'} : $netChainMemory;
+$chainCleanMemory = defined($defVars{'CHAINCLEANMEMORY'}) ? $defVars{'CHAINCLEANMEMORY'} : $chainCleanMemory;
+
 print "max number of lastz cluster jobs: $maxNumLastzJobs\n";
 
 my $date = `set -o pipefail; date +%Y-%m-%d`;

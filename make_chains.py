@@ -127,6 +127,12 @@ def parse_args():
         type=int,
         help="CHAININGMEMORY parameter, (default 50000)",
     )
+    def_params.add_argument(
+        "--chain_clean_memory",
+        default=None,
+        type=int,
+        help="CHAINCLEANMEMORY parameter, (default 100000)"
+    )
 
     if len(sys.argv) < 2:
         app.print_help()
@@ -245,6 +251,7 @@ def generate_def_params(def_arg):
         # recommended for all chains, except very close species
         # comparisons (such as human to primates or d.mel to d.sim)
         "CLEANCHAIN": 1,
+        "CHAINCLEANMEMORY": 100_000,
         # Optional: specify parameters to be passed on to chainCleaner. E.g.
         "CLEANCHAIN_PARAMETERS": (
             "-LRfoldThreshold=2.5 "
