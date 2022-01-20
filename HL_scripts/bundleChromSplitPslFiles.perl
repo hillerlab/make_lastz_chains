@@ -5,12 +5,11 @@
 
 use strict;
 use warnings;
-use Bio::SeqIO;
 use POSIX;
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
-use lib "$ENV{'genomePath'}/src/LabPerlModules/";
+use FindBin qw($Bin);
+use lib "$Bin";
 use Globals;
-use MyKentFunctions;
 
 $| = 1;		# == fflush(stdout)
 my $maxBases = 30000000;
@@ -34,6 +33,19 @@ The main purpose is to bundle pls files for assemblies that have thousands of sc
 GetOptions ("v|verbose"  => \$verbose, "maxBases=i" => \$maxBases, "warningOnly" => \$warningOnly, "verbose" => \$verbose) ||	die "$usage\n";
 die "$usage\n" if ($#ARGV < 2);
 
+sub readChromSizeHash {
+	my $chromSizeFile = shift; 
+
+	my %hash;
+	open(FI,"$chromSizeFile") || die "ERROR: cannot open file $chromSizeFile\n";
+	while (my $line=<FI>) {
+		chomp($line);
+		my @f = split(/\t/, $line);
+		$hash{$f[0]} = $f[1];
+	}
+	close(FI);
+	return %hash;
+}
 
 my $inDir = $ARGV[0];
 my %chromSize = readChromSizeHash($ARGV[1]);
