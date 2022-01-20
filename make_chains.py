@@ -417,6 +417,11 @@ def include_cmd_def_opts(def_params, args):
         if args.chaining_memory
         else def_params["CHAININGMEMORY"]
     )
+    def_params["CHAINCLEANMEMORY"] = (
+        args.chain_clean_memory
+        if args.chain_clean_memory
+        else def_params["CHAINCLEANMEMORY"]
+    )
     # TODO: add other params if need be
 
 
