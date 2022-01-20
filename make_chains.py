@@ -39,6 +39,8 @@ BLASTZ_Y = 9400
 BLASTZ_L = 3000
 BLASTZ_K = 2400
 
+MASTER_SCRIPT = "master_script.sh"
+
 
 def parse_args():
     """Command line arguments parser."""
@@ -73,6 +75,14 @@ def parse_args():
             "Cluster jobs executor. Please see README.md to get "
             "a list of all available systems. Default local"
         ),
+    )
+    app.add_argument(
+        "--resume",
+        action="store_true",
+        dest="resume",
+        help=("Resume execution from the last completed step, "
+              "Please specify existing --project_dir to use this option"
+        )
     )
 
     # DEF file arguments that can be overriden
@@ -139,6 +149,18 @@ def parse_args():
         sys.exit(0)
 
     args = app.parse_args()
+
+    # >>> sanity checks
+    resume_cond_1 = args.resume is True and args.project_dir is None
+    resume_cond_2 = args.resume is True and not os.path.isdir(args.project_dir)
+
+    if resume_cond_1 or resume_cond_2:
+        err_msg = (
+            "Error! --resume mode implies already existing project."
+            "Please specify already existing project with --project_dir"
+        )
+        sys.exit(err_msg)
+    # >>> sanity checks
     return args
 
 
@@ -364,7 +386,7 @@ def run_do_chains_pl(def_path, project_dir, executor):
     cmd = (
         f"{do_blastz_exe} {def_path} -clusterRunDir {project_dir} --executor {executor}"
     )
-    script_loc = os.path.join(project_dir, "master_script.sh")
+    script_loc = os.path.join(project_dir, MASTER_SCRIPT)
 
     do_lastz_env = os.path.join(HERE, DO_LASTZ_DIR)
     hl_scripts_env = os.path.join(HERE, HL_SCRIPTS)
@@ -425,11 +447,30 @@ def include_cmd_def_opts(def_params, args):
     # TODO: add other params if need be
 
 
+def check_proj_dir_for_resuming(project_dir):
+    """Check whether the project dir is valid for -resume."""
+    def_path = os.path.join(project_dir, "DEF")
+    ms_path = os.path.join(project_dir, MASTER_SCRIPT)
+    if not os.path.isfile(ms_path) or not os.path.isfile(def_path):
+        err_msg = (
+            f"Error! Cannot resume the execution in the {project_dir} "
+            f"dir:\nPlease make sure that {def_path} and {ms_path} exist."
+        )
+        sys.exit(err_msg)
+    return ms_path
+
+
 def main():
     args = parse_args()
     check_env()
     project_dir = get_project_dir(args.project_dir)
     print(f"Project directory: {project_dir}")
+    if args.resume: 
+        # the pipeline already've been called -> resume execution
+        # but first check that the request is valid
+        ms_loc = check_proj_dir_for_resuming(project_dir)
+        subprocess.call(ms_loc, shell=True)
+        sys.exit(0)  # no need to continue
 
     def_parameters = generate_def_params(args.DEF)
     # define parameters inferred from input
