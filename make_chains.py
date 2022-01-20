@@ -68,10 +68,10 @@ def parse_args():
     )
     app.add_argument(
         "--executor",
-        default="slurm",
+        default="local",
         help=(
             "Cluster jobs executor. Please see README.md to get "
-            "a list of all available systems. Default slurm"
+            "a list of all available systems. Default local"
         ),
     )
 
@@ -114,6 +114,18 @@ def parse_args():
         default=None,
         type=int,
         help=f"BLASTZ_K parameter, (default {BLASTZ_K})",
+    )
+    def_params.add_argument(
+        "--fill_prepare_memory",
+        default=None,
+        type=int,
+        help="FILL_PREPARE_MEMORY parameter (default 50000)",
+    )
+    def_params.add_argument(
+        "--chaining_memory",
+        default=None,
+        type=int,
+        help="CHAININGMEMORY parameter, (default 50000)",
     )
 
     if len(sys.argv) < 2:
@@ -388,6 +400,16 @@ def include_cmd_def_opts(def_params, args):
     def_params["BLASTZ_Y"] = args.blastz_y if args.blastz_y else def_params["BLASTZ_Y"]
     def_params["BLASTZ_L"] = args.blastz_l if args.blastz_l else def_params["BLASTZ_L"]
     def_params["BLASTZ_K"] = args.blastz_k if args.blastz_k else def_params["BLASTZ_K"]
+    def_params["FILL_PREPARE_MEMORY"] = (
+        args.fill_prepare_memory
+        if args.fill_prepare_memory
+        else def_params["FILL_PREPARE_MEMORY"]
+    )
+    def_params["CHAININGMEMORY"] = (
+        args.chaining_memory
+        if args.chaining_memory
+        else def_params["CHAININGMEMORY"]
+    )
     # TODO: add other params if need be
 
 

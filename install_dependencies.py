@@ -113,6 +113,8 @@ def _check_docker_available():
 ### DIFFERENT WAYS TO DOWNLOAD THE PACKAGE >>>>>>
 def download_from_hg(binary_name):
     """Download binary directly from HG storage."""
+    # TODO: rewrite to wget; rsync may stuck on some systems
+    # for some unclear reason
     print(f"Downloading {binary_name} directly from HG downloads storage")
     link = f"{HGDOWNLOAD}/{HGDOWNLOAD_DIRNAME}/{binary_name}"
     rsync_cmd = f"{RSYNC_CMD} {link} {BINARIES_DIR}/"
@@ -515,7 +517,10 @@ def main():
         Required.CHAINSCORE: chainscore_status,
         Required.GENSUB2: gensub2_status,
         Required.AXTTOPSL: axttopsl_status,
-        Required.PSLSORTACC: pslsortacca_status
+        Required.PSLSORTACC: pslsortacca_status,
+        Required.CHAINANTIREPEAT: chainantirepeat_status,
+        Required.CHAINMERGESORT: chainmergesort_status,
+        Required.CHAINCLEANER: chaincleaner_status,
     }
 
     check_stat(installation_stats)
