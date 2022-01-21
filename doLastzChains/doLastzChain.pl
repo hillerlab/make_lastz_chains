@@ -398,14 +398,6 @@ sub doLastzClusterRun {
 	# my $templateCmd = "$blastzRunUcsc -outFormat psl \$(path1) \$(path2) ../DEF " . $checkOutExists;
 	my $templateCmd = "$blastzRunUcsc --outFormat psl \$(path1) \$(path2) $buildDir/DEF " . $checkOutExists;
 	&HgAutomate::makeGsub($runDir, $templateCmd);
- 
-	# customize the $myparaRun variable depending upon the clusterType: 
-# 	my $myParaRun = "
-# para make lastz_$tDb$qDb jobList -q day -memoryMb 5000 -maxNumResubmission 1
-# para check lastz_$tDb$qDb
-# para time lastz_$tDb$qDb > run.time
-# cat run.time\n";
-# parallel_executor.py lastz_$tDb$qDb jobList -q day --memoryMb 9000 --maxNumResubmission 1 -e $nf_executor\n";
 
 	my $myParaRun = "
 parallel_executor.py lastz_$tDb$qDb jobList -q day --memoryMb 10000 -e $nf_executor\n";
@@ -444,22 +436,6 @@ sub doCatRun {
 
 	&HgAutomate::mustMkdir($runDir);
 	&HgAutomate::makeGsub($runDir, "pyCat.py $outRoot/\$(path1) $checkOutExists");
-
-
-# 	my $fh = &HgAutomate::mustOpen(">$runDir/cat.csh");
-# 	print $fh <<_EOF_
-# #!/bin/csh -ef
-# find $outRoot/\$1/ -name "*.psl" | xargs cat | grep "^#" -v | gzip -c > \$2
-# _EOF_
-# ;
-#   	close($fh); 
-
-	# Now the cat is executed as a single job in the medium queue (can take ~30 min total)
-# 	my $myParaRun = "
-# para make catRun_$tDb$qDb jobList -q day -memoryMb 1000 \n
-# para check catRun_$tDb$qDb\n
-# para time catRun_$tDb$qDb > run.time\n
-# cat run.time\n";
 
 	my $myParaRun = "
 parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor\n";
@@ -560,11 +536,6 @@ _EOF_
 	}
 	# customize the $myparaRun variable depending upon the clusterType: 
 	# request 15 GB of mem for the chaining jobs. Some take more than 5 GB apparently
-# 	my $myParaRun = "
-# para make chainRun_$tDb$qDb jobList -q $chainingQueue -memoryMb $chainingMemory
-# para check chainRun_$tDb$qDb
-# para time chainRun_$tDb$qDb > run.time
-# cat run.time";
 
 	my $myParaRun = "
 parallel_executor.py chainRun_$tDb$qDb jobList -q $chainingQueue --memoryMb $chainingMemory -e $nf_executor\n";
@@ -665,29 +636,18 @@ sub doFillChains {
 	#### --- set up para calls
 
 	# para fill chain (major part of step)
-	# my $paraRun = "para make fillChain_$tDb$qDb jobList.txt -q medium -memoryMb $fillChainMemory\n";
-	# $paraRun .= "para check fillChain_$tDb$qDb\n";
-	# $paraRun .= "para time fillChain_$tDb$qDb > run.time\n";
-	# $paraRun .= "cat run.time\n";
 	my $paraRun = "parallel_executor.py fillChain_$tDb$qDb jobList.txt -q medium --memoryMb $fillChainMemory -e $nf_executor\n";
 
 	# para prepare chain filling (unzipped and build index)
 	my $jobfprepare = "$runDir/jobList_prepare.txt";
 	my $prepareScript = "$runDir/fillPrepare.sh";
 	my $runFillScript = "$runDir/runChainGapFiller.sh";
-	# my $paraRunPrep = "para make fillPrepare_$tDb$qDb $jobfprepare -q medium -memoryMb $fillPrepMemory -maxNumResubmission 1\n";
-	# $paraRunPrep .= "para check fillPrepare_$tDb$qDb\n";
-	# $paraRunPrep .= "para time fillPrepare_$tDb$qDb > run_prepare.time\n";
-	# $paraRunPrep .= "cat run_prepare.time\n";
 	my $paraRunPrep = "parallel_executor.py $runDir/fillPrepare_$tDb$qDb $jobfprepare -q medium --memoryMb $fillPrepMemory --maxNumResubmission 1 -e $nf_executor\n";
 
 	# para merge chains and gzip
 	my $jobfmerge = "$runDir/jobList_merge.txt";
 	my $mergeScript = "$runDir/fillMerge.sh";
 	# my $paraRunMerge = "para make fillMerge_$tDb$qDb $jobfmerge -q medium -memoryMb $fillChainMemory\n";
-	# $paraRunMerge .= "para check fillMerge_$tDb$qDb\n";
-	# $paraRunMerge .= "para time fillMerge_$tDb$qDb > run_merge.time\n";
-	# $paraRunMerge .= "cat run_merge.time\n";
 
 	my $paraRunMerge = "parallel_executor.py $runDir/fillMerge_$tDb$qDb $jobfmerge -q medium --memoryMb $fillChainMemory -e $nf_executor\n";
 
@@ -803,12 +763,6 @@ sub doCleanChains {
 	my $linearGap = "-linearGap=$chainLinearGap";
 
 	# request 60 GB
-# 	my $paraCleanChain = "
-# para make cleanChain_$tDb$qDb jobListChainCleaner -q short -memoryMb $chainCleanMemory
-# para check cleanChain_$tDb$qDb
-# para time cleanChain_$tDb$qDb > run.time.chainClean
-# cat run.time.chainClean";
-
 	my $paraCleanChain = "
 parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb $chainCleanMemory -e $nf_executor\n";
 
@@ -821,7 +775,7 @@ parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb
 	my $fh;
 	open($fh, ">$runDir/cleanChains.csh") || croak "ERROR! Can't write to chainClean script file '$runDir/cleanChains.csh'.";
 	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
-	print $fh "time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner\n";
+	print $fh "$chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& $buildDir/TEMP_axtChain/log.chainCleaner\n";
 	print $fh "gzip $outputChain\n";
 	close($fh);
 

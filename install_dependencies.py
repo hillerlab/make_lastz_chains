@@ -498,6 +498,7 @@ def main():
     gensub2_status = acquire_gensub2(conda_available)
     lastz_status = acquire_lastz(conda_available)
     axttopsl_status = acquire_axttopsl(conda_available)
+    chainnet_status = acquire_chainnet(conda_available)
     # fasize_status = acquire_fasize(conda_available)
     # fafrag_status = acquire_fafrag(conda_available)
     chainantirepeat_status = acquire_chainantirepeat(conda_available)
@@ -521,6 +522,7 @@ def main():
         Required.CHAINANTIREPEAT: chainantirepeat_status,
         Required.CHAINMERGESORT: chainmergesort_status,
         Required.CHAINCLEANER: chaincleaner_status,
+        Required.CHAINNET: chainnet_status,
     }
 
     check_stat(installation_stats)
