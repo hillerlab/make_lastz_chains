@@ -818,11 +818,13 @@ parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb
  
 	# cleanChains.csh runs the actual chainCleaner command
 	my $fh = &HgAutomate::mustOpen(">$runDir/cleanChains.csh");
+
+	system "mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz" || croak "ERROR in chainClean: Cannot mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz\n";
 	print $fh <<_EOF_
 #!/bin/csh -ef
 
 # input chain will be renamed to $tDb.$qDb.beforeCleaning.chain.gz
-mv "${inputChain}" "${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz" | true
+# /bin/mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz | true
 
 time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner
 
