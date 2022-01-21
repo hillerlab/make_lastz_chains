@@ -815,23 +815,36 @@ parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb
 	open FILE, ">$runDir/jobListChainCleaner" or croak $!;
 	print FILE "./cleanChains.csh\n";
 	close FILE;
- 
-	# cleanChains.csh runs the actual chainCleaner command
-	my $fh = &HgAutomate::mustOpen(">$runDir/cleanChains.csh");
-
+	
 	system "mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz" || croak "ERROR in chainClean: Cannot mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz\n";
-	print $fh <<_EOF_
-#!/bin/csh -ef
 
-# input chain will be renamed to $tDb.$qDb.beforeCleaning.chain.gz
-# /bin/mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz | true
-
-time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner
-
-gzip $outputChain
-_EOF_
-;
+	my $fh;
+	open($fh, ">$runDir/cleanChains.csh") || croak "ERROR! Can't write to chainClean script file '$runDir/cleanChains.csh'.";
+	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
+	print $fh "time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner";
+	print $fh "gzip $outputChain";
 	close($fh);
+
+### Bogdan: this one is unstable
+# I replaced it with solution used in other scripts
+# my fh, open, print, close
+
+# 	# cleanChains.csh runs the actual chainCleaner command
+# 	my $fh = &HgAutomate::mustOpen(">$runDir/cleanChains.csh");
+# 		my $fh;
+
+# 	# input chain will be renamed to $tDb.$qDb.beforeCleaning.chain.gz
+# 	print $fh <<_EOF_
+# #!/bin/csh -ef
+
+# # /bin/mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz | true
+
+# time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner
+
+# gzip $outputChain
+# _EOF_
+# ;
+# 	close($fh);
 
 	my $whatItDoes = "It performs a chainCleaner run on the cluster.";
 	# script that we execute. This pushes the chainCleaner cluster job.
