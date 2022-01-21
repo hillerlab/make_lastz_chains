@@ -9,6 +9,7 @@ import sys
 import os
 import subprocess
 from datetime import datetime as dt
+from shutil import which
 from twobitreader import TwoBitFile
 from twobitreader import TwoBitFileError
 from install_dependencies import Required
@@ -301,6 +302,26 @@ def __check_if_twobit(genome_seq_file):
         return False
 
 
+def stat_fa_to_two_bit():
+    """Find faToTwoBit executable."""
+    fatotwobit_exe = which(FATOTWOBIT)
+    if fatotwobit_exe:
+        return fatotwobit_exe
+    # ok, faToTwoBit is not in the $PATH
+    fa_to_two_bit_loc = os.path.join(HERE, KENT_BINARIES, FATOTWOBIT)
+    if os.path.isfile(fa_to_two_bit_loc):
+        # found it in the KENT_BINARIES
+        return fa_to_two_bit_loc
+    # not found fatotwobit_exe
+    err_msg = (
+        f"Error! Cannot stat faToTwoBit: "
+        f"nether in $PATH nor in {fa_to_two_bit_loc}\n"
+        f"Please make sure you called ./install_dependencies.py and "
+        f"it quit without error"
+    )
+    sys.exit(err_msg)
+    
+
 def setup_genome(genome_seq_file, genome_id, tmp_dir):
     """Setup genome sequence input.
 
@@ -317,7 +338,8 @@ def setup_genome(genome_seq_file, genome_id, tmp_dir):
         # need to convert fasta to 2bit
         genome_seq_src_fname = f"{genome_id}.2bit"
         genome_seq_path = os.path.abspath(os.path.join(tmp_dir, genome_seq_src_fname))
-        cmd = f"{FATOTWOBIT} {genome_seq_file} {genome_seq_path}"
+        fa_to_two_bit = stat_fa_to_two_bit()
+        cmd = f"{fa_to_two_bit} {genome_seq_file} {genome_seq_path}"
         try:
             subprocess.call(cmd, shell=True)
             # if failed: then it's likely not a fasta
