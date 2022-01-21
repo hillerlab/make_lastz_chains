@@ -11,6 +11,7 @@ import argparse
 ISSUES
 
 TOOD: add docker
+Replace rsync calls with some more stable way
 """
 
 DESCRIPTION = """
@@ -273,43 +274,6 @@ def acquire_axttopsl(conda_available):
     return TO_ADD if is_downloaded else FAILED
 
 
-### FASIZE
-# def acquire_fasize(conda_available):
-#     """Acquire faSize"""
-#     print("\n### Acquiring faSize ###")
-#     if _is_already_installed(FASIZE):
-#         return SUCCESS
-#     if conda_available:
-#         print("Conda available: trying this channel...")
-#         conda_name = "ucsc-fasize"
-#         is_ok = download_with_conda(conda_name, FASIZE)
-#         if is_ok:
-#             return SUCCESS
-#         else:
-#             f"Installing {FASIZE} with conda failed, trying direct download..."
-#     # download from store
-#     is_downloaded = download_from_hg(FASIZE)
-#     return TO_ADD if is_downloaded else FAILED
-
-
-### FAFRAG
-# def acquire_fafrag(conda_available):
-#     """Acquire faSize"""
-#     print("\n### Acquiring faFrag ###")
-#     if _is_already_installed(FAFRAG):
-#         return SUCCESS
-#     if conda_available:
-#         print("Conda available: trying this channel...")
-#         conda_name = "ucsc-fafrag"
-#         is_ok = download_with_conda(conda_name, FAFRAG)
-#         if is_ok:
-#             return SUCCESS
-#         else:
-#             f"Installing {FAFRAG} with conda failed, trying direct download..."
-#     # download from store
-#     is_downloaded = download_from_hg(FAFRAG)
-#     return TO_ADD if is_downloaded else FAILED
-
 
 ### CHAINANTIREPEAR
 def acquire_chainantirepeat(conda_available):
@@ -351,18 +315,21 @@ def acquire_chainmergesort(conda_available):
 
 ### CHAIN SCORE
 def acquire_chainscore():
+    print(f"\n### Acquiring {Required.CHAINSCORE} ###")
     is_downloaded = download_from_hg(Required.CHAINSCORE)
     return TO_ADD if is_downloaded else FAILED
 
 
 ### PSLSORTACC
 def acquire_pslsortacc():
+    print(f"\n### Acquiring {Required.PSLSORTACC} ###")
     is_downloaded = download_from_hg(Required.PSLSORTACC)
     return TO_ADD if is_downloaded else FAILED
 
 
 ### CHAINCLEANER
 def acquire_chaincleaner():
+    print(f"\n### Acquiring {Required.CHAINCLEANER} ###")
     is_downloaded = download_from_hg(Required.CHAINCLEANER)
     return TO_ADD if is_downloaded else FAILED
 
@@ -499,8 +466,6 @@ def main():
     lastz_status = acquire_lastz(conda_available)
     axttopsl_status = acquire_axttopsl(conda_available)
     chainnet_status = acquire_chainnet(conda_available)
-    # fasize_status = acquire_fasize(conda_available)
-    # fafrag_status = acquire_fafrag(conda_available)
     chainantirepeat_status = acquire_chainantirepeat(conda_available)
     chainmergesort_status = acquire_chainmergesort(conda_available)
     pslsortacca_status = acquire_pslsortacc()

@@ -9,3 +9,5 @@ chains/*
 *.gzip
 *.gz 
 temp/*
+.DS_Store
+
