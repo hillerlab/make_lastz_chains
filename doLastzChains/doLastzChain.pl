@@ -821,8 +821,8 @@ parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb
 	my $fh;
 	open($fh, ">$runDir/cleanChains.csh") || croak "ERROR! Can't write to chainClean script file '$runDir/cleanChains.csh'.";
 	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
-	print $fh "time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner";
-	print $fh "gzip $outputChain";
+	print $fh "time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner\n";
+	print $fh "gzip $outputChain\n";
 	close($fh);
 
 ### Bogdan: this one is unstable
