@@ -527,7 +527,7 @@ sub doChainRun {
 
 	my $fh = &HgAutomate::mustOpen(">$runDir/chain.csh");
 	print $fh  <<_EOF_
-#!/usr/bin/env bash
+#!/bin/bash
 cat $runDir/splitPSL/\$1 | $axtChain -psl -verbose=0 $matrix $minScore $linearGap stdin $seq1Dir $seq2Dir stdout \\
 | $chainAntiRepeat $seq1Dir $seq2Dir stdin \$2
 _EOF_
@@ -659,7 +659,7 @@ sub doFillChains {
 	## write job preparation script	
 	my $fh;
 	open($fh, ">$prepareScript") || croak "ERROR! Can't write to fillChain prepare job list file '$prepareScript'.";
-	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
+	print $fh "#!/bin/bash\nset -e\nset -o pipefail\n";
 	print $fh "zcat $inputChain > $runDir/all.chain\n";
 	# create jobs 
 	print $fh "$splitChain_into_randomParts -c $runDir/all.chain -n $numFillJobs -p $jobsDir/infillChain_\n";
@@ -671,7 +671,7 @@ sub doFillChains {
 
 	### write script for calling runChainGapFiller on cluster 
 	open($fh, ">$runFillScript") || croak "ERROR! Can't write to chainGapFiller script '$runDir/$runFillScript'.";
-	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
+	print $fh "#!/bin/bash\nset -e\nset -o pipefail\n";
 	print $fh "#get variables paths\n";
 	print $fh "chainf=\$1\n";
 	print $fh "rseq=$defVars{'SEQ1_DIR'}\n";
@@ -689,7 +689,7 @@ sub doFillChains {
 
 	## write merging script
 	open($fh, ">$mergeScript") || croak "ERROR! Can't write to fillChain merge job list file '$mergeScript'.";
-	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
+	print $fh "#!/bin/bash\nset -e\nset -o pipefail\n";
 	print $fh "find $filledDir -type f -name \"*.chain\" -print | $chainMergeSort -inputList=stdin | gzip -c > $filledChain.gz\n";
 	print $fh "rm -r $filledDir\n";
 	print $fh "rm -r $jobsDir\n";
@@ -778,7 +778,7 @@ parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb
 
 	my $fh;
 	open($fh, ">$runDir/cleanChains.csh") || croak "ERROR! Can't write to chainClean script file '$runDir/cleanChains.csh'.";
-	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
+	print $fh "#!/bin/bash\nset -e\nset -o pipefail\n";
 	print $fh "$chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& $buildDir/TEMP_axtChain/log.chainCleaner\n";
 	print $fh "gzip $outputChain\n";
 	close($fh);
