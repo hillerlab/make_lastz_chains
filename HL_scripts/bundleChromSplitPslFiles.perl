@@ -52,7 +52,7 @@ my %chromSize = readChromSizeHash($ARGV[1]);
 
 # make outDir
 my $outDir = $ARGV[2];
-my $call = "set -o pipefail; mkdir -p $outDir";
+my $call = "mkdir -p $outDir";
 system("$call") == 0 || die("ERROR: $call failed\n");
 
 # read the input dir into a hash. Used to later check that we have copied or bundled all files.
@@ -87,7 +87,7 @@ foreach my $chr (	reverse sort { $chromSize{$a} <=> $chromSize{$b} } keys %chrom
 
 	# bundle if we exceed the max
 	if ($curBases >= $maxBases || $bundlePslFileCount > $maxFilesPerBundle) {
-		$call = "set -o pipefail; cat $bundlePslFileList > $outDir/bundle.$curBundleCount.psl";
+		$call = "cat $bundlePslFileList > $outDir/bundle.$curBundleCount.psl";
 		print "$call\n";
 		system("$call") == 0 || die("ERROR: $call failed\n");
 		$curBundleCount++;
@@ -99,7 +99,7 @@ foreach my $chr (	reverse sort { $chromSize{$a} <=> $chromSize{$b} } keys %chrom
 }
 # last bundle
 if ($curBases > 0) {
-	$call = "set -o pipefail; cat $bundlePslFileList > $outDir/bundle.$curBundleCount.psl";
+	$call = "cat $bundlePslFileList > $outDir/bundle.$curBundleCount.psl";
 	print "$call\n\n";
 	system("$call") == 0 || die("ERROR: $call failed\n");
 }

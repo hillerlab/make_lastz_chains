@@ -21,11 +21,11 @@ print "BIN: $Bin\n";
 my $blastzRunUcsc = "run_lastz.py";  # instead of blastz-run-ucsc
 my $partition = "partitionSequence.pl";  # fine, here
 my $splitChain_into_randomParts = "splitChain_into_randomParts.pl";  # fine, here
-my $axtChain = `set -o pipefail; which axtChain`; chomp($axtChain);  # fine, here
-my $chainSort = `set -o pipefail; which chainSort`; chomp($chainSort);  # fine, here
-my $scoreChain = `set -o pipefail; which chainScore`; chomp($scoreChain);  # replaced with chainScore
-my $chainGapFiller = `set -o pipefail; which chainGapFiller.py`; chomp($chainGapFiller);
-my $chainExtractID = `set -o pipefail; which chainExtractID.py`; chomp($chainExtractID);
+my $axtChain = `which axtChain`; chomp($axtChain);  # fine, here
+my $chainSort = `which chainSort`; chomp($chainSort);  # fine, here
+my $scoreChain = `which chainScore`; chomp($scoreChain);  # replaced with chainScore
+my $chainGapFiller = `which chainGapFiller.py`; chomp($chainGapFiller);
+my $chainExtractID = `which chainExtractID.py`; chomp($chainExtractID);
 my $lastz = "lastz";  # installed
 my $chainCleaner = "chainCleaner";  # somewhat here ++ not for macBook yet
 my $chainAntiRepeat = "chainAntiRepeat";   # is here
@@ -161,7 +161,7 @@ sub loadDef {
   # test if TMPDIR in DEF exists; if not create it
   if (exists $defVars{TMPDIR} && ! -e $defVars{TMPDIR}) {
   		warn "create $defVars{TMPDIR}\n";
-		system "set -o pipefail; mkdir -p $defVars{TMPDIR}";
+		system "mkdir -p $defVars{TMPDIR}";
   }  
 }
 
@@ -195,7 +195,7 @@ sub requirePath {
   croak "Error: $DEF $var=$val must specify a complete path\n"
     if ($val !~ m@^/\S+/\S+@);
   if ( -d $val ) {
-    my $fileCount = `set -o pipefail; find $val -maxdepth 1 -type f | wc -l`;
+    my $fileCount = `find $val -maxdepth 1 -type f | wc -l`;
     chomp $fileCount;
     if ($fileCount < 1) {
 	croak "Error: $DEF variable: $var=$val specifies an empty directory.\n";
@@ -315,7 +315,7 @@ sub doPartition {
 	my $seq1Limit = (defined $defVars{'SEQ1_LIMIT'}) ? $defVars{'SEQ1_LIMIT'} :  $defaultSeq1Limit;
 	my $seq2Limit = (defined $defVars{'SEQ2_LIMIT'}) ? $defVars{'SEQ2_LIMIT'} :  $defaultSeq2Limit;
 	&HgAutomate::verbose(1, "doPartition: seq2MaxLength ....\n");
-	my $seq2MaxLength = `set -o pipefail; awk '{print \$2}' $seq2Len | sort -rn | head -1`;
+	my $seq2MaxLength = `awk '{print \$2}' $seq2Len | sort -rn | head -1`;
 	chomp $seq2MaxLength;
 	&HgAutomate::verbose(1, "doPartition: seq2MaxLength = $seq2MaxLength\n");
 
@@ -359,8 +359,8 @@ _EOF_
 	if (! $debug) { 
 		$bossScript->execute();
 
-		my $noJobsT = `set -o pipefail; wc -l < $runDir/$targetList`;
-		my $noJobsQ = `set -o pipefail; wc -l < $runDir/$queryList`;
+		my $noJobsT = `wc -l < $runDir/$targetList`;
+		my $noJobsQ = `wc -l < $runDir/$queryList`;
 		my $noJobs = $noJobsT * $noJobsQ;
 		if( $noJobs > $maxNumLastzJobs ) {
 			print ( "*** The number of jobs should not exceed $maxNumLastzJobs" ); 
@@ -369,7 +369,6 @@ _EOF_
 			exit(1); 
 		}
 
-#		&HgAutomate::run("'(cd $runDir; csh -ef xdir.sh)'");
 		my $call = "(cd $runDir; csh -ef xdir.sh)";
 		&HgAutomate::verbose(1, "$call\n");
 		system("$call") == 0 || die("ERROR: $call failed\n");
@@ -470,29 +469,34 @@ sub bundlePslForChaining {
 	$gzip = ".gz" if ($gzipped == 1);
 
 	# get filelist
-	my $fileList = `set -o pipefail; find $inputDir -name "*psl$gzip" -printf "%p "`; 
+	my $fileList = `find $inputDir -name "*psl$gzip" -printf "%p "`; 
 	chomp($fileList);
 	&HgAutomate::verbose(1, "fileList: $fileList\n");
 
 	# we need 2 tmpDirs. One for pslSortAcc internally. One for the chrom-split files
-	my $splitPSL = `set -o pipefail; mktemp -d`; chomp($splitPSL);
-	my $tmpDir = `set -o pipefail; mktemp -d`; chomp($tmpDir);
-	my $call = "set -o pipefail; $pslSortAcc nohead $splitPSL $tmpDir $fileList";
+	my $splitPSL = `mktemp -d`; chomp($splitPSL);
+	my $tmpDir = `mktemp -d`; chomp($tmpDir);
+	my $call = "$pslSortAcc nohead $splitPSL $tmpDir $fileList";
 	&HgAutomate::verbose(1, "$call\n");
 	system("$call") == 0 || die("ERROR: $call failed\n");
-	`set -o pipefail; rm -rf $tmpDir`;
+	`rm -rf $tmpDir`;
 
 	# bundle
-	$call = "set -o pipefail; $bundleChromSplitPslFiles $splitPSL $defVars{'SEQ1_LEN'} $outputDir -maxBases $maxBases";
+	$call = "$bundleChromSplitPslFiles $splitPSL $defVars{'SEQ1_LEN'} $outputDir -maxBases $maxBases";
 	&HgAutomate::verbose(1, "$call\n");
 	system("$call") == 0 || die("ERROR: $call failed\n");
-	`set -o pipefail; rm -rf $splitPSL`;
+	`rm -rf $splitPSL`;
 
 	# get output filelist
-	$call = "set -o pipefail; (cd $outputDir; find . -name \"*.psl\" -printf \"%f\\n\" > $outputFileList )";
+	$call = "(cd $outputDir; find . -name \"*.psl\" -printf \"%f\\n\" > $outputFileList )";
 	&HgAutomate::verbose(1, "$call\n");
 	system("$call") == 0 || die("ERROR: $call failed\n");
-	my $numFiles = `set -o pipefail; cat $outputFileList | wc -l`; chomp($numFiles);
+	my $numFiles = `cat $outputFileList | wc -l`; chomp($numFiles);
+	if ($numFiles == 0) {
+		# in this case do not continue
+		die("ERROR: bundlePslForChaining: numFiles == 0 \n");
+	}
+
 	print "outputFileList $outputFileList created with $numFiles files\n";
 	&HgAutomate::verbose(1, "bundlePslForChaining DONE\n");
 }
@@ -523,7 +527,7 @@ sub doChainRun {
 
 	my $fh = &HgAutomate::mustOpen(">$runDir/chain.csh");
 	print $fh  <<_EOF_
-#!/bin/csh -ef
+#!/usr/bin/env bash
 cat $runDir/splitPSL/\$1 | $axtChain -psl -verbose=0 $matrix $minScore $linearGap stdin $seq1Dir $seq2Dir stdout \\
 | $chainAntiRepeat $seq1Dir $seq2Dir stdin \$2
 _EOF_
@@ -667,7 +671,7 @@ sub doFillChains {
 
 	### write script for calling runChainGapFiller on cluster 
 	open($fh, ">$runFillScript") || croak "ERROR! Can't write to chainGapFiller script '$runDir/$runFillScript'.";
-	print $fh "#!/usr/bin/env bash\nset -eo pipefail\n";
+	print $fh "#!/usr/bin/env bash\nset -e\nset -o pipefail\n";
 	print $fh "#get variables paths\n";
 	print $fh "chainf=\$1\n";
 	print $fh "rseq=$defVars{'SEQ1_DIR'}\n";
@@ -850,7 +854,7 @@ _EOF_
 &checkOptions();
 
 &usage(1) if ($#ARGV < 0);
-$secondsStart = `set -o pipefail; date "+%s"`;
+$secondsStart = `date "+%s"`;
 chomp $secondsStart;
 ($DEF) = @ARGV;
 
@@ -873,7 +877,7 @@ $chainCleanMemory = defined($defVars{'CHAINCLEANMEMORY'}) ? $defVars{'CHAINCLEAN
 
 print "max number of lastz cluster jobs: $maxNumLastzJobs\n";
 
-my $date = `set -o pipefail; date +%Y-%m-%d`;
+my $date = `date +%Y-%m-%d`;
 chomp $date;
 $buildDir = $clusterRunDir;
 &HgAutomate::mustMkdir($buildDir) if (! -d $buildDir);
@@ -894,7 +898,7 @@ if (! $debug) {
 cleanup();
 
 # get total runtime 
-$secondsEnd = `set -o pipefail; date "+%s"`;
+$secondsEnd = `date "+%s"`;
 chomp $secondsEnd;
 my $elapsedSeconds = $secondsEnd - $secondsStart;
 my $elapsedMinutes = int($elapsedSeconds/60);
