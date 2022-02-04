@@ -60,6 +60,7 @@ my $chainCleanMemory = 100000;	# memory limit for chainClean jobs in MB
 my $maxNumLastzJobs = 6000;		# number job limit for lastz step
 my $numFillJobs = 1000;		# number of cluster jobs for the fillChain step
 my $nf_executor = "local";  # cluster jobs executor, default local, possible: slurm, lsf, etc
+my $keep_temp = 0;   # keep temporary files
 # TODO: thing about other executor params?
 
 # Specify the steps supported with -continue / -stop:
@@ -96,7 +97,8 @@ print "
     -numFillJobs n        number of jobs for the chainGapFiller step that will be submitted to the cluster queue (default $numFillJobs)
     -verbose              Optional flag: Enable verbose output	 
     -debug                Don't actually run commands, just display them.
-	-executor            Select cluster jobs executor, local is default (see nextflow executor documentation for more)  
+	-executor             Select cluster jobs executor, local is default (see nextflow executor documentation for more)
+	-keepTemp             Keep all temp/intermediate files (to be implemented)
 ";
 	print $stepper->getOptionHelp();
 	exit $status;
@@ -119,6 +121,7 @@ sub checkOptions {
 		"stop=s" => \$opt_stop,
 		"verbose" => \$opt_verbose,
 		"executor=s" => \$nf_executor,
+		"keepTemp" => \$keep_temp,
 		"debug" => \$debug);
 	&usage(1) if (!$ok);
 	&HgAutomate::processCommonOptions();

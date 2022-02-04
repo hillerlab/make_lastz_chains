@@ -79,6 +79,17 @@ CFLAGS = "-Wall -Wextra -O2 -g -std=c99"
 HL_PATH = os.path.abspath(os.path.join(os.getcwd(), BINARIES_DIR))
 
 
+def make_executable(path):
+    """Like chmod +x.
+
+    Taken from
+    https://stackoverflow.com/questions/12791997/how-do-you-do-a-simple-chmod-x-from-within-python
+    """
+    mode = os.stat(path).st_mode
+    mode |= (mode & 0o444) >> 2  # copy R bits to X
+    os.chmod(path, mode)
+
+
 def _is_already_installed(binary_name):
     """Check whether package is already installed."""
     which_ret = shutil.which(binary_name)
@@ -117,19 +128,24 @@ def download_from_hg(binary_name):
     # TODO: rewrite to wget; rsync may stuck on some systems
     # for some unclear reason
     print(f"Downloading {binary_name} directly from HG downloads storage")
-    link = f"{HGDOWNLOAD}/{HGDOWNLOAD_DIRNAME}/{binary_name}"
-    rsync_cmd = f"{RSYNC_CMD} {link} {BINARIES_DIR}/"
+    # link = f"{HGDOWNLOAD}/{HGDOWNLOAD_DIRNAME}/{binary_name}"
+    link = f"{HGDOWNLOAD_HTTPS}/{HGDOWNLOAD_DIRNAME}/{binary_name}"
+
+    # load_cmd = f"{RSYNC_CMD} {link} {BINARIES_DIR}/"
     dest = f"{BINARIES_DIR}/{binary_name}"
+    load_cmd = f"wget -O {dest} {link}"
+    
     if os.path.isfile(dest):
         print(f"{dest} is already downloaded")
         return True
-    rc = subprocess.call(rsync_cmd, shell=True)
+    rc = subprocess.call(load_cmd, shell=True)
     if rc == 0:
         print(f"{binary_name} sucessfully downloaded")
+        make_executable(dest)
         # TODO: test that binary executes
         return True
     else:
-        print(f"!Command failed\n{rsync_cmd}!")
+        print(f"!Command failed\n{load_cmd}!")
         return False
 
 
