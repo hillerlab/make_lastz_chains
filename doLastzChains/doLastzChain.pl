@@ -372,7 +372,7 @@ _EOF_
 			exit(1); 
 		}
 
-		my $call = "(cd $runDir; csh -ef xdir.sh)";
+		my $call = "(cd $runDir; /bin/bash xdir.sh)";
 		&HgAutomate::verbose(1, "$call\n");
 		system("$call") == 0 || die("ERROR: $call failed\n");
 	}
