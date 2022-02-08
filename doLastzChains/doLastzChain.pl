@@ -60,6 +60,10 @@ my $chainCleanMemory = 100000;	# memory limit for chainClean jobs in MB
 my $maxNumLastzJobs = 6000;		# number job limit for lastz step
 my $numFillJobs = 1000;		# number of cluster jobs for the fillChain step
 my $nf_executor = "local";  # cluster jobs executor, default local, possible: slurm, lsf, etc
+my $queueSize = 2000;  # maximal num of jobs in the queue
+my $cluster_partition = "batch";  # cluster partition
+my $clusterOptions = "None";  # cluster options
+
 my $keep_temp = 0;   # keep temporary files
 # TODO: thing about other executor params?
 
@@ -122,6 +126,9 @@ sub checkOptions {
 		"verbose" => \$opt_verbose,
 		"executor=s" => \$nf_executor,
 		"keepTemp" => \$keep_temp,
+		"queueSize" => \$queueSize,
+		"cluster_partition" => \$cluster_partition,
+		"clusterOptions" => \$clusterOptions,
 		"debug" => \$debug);
 	&usage(1) if (!$ok);
 	&HgAutomate::processCommonOptions();
@@ -402,7 +409,7 @@ sub doLastzClusterRun {
 	&HgAutomate::makeGsub($runDir, $templateCmd);
 
 	my $myParaRun = "
-parallel_executor.py lastz_$tDb$qDb jobList -q day --memoryMb 10000 -e $nf_executor\n";
+parallel_executor.py lastz_$tDb$qDb jobList -q day --memoryMb 10000  -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 
 	my $whatItDoes = "Set up and perform the all-vs-all lastz cluster run.";
   
@@ -440,7 +447,7 @@ sub doCatRun {
 	&HgAutomate::makeGsub($runDir, "pyCat.py $outRoot/\$(path1) $checkOutExists");
 
 	my $myParaRun = "
-parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor\n";
+parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 
 	my $whatItDoes = "Sets up and perform a cluster run to concatenate all files in each subdirectory of $outRoot into a per-target-chunk file.";
 	my $bossScript = new HgRemoteScript("$runDir/doCatRun.csh", "", $runDir, $whatItDoes, $DEF);
@@ -545,7 +552,7 @@ _EOF_
 	# request 15 GB of mem for the chaining jobs. Some take more than 5 GB apparently
 
 	my $myParaRun = "
-parallel_executor.py chainRun_$tDb$qDb jobList -q $chainingQueue --memoryMb $chainingMemory -e $nf_executor\n";
+parallel_executor.py chainRun_$tDb$qDb jobList -q $chainingQueue --memoryMb $chainingMemory -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 	
 	my $whatItDoes = "Set up and perform cluster run to chain all co-linear local alignments.";
 	my $bossScript = new HgRemoteScript("$runDir/doChainRun.csh", "", $runDir, $whatItDoes, $DEF);
@@ -643,20 +650,20 @@ sub doFillChains {
 	#### --- set up para calls
 
 	# para fill chain (major part of step)
-	my $paraRun = "parallel_executor.py fillChain_$tDb$qDb jobList.txt -q medium --memoryMb $fillChainMemory -e $nf_executor\n";
+	my $paraRun = "parallel_executor.py fillChain_$tDb$qDb jobList.txt -q medium --memoryMb $fillChainMemory  -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 
 	# para prepare chain filling (unzipped and build index)
 	my $jobfprepare = "$runDir/jobList_prepare.txt";
 	my $prepareScript = "$runDir/fillPrepare.sh";
 	my $runFillScript = "$runDir/runChainGapFiller.sh";
-	my $paraRunPrep = "parallel_executor.py $runDir/fillPrepare_$tDb$qDb $jobfprepare -q medium --memoryMb $fillPrepMemory --maxNumResubmission 1 -e $nf_executor\n";
+	my $paraRunPrep = "parallel_executor.py $runDir/fillPrepare_$tDb$qDb $jobfprepare -q medium --memoryMb $fillPrepMemory --maxNumResubmission 1 -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 
 	# para merge chains and gzip
 	my $jobfmerge = "$runDir/jobList_merge.txt";
 	my $mergeScript = "$runDir/fillMerge.sh";
 	# my $paraRunMerge = "para make fillMerge_$tDb$qDb $jobfmerge -q medium -memoryMb $fillChainMemory\n";
 
-	my $paraRunMerge = "parallel_executor.py $runDir/fillMerge_$tDb$qDb $jobfmerge -q medium --memoryMb $fillChainMemory -e $nf_executor\n";
+	my $paraRunMerge = "parallel_executor.py $runDir/fillMerge_$tDb$qDb $jobfmerge -q medium --memoryMb $fillChainMemory -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 
 
 	## write job preparation script	
@@ -771,7 +778,7 @@ sub doCleanChains {
 
 	# request 60 GB
 	my $paraCleanChain = "
-parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb $chainCleanMemory -e $nf_executor\n";
+parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb $chainCleanMemory -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
 
 	open FILE, ">$runDir/jobListChainCleaner" or croak $!;
 	print FILE "./cleanChains.csh\n";
@@ -785,27 +792,6 @@ parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb
 	print $fh "$chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& $buildDir/TEMP_axtChain/log.chainCleaner\n";
 	print $fh "gzip $outputChain\n";
 	close($fh);
-
-### Bogdan: this one is unstable
-# I replaced it with solution used in other scripts
-# my fh, open, print, close
-
-# 	# cleanChains.csh runs the actual chainCleaner command
-# 	my $fh = &HgAutomate::mustOpen(">$runDir/cleanChains.csh");
-# 		my $fh;
-
-# 	# input chain will be renamed to $tDb.$qDb.beforeCleaning.chain.gz
-# 	print $fh <<_EOF_
-# #!/bin/csh -ef
-
-# # /bin/mv ${inputChain} ${buildDir}/TEMP_axtChain/${tDb}.${qDb}.beforeCleaning.chain.gz | true
-
-# time $chainCleaner $buildDir/TEMP_axtChain/$tDb.$qDb.beforeCleaning.chain.gz $seq1Dir $seq2Dir $outputChain removedSuspects.bed $linearGap $matrix -tSizes=$defVars{SEQ1_LEN} -qSizes=$defVars{SEQ2_LEN} $defVars{'CLEANCHAIN_PARAMETERS'} >& log.chainCleaner
-
-# gzip $outputChain
-# _EOF_
-# ;
-# 	close($fh);
 
 	my $whatItDoes = "It performs a chainCleaner run on the cluster.";
 	# script that we execute. This pushes the chainCleaner cluster job.

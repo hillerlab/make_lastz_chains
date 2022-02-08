@@ -28,8 +28,7 @@ __author__ = "Ekaterina Osipova, MPI-CBG/MPI-PKS, 2018."
 
 
 def build_args_parser():
-
-    ## Builds an argument parser with all required and optional arguments;
+    """Builds an argument parser with all required and optional arguments."""
     # initializes parameters
     parser = argparse.ArgumentParser(
         description=("This script extracts a chain from all.chain file by ID, "
@@ -39,7 +38,7 @@ def build_args_parser():
                 "-ix hg38.speTri2.all.bb -T2 hg38.2bit "
                 "-Q2 speTri2.2bit -um -m mini.chains -o out.chain"),
     )
-    ###### Required arguments #######
+    # Required arguments
     requiredNamed = parser.add_argument_group("required named arguments")
     requiredNamed.add_argument(
         "--chain", "-c", type=str, help="all.chain file", required=True
@@ -50,8 +49,7 @@ def build_args_parser():
     requiredNamed.add_argument(
         "--Q2bit", "-Q2", type=str, help="query 2bit file", required=True
     )
-
-    ###### Optional arguments #######
+    # Optional arguments
     # parser.add_argument('-m', '--mini', type=str,
     # help="name of a file to put all mini chains from lastz")
     parser.add_argument(
@@ -112,7 +110,7 @@ def build_args_parser():
         help="if -v is not specified, only ERROR messages will be shown",
     )
 
-    ###### Initial parameters
+    # Initial parameters
     parser.add_argument(
         "--chainMinScore",
         "-mscore",
@@ -187,8 +185,7 @@ def build_args_parser():
 
 
 def parse_and_check_args(parser):
-
-    ## Parses arguments from the command and checks for any conflics
+    """Parses arguments from the command and checks for any conflics."""
     args = parser.parse_args()
 
     # initialize variables
@@ -245,9 +242,10 @@ def parse_and_check_args(parser):
 
 
 def extract_chain_by_IDs(args, chainIDs, listChainID):
+    """Extracts chains with requested ids from all.chain file.
 
-    ## Extracts chains with requested ids from all.chain file
-    # get chains; either iterate over batches of chains or extract single chain string
+    get chains; either iterate over batches of chains or extract single chain string
+    """
     current_chain_string = ""
     if listChainID:
 
@@ -264,7 +262,7 @@ def extract_chain_by_IDs(args, chainIDs, listChainID):
                 Tcurrent_chain_string = Tcurrent_chain_string.decode()
                 logging.info("Running patching on the chain ID = {}".format(id))
                 current_chain_string = (
-                    current_chain_string + "\n" + Tcurrent_chain_string
+                        current_chain_string + "\n" + Tcurrent_chain_string
                 )
             except subprocess.CalledProcessError as extractrun:
                 logging.error(
@@ -305,9 +303,11 @@ def extract_chain_by_IDs(args, chainIDs, listChainID):
 
 
 def make_shell_list(inChain, outf, args):
+    """Makes a list of jobs to run in temp shell script.
 
-    ## Makes a list of jobs to run in temp shell script. inChain: string containing all chains
-    ## outf: path to output file; shell commands will be written into this file
+    inChain: string containing all chains
+    outf: path to output file; shell commands will be written into this file
+    """
     try:
         fhout = open(outf, "w")
     except IOError as e:
@@ -367,9 +367,9 @@ def make_shell_list(inChain, outf, args):
                 # check if we consider this chain
                 logging.info("score of this chain = {}".format(score))
                 if (
-                    (score >= args.chainMinScore)
-                    and (tEnd - tStart >= args.chainMinSizeT)
-                    and (qEnd - qStart >= args.chainMinSizeQ)
+                        (score >= args.chainMinScore)
+                        and (tEnd - tStart >= args.chainMinSizeT)
+                        and (qEnd - qStart >= args.chainMinSizeQ)
                 ):
                     logging.info("valid chain")
                     curTPos = tStart
@@ -395,10 +395,10 @@ def make_shell_list(inChain, outf, args):
                             qGapSpan = QgapEnd - QblockEnd
                             # check if we want to patch this gap
                             if (
-                                (tGapSpan >= args.gapMinSizeT)
-                                and (tGapSpan <= args.gapMaxSizeT)
-                                and (qGapSpan >= args.gapMinSizeQ)
-                                and (qGapSpan <= args.gapMaxSizeQ)
+                                    (tGapSpan >= args.gapMinSizeT)
+                                    and (tGapSpan <= args.gapMaxSizeT)
+                                    and (qGapSpan >= args.gapMinSizeQ)
+                                    and (qGapSpan <= args.gapMaxSizeQ)
                             ):
                                 logging.info(
                                     "yes, this gap will be patched: {}".format(
@@ -459,12 +459,12 @@ def make_shell_list(inChain, outf, args):
                                 )
                                 command3 = " stdin stdout"
                                 command_lastz = (
-                                    lastzVar
-                                    + command1
-                                    + axtChainVar
-                                    + command2
-                                    + chainSortVar
-                                    + command3
+                                        lastzVar
+                                        + command1
+                                        + axtChainVar
+                                        + command2
+                                        + chainSortVar
+                                        + command3
                                 )
                                 ### adding this lastz run to a shell command list; lineNmbr - 1 because we start with 1 and later with 0
                                 shellCommand = 'echo -e "LINE{0}\\n{1}\\n{2}\\n{3}\\n{4}\\n{5}\\n"; {6}; echo -e "LINE{0}\\n"\n'.format(
@@ -513,8 +513,7 @@ def make_shell_list(inChain, outf, args):
 
 
 def make_shell_jobs(args, current_chain_string):
-
-    ## Makes a temp file with a jobList
+    """Makes a temp file with a jobList."""
     if not os.path.isdir(args.workdir):
         logging.error("ERROR! Working directory '" + args.workdir + "' does not exist.")
         sys.exit(1)
@@ -539,8 +538,7 @@ def make_shell_jobs(args, current_chain_string):
 
 
 def run_all_shell(shellfile):
-
-    ## Takes temp file with all shell commands to run and returns lastz output in a single string
+    """Takes temp file with all shell commands to run and returns lastz output in a single string."""
     all_shell_command = "bash " + shellfile
     try:
         all_mini_chains = subprocess.check_output(all_shell_command, shell=True)
@@ -610,7 +608,7 @@ def get_chain_block_from_lastz_output(all_mini_chains_split, cur_position):
             + " does not start with LINE..."
         )
 
-    cur_block_list = all_mini_chains_split[start : (end + 1)]
+    cur_block_list = all_mini_chains_split[start: (end + 1)]
     return cur_block_list
 
 
@@ -654,8 +652,7 @@ def take_first_chain_from_list(chainList):
 
 
 def write_mini_chains_file(s, outfile, enum):
-
-    ## Enumerates all mini chains and writes them to a file
+    """Enumerates all mini chains and writes them to a file."""
     list = [l + "\n" for l in s.split("\n") if l]
     ouf = open(outfile, "a")
     for element in list:
@@ -670,7 +667,7 @@ def write_mini_chains_file(s, outfile, enum):
 
 
 def insert_chain_content(
-    chain_content, best_chain, BlockLenA, TblockEnd, TgapEnd, LoQblockEnd, LoQgapEnd
+        chain_content, best_chain, BlockLenA, TblockEnd, TgapEnd, LoQblockEnd, LoQgapEnd
 ):
     """
     After patching chain we need to insert it back on the right place
@@ -701,47 +698,35 @@ def insert_chain_content(
         FirstQgap = abs(QlastzStart - int(LoQblockEnd))
         LastQGap = abs(int(LoQgapEnd) - QlastzEnd)
 
-    FirstLine = (
-        str(BlockLenA)
-        + "\t"
-        + str(TlastzStart - int(TblockEnd))
-        + "\t"
-        + str(FirstQgap)
-        + "\n"
-    )
+    FirstLine = f"{str(BlockLenA)}\t{str(TlastzStart - int(TblockEnd))}\t{str(FirstQgap)}\t"
 
     BlockToAdd.append(FirstLine)
     for i in range(0, len(chain_content) - 1):
         BlockToAdd.append(chain_content[i])
 
-    LastLine = (
-        chain_content[len(chain_content) - 1].strip()
-        + "\t"
-        + str(int(TgapEnd) - TlastzEnd)
-        + "\t"
-        + str(LastQGap)
-        + "\n"
-    )
+    chain_content_prelast = chain_content[len(chain_content) - 1].strip()
+    LastLine = f"{chain_content_prelast}\t{str(int(TgapEnd) - TlastzEnd)}\t{str(LastQGap)}\t"
     BlockToAdd.append(LastLine)
     return BlockToAdd
 
 
 def fill_gaps_from_mini_chains(
-    current_chain_lines,
-    cur_mini_block_lines,
-    args,
-    nmbr_mini_chains,
-    all_mini_chain_lines,
-    start_time,
+        current_chain_lines,
+        cur_mini_block_lines,
+        args,
+        nmbr_mini_chains,
+        all_mini_chain_lines,
+        start_time,
 ):
-
-    ## Processes initial chain and fills gaps with mini chains; writes to output file if provided
+    """Processes initial chain and fills gaps with mini chains; writes to output file if provided."""
     if args.output:
         try:
             ouf = open(args.output, "w")
         except IOError as e:
             logging.error("Cannot write to output file", e.errno, e.strerror)
             sys.exit(1)
+    else:  # Bogdan: ouf not defined if not args.output
+        ouf = sys.stdout
 
     # regexp for getting lineNumber
     relineNmbr = re.compile(r"LINE(\d+)")
@@ -765,7 +750,7 @@ def fill_gaps_from_mini_chains(
         if lineNmbr == next_lineNmbr:
 
             # strip first and last line containing LINE# from block
-            valueList = cur_mini_block_lines[1 : (len(cur_mini_block_lines) - 1)]
+            valueList = cur_mini_block_lines[1: (len(cur_mini_block_lines) - 1)]
             coords = valueList[:5]
             # remove new lines from coords elements
             coords = map(lambda s: s.strip(), coords)
@@ -821,31 +806,29 @@ def fill_gaps_from_mini_chains(
         ouf.close()
 
 
-######## main ###########
 def main():
-
-    ## Track runtime
+    # Track runtime
     start_time = time.time()
 
-    ## Build arguments parser
+    # Build arguments parser
     parser = build_args_parser()
 
-    ## Check arguments; initialize parameters
+    # Check arguments; initialize parameters
     args, chainIDs, listChainID = parse_and_check_args(parser)
 
-    ## Get chains with requested IDs
+    # Get chains with requested IDs
     current_chain_string = extract_chain_by_IDs(args, chainIDs, listChainID)
 
-    ## 1) Loop through .all.chain file and make a jobList
+    # 1) Loop through .all.chain file and make a jobList
     temp = make_shell_jobs(args, current_chain_string)
 
-    ## 2) Run prepared jobList
+    # 2) Run prepared jobList
     all_mini_chains = run_all_shell(temp.name)
 
-    ## Remove this jobList
+    # Remove this jobList
     os.unlink(temp.name)
 
-    ## 3) Check if executing the jobList returned nothing = no new blocks to add
+    # 3) Check if executing the jobList returned nothing = no new blocks to add
     if all_mini_chains == "":
         logging.info("Found no new blocks to insert in this chain. Done!")
     else:
@@ -853,7 +836,7 @@ def main():
             "Found new blocks to insert in this chain. Filling gaps now . . . ."
         )
 
-        ## Get initial position of mini chain block
+        # Get initial position of mini chain block
         next_pos = 0
 
         # list of initial chains
@@ -863,12 +846,12 @@ def main():
         all_mini_chain_lines = [i + "\n" for i in all_mini_chains.split("\n")]
         nmbr_mini_chains = len(all_mini_chain_lines)
 
-        ## Get the first mini chain
+        # Get the first mini chain
         cur_mini_block_lines = get_chain_block_from_lastz_output(
             all_mini_chain_lines, next_pos
         )
 
-        ## Process initial chain and fill gaps from mini chains
+        # Process initial chain and fill gaps from mini chains
         fill_gaps_from_mini_chains(
             current_chain_lines,
             cur_mini_block_lines,
@@ -877,8 +860,7 @@ def main():
             all_mini_chain_lines,
             start_time,
         )
-
-    ## Record runtime
+    # Record runtime
     logging.info("--- Final runtime: %s seconds ---" % (time.time() - start_time))
 
 

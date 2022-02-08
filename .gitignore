@@ -10,3 +10,5 @@ chains/*
 *.gz 
 temp/*
 .DS_Store
+.idea/*
+venv/*

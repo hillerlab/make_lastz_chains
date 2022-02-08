@@ -48,8 +48,33 @@ def parse_args():
         "--executor",
         "-e",
         default="local",
-        help="Nextflow executor. On a slurm cluster, please use "
+        help="NextFlow executor. On a slurm cluster, please use "
         "slurm. local executor is default",
+    )
+    app.add_argument(
+        "--partition",
+        "-p",
+        default="batch",
+        help="Controls partition parameter (the same as queue | default batch)"
+    )
+    app.add_argument(
+        "--queue",
+        "-q",
+        default="batch",
+        help="Controls queue parameter (regulates the same option as partition | default batch)"
+    )
+    app.add_argument(
+        "--executor_queuesize",
+        "--eq",
+        default=2000,
+        type=int,
+        help="Controls NextFlow queueSize parameter (default 2000)"
+    )
+    app.add_argument(
+        "--cluster_options",
+        "--co",
+        default=None,
+        help="Controls NextFlow clusterOptions parameter (default None)"
     )
 
     if len(sys.argv) < 3:
@@ -101,6 +126,17 @@ def main():
     joblist = read_joblist(args.joblist)
     mem_arg, mem_unit_arg = convert_memorymb_param(args.memoryMb)
     hours = convert_queue_param(args.queue)
+    if args.queue:
+        _q_arg = args.queue
+    elif args.partition:
+        _q_arg = args.partition
+    else:
+        _q_arg = "batch"
+
+    if args.cluster_options == "None" or args.cluster_options == "":
+        _cluster_opt = None
+    else:
+        _cluster_opt = args.cluster_options
 
     nf = Nextflow(
         executor=args.executor,
@@ -111,11 +147,12 @@ def main():
         time=hours,
         time_units="h",
         cpus=args.numCores,
-        queue_size=1000,
         switch_to_local=True,
         retry_increase_mem=True,
         retry_increase_time=True,
-        executor_queuesize=2500
+        executor_queuesize=args.executor_queuesize,
+        cluster_options=_cluster_opt,
+        queue=_q_arg,
     )
     # execute this joblist using Nextflow
     status = nf.execute(joblist)

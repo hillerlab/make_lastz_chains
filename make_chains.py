@@ -12,8 +12,6 @@ from datetime import datetime as dt
 from shutil import which
 from twobitreader import TwoBitFile
 from twobitreader import TwoBitFileError
-from install_dependencies import Required
-
 
 __author__ = "Bogdan Kirilenko, Michael Hiller, Ekaterina Osipova"  # TODO: anyone else?
 __maintainer__ = "Bogdan Kirilenko"
@@ -30,7 +28,6 @@ DO_LASTZ_EXE = "doLastzChain.pl"
 HL_SCRIPTS = "HL_scripts"
 HL_KENT_BINARIES = "HL_kent_binaries"
 KENT_BINARIES = "kent_binaries"
-
 
 # defaults
 SEQ1_CHUNK = 175_000_000
@@ -69,7 +66,18 @@ def parse_args():
         dest="force_def",
         help="Continue execution if DEF file in the project dir already exists",
     )
+
     app.add_argument(
+        "--resume",
+        action="store_true",
+        dest="resume",
+        help=("Resume execution from the last completed step, "
+              "Please specify existing --project_dir to use this option"
+              )
+    )
+
+    cluster_params = app.add_argument_group("cluster_params")
+    cluster_params.add_argument(
         "--executor",
         default="local",
         help=(
@@ -77,16 +85,24 @@ def parse_args():
             "a list of all available systems. Default local"
         ),
     )
-    app.add_argument(
-        "--resume",
-        action="store_true",
-        dest="resume",
-        help=("Resume execution from the last completed step, "
-              "Please specify existing --project_dir to use this option"
-        )
+    cluster_params.add_argument(
+        "--executor_queuesize",
+        default=None,
+        type=int,
+        help="Controls NextFlow queueSize parameter: maximal number of jobs in the queue (default 2000)"
+    )
+    cluster_params.add_argument(
+        "--executor_partition",
+        default=None,
+        help="Set cluster queue/partition (default batch)"
+    )
+    cluster_params.add_argument(
+        "--cluster_parameters",
+        default=None,
+        help="Additional cluster parameters, regulates NextFlow clusterOptions (default None)"
     )
 
-    # DEF file arguments that can be overriden
+    # DEF file arguments that can be overridden
     # have higher priority than def file
     def_params = app.add_argument_group("def_params")
     def_params.add_argument(
@@ -258,7 +274,7 @@ def generate_def_params(def_arg):
         # lastz parameters for patching
         "FILL_BLASTZ_K": 2000,
         "FILL_BLASTZ_L": 3000,
-        ## cluster related
+        # cluster related
         # memory limit for cluster jobs
         "FILL_MEMORY": 15000,
         # prepare job splits entire chain file might need some more memory
@@ -320,7 +336,7 @@ def stat_fa_to_two_bit():
         f"it quit without error"
     )
     sys.exit(err_msg)
-    
+
 
 def setup_genome(genome_seq_file, genome_id, tmp_dir):
     """Setup genome sequence input.
@@ -402,12 +418,21 @@ def make_executable(path):
     os.chmod(path, mode)
 
 
-def run_do_chains_pl(def_path, project_dir, executor):
+def run_do_chains_pl(def_path, project_dir, executor, args):
     """Run doLastzChain.pl"""
     do_blastz_exe = os.path.join(HERE, DO_LASTZ_DIR, DO_LASTZ_EXE)
     cmd = (
         f"{do_blastz_exe} {def_path} -clusterRunDir {project_dir} --executor {executor}"
     )
+    # additional params to doLastzChains script:
+    if args.executor_queuesize:
+        cmd += f" --queueSize {args.executor_queuesize}"
+    if args.executor_partition:
+        cmd += f" --cluster_partition {args.executor_partition}"
+    if args.cluster_parameters:
+        cmd += f" --clusterOptions \"{args.cluster_parameters}\""
+    # // additional params to doLastzChains script
+
     script_loc = os.path.join(project_dir, MASTER_SCRIPT)
 
     do_lastz_env = os.path.join(HERE, DO_LASTZ_DIR)
@@ -487,8 +512,8 @@ def main():
     check_env()
     project_dir = get_project_dir(args.project_dir)
     print(f"Project directory: {project_dir}")
-    if args.resume: 
-        # the pipeline already've been called -> resume execution
+    if args.resume:
+        # the pipeline already been called -> resume execution
         # but first check that the request is valid
         ms_loc = check_proj_dir_for_resuming(project_dir)
         subprocess.call(ms_loc, shell=True)
@@ -514,7 +539,7 @@ def main():
 
     # write def path and run the script
     def_path = write_def_file(def_parameters, project_dir, args.force_def)
-    run_do_chains_pl(def_path, project_dir, args.executor)
+    run_do_chains_pl(def_path, project_dir, args.executor, args)
 
 
 if __name__ == "__main__":
