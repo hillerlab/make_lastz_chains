@@ -58,8 +58,8 @@ def parse_args():
         help="Controls partition parameter (the same as queue | default batch)"
     )
     app.add_argument(
-        "--queue",
-        "-q",
+        "--cluster_queue",
+        "--cq",
         default="batch",
         help="Controls queue parameter (regulates the same option as partition | default batch)"
     )
@@ -126,8 +126,8 @@ def main():
     joblist = read_joblist(args.joblist)
     mem_arg, mem_unit_arg = convert_memorymb_param(args.memoryMb)
     hours = convert_queue_param(args.queue)
-    if args.queue:
-        _q_arg = args.queue
+    if args.cluster_queue:
+        _q_arg = args.cluster_queue
     elif args.partition:
         _q_arg = args.partition
     else:
