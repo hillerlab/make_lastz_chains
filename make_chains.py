@@ -7,6 +7,7 @@ and UCSC Kent Source.
 import argparse
 import sys
 import os
+import json
 import subprocess
 from datetime import datetime as dt
 from shutil import which
@@ -494,6 +495,14 @@ def include_cmd_def_opts(def_params, args):
     # TODO: add other params if need be
 
 
+def dump_make_chains_params(args, wd):
+    """Dump command line arguments to wd."""
+    dct_args_repr = vars(args)
+    params_path = os.path.join(wd, "make_chains_py_params.json")
+    with open(params_path, "w") as f:
+        json.dump(dct_args_repr, f, default=str)
+
+
 def check_proj_dir_for_resuming(project_dir):
     """Check whether the project dir is valid for -resume."""
     def_path = os.path.join(project_dir, "DEF")
@@ -539,6 +548,7 @@ def main():
 
     # write def path and run the script
     def_path = write_def_file(def_parameters, project_dir, args.force_def)
+    dump_make_chains_params(args, project_dir)
     run_do_chains_pl(def_path, project_dir, args.executor, args)
 
 
