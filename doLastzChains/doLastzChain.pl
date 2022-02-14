@@ -126,9 +126,9 @@ sub checkOptions {
 		"verbose" => \$opt_verbose,
 		"executor=s" => \$nf_executor,
 		"keepTemp" => \$keep_temp,
-		"queueSize" => \$queueSize,
-		"cluster_partition" => \$cluster_partition,
-		"clusterOptions" => \$clusterOptions,
+		"queueSize=i" => \$queueSize,
+		"cluster_partition=s" => \$cluster_partition,
+		"clusterOptions=s" => \$clusterOptions,
 		"debug" => \$debug);
 	&usage(1) if (!$ok);
 	&HgAutomate::processCommonOptions();
