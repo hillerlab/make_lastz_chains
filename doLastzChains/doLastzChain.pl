@@ -409,7 +409,7 @@ sub doLastzClusterRun {
 	&HgAutomate::makeGsub($runDir, $templateCmd);
 
 	my $myParaRun = "
-parallel_executor.py lastz_$tDb$qDb jobList -q day --memoryMb 10000  -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+parallel_executor.py lastz_$tDb$qDb jobList -q day --memoryMb 10000  -e $nf_executor \"--co $clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 	my $whatItDoes = "Set up and perform the all-vs-all lastz cluster run.";
   
@@ -447,7 +447,7 @@ sub doCatRun {
 	&HgAutomate::makeGsub($runDir, "pyCat.py $outRoot/\$(path1) $checkOutExists");
 
 	my $myParaRun = "
-parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor \"\"--co $clusterOptions\"\" -p $cluster_partition --eq $queueSize\n";
 
 	my $whatItDoes = "Sets up and perform a cluster run to concatenate all files in each subdirectory of $outRoot into a per-target-chunk file.";
 	my $bossScript = new HgRemoteScript("$runDir/doCatRun.csh", "", $runDir, $whatItDoes, $DEF);
@@ -552,7 +552,7 @@ _EOF_
 	# request 15 GB of mem for the chaining jobs. Some take more than 5 GB apparently
 
 	my $myParaRun = "
-parallel_executor.py chainRun_$tDb$qDb jobList -q $chainingQueue --memoryMb $chainingMemory -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+parallel_executor.py chainRun_$tDb$qDb jobList -q $chainingQueue --memoryMb $chainingMemory -e $nf_executor \"--co $clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 	
 	my $whatItDoes = "Set up and perform cluster run to chain all co-linear local alignments.";
 	my $bossScript = new HgRemoteScript("$runDir/doChainRun.csh", "", $runDir, $whatItDoes, $DEF);
@@ -650,20 +650,20 @@ sub doFillChains {
 	#### --- set up para calls
 
 	# para fill chain (major part of step)
-	my $paraRun = "parallel_executor.py fillChain_$tDb$qDb jobList.txt -q medium --memoryMb $fillChainMemory  -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+	my $paraRun = "parallel_executor.py fillChain_$tDb$qDb jobList.txt -q medium --memoryMb $fillChainMemory  -e $nf_executor \"--co $clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 	# para prepare chain filling (unzipped and build index)
 	my $jobfprepare = "$runDir/jobList_prepare.txt";
 	my $prepareScript = "$runDir/fillPrepare.sh";
 	my $runFillScript = "$runDir/runChainGapFiller.sh";
-	my $paraRunPrep = "parallel_executor.py $runDir/fillPrepare_$tDb$qDb $jobfprepare -q medium --memoryMb $fillPrepMemory --maxNumResubmission 1 -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+	my $paraRunPrep = "parallel_executor.py $runDir/fillPrepare_$tDb$qDb $jobfprepare -q medium --memoryMb $fillPrepMemory --maxNumResubmission 1 -e $nf_executor \"--co $clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 	# para merge chains and gzip
 	my $jobfmerge = "$runDir/jobList_merge.txt";
 	my $mergeScript = "$runDir/fillMerge.sh";
 	# my $paraRunMerge = "para make fillMerge_$tDb$qDb $jobfmerge -q medium -memoryMb $fillChainMemory\n";
 
-	my $paraRunMerge = "parallel_executor.py $runDir/fillMerge_$tDb$qDb $jobfmerge -q medium --memoryMb $fillChainMemory -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+	my $paraRunMerge = "parallel_executor.py $runDir/fillMerge_$tDb$qDb $jobfmerge -q medium --memoryMb $fillChainMemory -e $nf_executor \"--co $clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 
 	## write job preparation script	
@@ -778,7 +778,7 @@ sub doCleanChains {
 
 	# request 60 GB
 	my $paraCleanChain = "
-parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb $chainCleanMemory -e $nf_executor --co $clusterOptions -p $cluster_partition --eq $queueSize\n";
+parallel_executor.py cleanChain_$tDb$qDb jobListChainCleaner -q short --memoryMb $chainCleanMemory -e $nf_executor \"--co $clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 	open FILE, ">$runDir/jobListChainCleaner" or croak $!;
 	print FILE "./cleanChains.csh\n";
