@@ -54,13 +54,13 @@ def parse_args():
     app.add_argument(
         "--partition",
         "-p",
-        default="batch",
+        default=None,
         help="Controls partition parameter (the same as queue | default batch)"
     )
     app.add_argument(
         "--cluster_queue",
         "--cq",
-        default="batch",
+        default=None,
         help="Controls queue parameter (regulates the same option as partition | default batch)"
     )
     app.add_argument(
