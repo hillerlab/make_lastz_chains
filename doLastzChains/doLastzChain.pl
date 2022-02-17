@@ -447,7 +447,7 @@ sub doCatRun {
 	&HgAutomate::makeGsub($runDir, "pyCat.py $outRoot/\$(path1) $checkOutExists");
 
 	my $myParaRun = "
-parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor \"--co \"$clusterOptions\"\" -p $cluster_partition --eq $queueSize\n";
+parallel_executor.py catRun_$tDb$qDb jobList -q day --memoryMb 4000 -e $nf_executor --co \"$clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 	my $whatItDoes = "Sets up and perform a cluster run to concatenate all files in each subdirectory of $outRoot into a per-target-chunk file.";
 	my $bossScript = new HgRemoteScript("$runDir/doCatRun.csh", "", $runDir, $whatItDoes, $DEF);
