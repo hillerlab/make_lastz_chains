@@ -167,3 +167,5 @@ https://www.nextflow.io/docs/latest/executor.html
 ## Citation
 
 - Kirilenko BM, Munegowda C, Osipova E, Jebb D, Sharma V, Blumer M, Morales A, Ahmed AW, Kontopoulos DG, Hilgers L, Zoonomia Consortium, Hiller M. TOGA integrates gene annotation with orthology inference at scale, submitted
+- (Osipova E, Hecker N, Hiller M. RepeatFiller newly identifies megabases of aligning repetitive sequences and improves annotations of conserved non-exonic elements. GigaScience, 8(11), giz132, 2019)[https://academic.oup.com/gigascience/article/8/11/giz132/5631861]
+- (Suarez H, Langer BE, Ladde P, Hiller M. chainCleaner improves genome alignment specificity and sensitivity. Bioinformatics, 33(11), 1596-1603, 2017)[https://academic.oup.com/bioinformatics/article/33/11/1596/2929344]
