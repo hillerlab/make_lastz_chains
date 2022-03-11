@@ -1,8 +1,5 @@
 # Make Lastz Chains
 
-
-TODO: Readme is quite incomplete, make it complete
-
 Portable Hillerlab solution for generating pairwise genome alignment chains.
 
 Chains explained:
@@ -162,12 +159,11 @@ SEQ1_CHUNK = 100_000_000
 and cmd arg --seq1_chunk equals to 80_000_000
 then the final SEQ1_CHUNK value will be 80_000_000
 
-## Related publications
-To be filled
 
 ## Available clusters
+Please see the full list here:
+https://www.nextflow.io/docs/latest/executor.html
 
-- slurm
-- local -> simply run of the machine CPU
-- ...
-...
+## Citation
+
+- Kirilenko BM, Munegowda C, Osipova E, Jebb D, Sharma V, Blumer M, Morales A, Ahmed AW, Kontopoulos DG, Hilgers L, Zoonomia Consortium, Hiller M. TOGA integrates gene annotation with orthology inference at scale, submitted
