@@ -105,8 +105,7 @@ Technically, any reasonable sequence of letters and numbers should work.
 #### Genome sequences
 
 Genome sequences can be provided as *fasta* or *twobit* formatted files.
-Twobit file specification:
-https://genome.ucsc.edu/FAQ/FAQformat.html#format7
+Please find 2bit file format specification [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format7).
 
 #### Project directory
 
@@ -114,17 +113,15 @@ Directory where all steps are to be executed (not mandatory argument)
 By default pipeline saves all intermediate files in the directory where the pipeline was called.
 So, it's strongly recommended to specify the project directory.
 
-#### Executor
+#### Executor / available clusters
 
 Executor controls which cluster management system to use.
 By default the "local" executor is used - the pipeline utilizes only the machine's CPU.
 To run it on a slurm cluster add --executor slurm option.
-More about nextflow executors:
-https://www.nextflow.io/docs/latest/executor.html
-
+Please see [nextflow documentation](https://www.nextflow.io/docs/latest/executor.html) to find a list of supported executors.
 
 #### Output
-The pipeline saves the output to project dir: ${target_ID}.${query_ID}.allfilled.chain.gz
+The pipeline saves the resulting chains file to the project directory specified by the respective parameter. The output file is named as follows: ${target_ID}.${query_ID}.allfilled.chain.gz
 
 #### Cleanup
 To clean the output up:
@@ -145,24 +142,32 @@ KEY=VALUE
 
 Available keys are:
 
-- FILL_CHAIN - does .... default 1
-- CHAININGMEMORY - does .... default 50000
-... to be filled
+- FILL_CHAIN: controls whether pipeline executes the fill_chain step or not, possible values are 0 and 1, default 1
+- CLEANCHAIN: whether or not execute chain cleaning step, 0/1, default 1.
+- CHAINCLEANMEMORY: amount of memory (in Mb) allocated for chain cleaning cluster job, default 100000
+- CHAININGMEMORY: amount of memory (in Mb) allocated for chaining job, 50000 is default.
+...
+
+Lastz parameters can also be tuned in the DEF file:
+- BLASTZ=lastz
+- BLASTZ_H=2000
+- BLASTZ_Y=9400
+- BLASTZ_L=3000
+- BLASTZ_K=2400
+
 
 To read from a DEF file, plase use the --DEF command line argument.
 
 ## Parameters priority
 
+The pipeline collects the parameters from 3 different sources: (1) defaults, (2) command line arguments, (3) DEF file. The same parameter may be tuned in both command line and DEF file, therefore the pipeline uses the following order of precedence:
 Defaults < DEF file < Command line arguments
+
 For example, if DEF file says 
 SEQ1_CHUNK = 100_000_000
 and cmd arg --seq1_chunk equals to 80_000_000
 then the final SEQ1_CHUNK value will be 80_000_000
-
-
-## Available clusters
-Please see the full list here:
-https://www.nextflow.io/docs/latest/executor.html
+because command line arguments have a higher priority.
 
 ## Citation
 
