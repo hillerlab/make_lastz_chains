@@ -1,6 +1,7 @@
 # Make Lastz Chains
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
+These chains can be used as input for [TOGA](https://github.com/hillerlab/TOGA) or for generating multiz alignments.
 
 Chains explained:
 http://genomewiki.ucsc.edu/index.php/Chains_Nets
