@@ -783,7 +783,7 @@ def fill_gaps_from_mini_chains(
                     insert_block = insert_chain_content(
                         chain_content, best_chain, *coords
                     )
-                    output_chain = "".join(insert_block)
+                    output_chain = "\n".join(insert_block)
                     logging.info("--- %s seconds ---" % (time.time() - start_time))
                 else:
                     logging.info("lastz output chains have low score\n")
