@@ -21,7 +21,7 @@ Nextflow requires a java runtime
 Then do the following:
 
 ```bash
-git clone  git@gitlab.tbg.senckenberg.de:bkirilenko/chains_builder.git
+git clone git@github.com:hillerlab/make_lastz_chains.git
 cd chains_builder
 # install python packages (just two)
 pip3 install -r requirements.txt
