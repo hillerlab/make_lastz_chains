@@ -107,6 +107,11 @@ def parse_args():
     # have higher priority than def file
     def_params = app.add_argument_group("def_params")
     def_params.add_argument(
+        "--lastz",
+        default="lastz",
+        help="Path to specific lastz binary (if needed)"
+    )
+    def_params.add_argument(
         "--seq1_chunk",
         default=None,
         type=int,
@@ -212,7 +217,7 @@ def get_project_dir(dir_arg):
     return os.path.abspath(dir_arg)
 
 
-def generate_def_params(def_arg):
+def generate_def_params(def_arg, lastz_arg):
     """Generate def file with default parameters.
 
     If DEF file is provided: override defined parameters.
@@ -220,7 +225,7 @@ def generate_def_params(def_arg):
     # TODO: comments, maybe move some of them to README
     def_vals = {
         # lastz with sensitive alignment parameters
-        "BLASTZ": "lastz",
+        "BLASTZ": lastz_arg,
         "BLASTZ_H": BLASTZ_H,
         "BLASTZ_Y": BLASTZ_Y,
         "BLASTZ_L": BLASTZ_L,
@@ -528,7 +533,7 @@ def main():
         subprocess.call(ms_loc, shell=True)
         sys.exit(0)  # no need to continue
 
-    def_parameters = generate_def_params(args.DEF)
+    def_parameters = generate_def_params(args.DEF, args.lastz)
     # define parameters inferred from input
     def_parameters["ref"] = args.target_name
     def_parameters["query"] = args.query_name
