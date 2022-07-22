@@ -437,7 +437,10 @@ def run_do_chains_pl(def_path, project_dir, executor, args):
         cmd += f" --cluster_partition {args.executor_partition}"
     if args.cluster_parameters:
         cmd += f" --clusterOptions \"{args.cluster_parameters}\""
-    # // additional params to doLastzChains script
+    # additional params to doLastzChains script
+    # add logging
+    log_file = os.path.join(project_dir, "make_chains.log")
+    cmd += f" 2>&1 | tee -a {log_file}"
 
     script_loc = os.path.join(project_dir, MASTER_SCRIPT)
 
