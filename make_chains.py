@@ -687,8 +687,9 @@ def rename_chroms_in_chain(not_renamed_chain, renamed_chain_path, t_chrom_dct, q
         header_fields = line.rstrip().split()
         # according to chain file specification fields 2 and 7 contain
         # target and query chromosome/scaffold names
-        t_name = header_fields[1]
-        q_name = header_fields[6]
+        # 0 field - just the word chain
+        t_name = header_fields[2]
+        q_name = header_fields[7]
 
         t_upd = t_chrom_dct.get(t_name)
         q_upd = q_chrom_dct.get(q_name)
@@ -707,6 +708,7 @@ def rename_chroms_in_chain(not_renamed_chain, renamed_chain_path, t_chrom_dct, q
 
     in_f.close()
     out_f.close()
+
 
 def check_results(project_dir, t_rename_table, q_rename_table, args):
     """Check whether output chain file is present.
@@ -734,8 +736,10 @@ def check_results(project_dir, t_rename_table, q_rename_table, args):
     t_chrom_dct = _make_chrom_rename_dict(t_rename_table)
     q_chrom_dct = _make_chrom_rename_dict(q_rename_table)
     rename_chroms_in_chain(unzipped_path, renamed_chain_path, t_chrom_dct, q_chrom_dct)
-
     # remove temp file and rename output file + gzip it
+    os.remove(unzipped_path)
+    os.move(renamed_chain_path, unzipped_path)
+    zip_cmd = f"gzip -9 {unzipped_path}"
 
 def main():
     args = parse_args()
