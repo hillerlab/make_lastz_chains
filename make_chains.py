@@ -7,6 +7,7 @@ and UCSC Kent Source.
 import argparse
 import sys
 import os
+import re
 import json
 import subprocess
 from datetime import datetime as dt
@@ -22,6 +23,9 @@ __version__ = "0.9.1"
 DESCRIPTION = "Build chains for a given pair of target and query genomes."
 HERE = os.path.abspath(os.path.dirname(__file__))
 FATOTWOBIT = "faToTwoBit"
+TWOBITTOFA = "twoBitToFa"
+T_CHROM_RENAME_TABLE = "target_chromosomes_rename_table.tsv"
+Q_CHROM_RENAME_TABLE = "query_chromosomes_rename_table.tsv"
 
 # directories with all necessary scripts
 DO_LASTZ_DIR = "doLastzChains"
@@ -72,9 +76,10 @@ def parse_args():
         "--resume",
         action="store_true",
         dest="resume",
-        help=("Resume execution from the last completed step, "
-              "Please specify existing --project_dir to use this option"
-              )
+        help=(
+            "Resume execution from the last completed step, "
+            "Please specify existing --project_dir to use this option"
+        ),
     )
 
     cluster_params = app.add_argument_group("cluster_params")
@@ -90,26 +95,24 @@ def parse_args():
         "--executor_queuesize",
         default=None,
         type=int,
-        help="Controls NextFlow queueSize parameter: maximal number of jobs in the queue (default 2000)"
+        help="Controls NextFlow queueSize parameter: maximal number of jobs in the queue (default 2000)",
     )
     cluster_params.add_argument(
         "--executor_partition",
         default=None,
-        help="Set cluster queue/partition (default batch)"
+        help="Set cluster queue/partition (default batch)",
     )
     cluster_params.add_argument(
         "--cluster_parameters",
         default=None,
-        help="Additional cluster parameters, regulates NextFlow clusterOptions (default None)"
+        help="Additional cluster parameters, regulates NextFlow clusterOptions (default None)",
     )
 
     # DEF file arguments that can be overridden
     # have higher priority than def file
     def_params = app.add_argument_group("def_params")
     def_params.add_argument(
-        "--lastz",
-        default="lastz",
-        help="Path to specific lastz binary (if needed)"
+        "--lastz", default="lastz", help="Path to specific lastz binary (if needed)"
     )
     def_params.add_argument(
         "--seq1_chunk",
@@ -164,7 +167,7 @@ def parse_args():
         "--chain_clean_memory",
         default=None,
         type=int,
-        help="CHAINCLEANMEMORY parameter, (default 100000)"
+        help="CHAINCLEANMEMORY parameter, (default 100000)",
     )
 
     if len(sys.argv) < 2:
@@ -324,24 +327,120 @@ def __check_if_twobit(genome_seq_file):
         return False
 
 
-def stat_fa_to_two_bit():
+def stat_kent_exec(name):
     """Find faToTwoBit executable."""
-    fatotwobit_exe = which(FATOTWOBIT)
-    if fatotwobit_exe:
-        return fatotwobit_exe
+    exec_which_out = which(name)
+    if exec_which_out:
+        return exec_which_out
     # ok, faToTwoBit is not in the $PATH
-    fa_to_two_bit_loc = os.path.join(HERE, KENT_BINARIES, FATOTWOBIT)
-    if os.path.isfile(fa_to_two_bit_loc):
+    exec_bit_loc = os.path.join(HERE, KENT_BINARIES, name)
+    if os.path.isfile(exec_bit_loc):
         # found it in the KENT_BINARIES
-        return fa_to_two_bit_loc
+        return exec_bit_loc
     # not found fatotwobit_exe
     err_msg = (
         f"Error! Cannot stat faToTwoBit: "
-        f"nether in $PATH nor in {fa_to_two_bit_loc}\n"
+        f"nether in $PATH not in {exec_bit_loc}\n"
         f"Please make sure you called ./install_dependencies.py and "
         f"it quit without error"
     )
     sys.exit(err_msg)
+
+
+# def _fix_dot_space_chrom_name(chrom_name):
+#     """Fix dots and spaces in the chrom name."""
+#     dot_space_split = re.split(" |\.", chrom_name)
+#     return dot_space_split[0]
+
+
+def _check_and_fix_chrom_names(chrom_names, path):
+    """Given list of chrom names, fix those with dots and spaces in names."""
+    ret = {}  # old chrom name: new chrom name
+    upd_cnames_qc = []  # to check whether all new chrom names are uniq
+    for chrom_name in chrom_names:
+        if " " in chrom_name or "\t" in chrom_name:
+            # error, spaces and tabs are not allowed in chromosome names
+            print(f"Error! File: {path} - detected space-or-tab-containing sequence:")
+            print(f"{chrom_name}")
+            print("Please exclude or fix sequences with spaces and tabs.\nAbort")
+            sys.exit(1)
+        dots_in_header = "." in chrom_name
+        # spaces_in_header = " " in chrom_name
+        # if dots_in_header is False and spaces_in_header is False:
+        #     continue
+        if dots_in_header is False:
+            # no . in chrom name: nothing to change
+            continue
+        # this chrom name is going to be updated
+        # split by dot and space
+        # upd_chrom_name = _fix_dot_space_chrom_name(chrom_name)
+        upd_chrom_name = chrom_name.split(".")[0]
+        ret[chrom_name] = upd_chrom_name
+        upd_cnames_qc.append(upd_chrom_name)
+    
+    if len(upd_cnames_qc) != len(set(upd_cnames_qc)):
+        print(f"Error! Some chromosome names in {path} contain dots and spaces")
+        print(f"Could not fix names automatically: the process produces non-unique")
+        print(f"chromosome names. Pls see README.md for details.")
+        print("Abort.")
+        sys.exit(1)
+    return ret
+
+
+def _check_chrom_names_in_fasta(fa_path):
+    """Check whether chrom names contain dots or spaces in fasta."""
+    with open(fa_path, "r") as f:
+        chrom_names = [line.lstrip(">").rstrip() for line in f if line.startswith(">")]
+    old_to_new_chrom_name = _check_and_fix_chrom_names(chrom_names, fa_path)
+    return old_to_new_chrom_name
+
+
+def rename_chromnames_fasta(genome_seq_file, tmp_dir, genome_id, invalid_chrom_names):
+    """Rename chrom names in fasta, save it to tmp dir, create rename table."""
+    # specify output fasta and table paths, open in and out fasta
+    renamed_fasta_path = os.path.join(tmp_dir, f"{genome_id}_renamed_chrom.fa")
+    rename_table = os.path.join(tmp_dir, f"{genome_id}_chrom_rename_table.tsv")
+    out_f = open(renamed_fasta_path, "w")
+    in_f = open(genome_seq_file, "r")
+    # create new fasta with renamed chroms
+    for line in in_f:
+        if not line.startswith(">"):
+            # seq line -> save without changes
+            out_f.write(line)
+            continue
+        # header line, probably need to rename
+        chrom_name_old = line.lstrip(">").rstrip()
+        new_name = invalid_chrom_names.get(chrom_name_old)
+        if new_name is None:
+            # no need to rename: this chrom name is intact
+            out_f.write(line)
+        else:
+            # write renamed chrom name
+            out_f.write(f">{new_name}\n")
+    out_f.close()
+    in_f.close()
+
+    # write renam table
+    f = open(rename_table, "w")
+    for k, v in invalid_chrom_names.items():
+        f.write(f"{k}\t{v}\n")
+    f.close()
+    return renamed_fasta_path, rename_table
+
+
+def call_twobitfa_subprocess(cmd, genome_seq_file):
+    try:
+        subprocess.call(cmd, shell=True)
+        # if failed: then it's likely not a fasta
+    except subprocess.CalledProcessError:
+        err_msg = (
+            f"Error! Could not execute {cmd}\n"
+            f"Please check whether {genome_seq_file} is "
+            f"a valid fasta or 2bit file.\n"
+            f"Also, make sure twoBitToFa is callable.\n"
+        )
+        sys.stderr.write(err_msg)
+        sys.exit(1)
 
 
 def setup_genome(genome_seq_file, genome_id, tmp_dir):
@@ -352,28 +451,59 @@ def setup_genome(genome_seq_file, genome_id, tmp_dir):
     Also the procedure requires chrom.sizes file, which also needs
     to be satisfied."""
     # check whether genome sequence is twobit or fasta
+    # afterwards, check whether there are valid chrom names
+    # the pipeline cannot process chromosome names containing dots and spaces
+    # Pls see the github issue about this:
+    # https://github.com/hillerlab/make_lastz_chains/issues/3
     is_two_bit = __check_if_twobit(genome_seq_file)
+    chrom_rename_table_path = None
+
+    # genome seq path -> final destination of 2bit used for further pipeline steps
     if is_two_bit:
-        # no need to create any copies etc, just use this file
-        genome_seq_path = os.path.abspath(genome_seq_file)
-    else:
-        # need to convert fasta to 2bit
-        genome_seq_src_fname = f"{genome_id}.2bit"
-        genome_seq_path = os.path.abspath(os.path.join(tmp_dir, genome_seq_src_fname))
-        fa_to_two_bit = stat_fa_to_two_bit()
-        cmd = f"{fa_to_two_bit} {genome_seq_file} {genome_seq_path}"
-        try:
-            subprocess.call(cmd, shell=True)
-            # if failed: then it's likely not a fasta
-        except subprocess.CalledProcessError:
-            err_msg = (
-                f"Error! Could not execute {cmd}\n"
-                f"Please check whether {genome_seq_file} is "
-                f"a valid fasta or 2bit file.\n"
-                f"Also, make sure twoBitToFa is callable.\n"
+        # two bit -> if chrom names are intact, just use this file without
+        # creating any intermediate files
+        # otherwise, create intermediate fasta with fixed chrom names
+        two_bit_reader = TwoBitFile(genome_seq_file)
+        two_bit_chrom_names = list(two_bit_reader.sequence_sizes().keys())
+        invalid_chrom_names = _check_and_fix_chrom_names(two_bit_chrom_names, genome_seq_file)
+        if len(invalid_chrom_names) > 0:
+            # there are invalid chrom names, that need to be renamed
+            # (1) create intermediate fasta and rename chromosomes there
+            fasta_dump_path = os.path.join(tmp_dir, f"TEMP_{genome_id}_genome_dump.fa")
+            two_bit_to_fa = stat_kent_exec(TWOBITTOFA)
+            fa_to_two_bit = stat_kent_exec(FATOTWOBIT)
+            twobittofa_cmd = f"{two_bit_to_fa} {genome_seq_file} {fasta_dump_path}"
+            call_twobitfa_subprocess(twobittofa_cmd, genome_seq_file)
+            genome_seq_file, chrom_rename_table_path = rename_chromnames_fasta(
+                fasta_dump_path, tmp_dir, genome_id, invalid_chrom_names
             )
-            sys.stderr.write(err_msg)
-            sys.exit(1)
+            genome_seq_path = os.path.abspath(
+                os.path.join(tmp_dir, f"{genome_id}.2bit")
+            )
+            os.remove(fasta_dump_path)
+            # (2) create 2bit with renamed sequences
+            fatotwobit_cmd = f"{fa_to_two_bit} {genome_seq_file} {genome_seq_path}"
+            call_twobitfa_subprocess(fatotwobit_cmd, genome_seq_file)
+        else:
+            # no invalid chrom names, use 2bit as is
+            genome_seq_path = os.path.abspath(genome_seq_file)
+    else:
+        # fasta, need to convert fasta to 2bit
+        invalid_chrom_names = _check_chrom_names_in_fasta(genome_seq_file)
+        if len(invalid_chrom_names) > 0:
+            # there are invalid chrom names:
+            # create temp fasta with renamed chroms -> use it to produce 2bit file
+            # create rename table -> to track chrom name changes
+            # update genomes seq file then -> use it as src to create twobit
+            genome_seq_file, chrom_rename_table_path = rename_chromnames_fasta(
+                genome_seq_file, tmp_dir, genome_id, invalid_chrom_names
+            )
+
+        genome_seq_path = os.path.abspath(os.path.join(tmp_dir, f"{genome_id}.2bit"))
+        fa_to_two_bit = stat_kent_exec(FATOTWOBIT)
+        cmd = f"{fa_to_two_bit} {genome_seq_file} {genome_seq_path}"
+        call_twobitfa_subprocess(cmd, genome_seq_file)
+
     # now need to create chrom.sizes file
     chrom_sizes_fname = f"{genome_id}.chrom.sizes"
     chrom_sizes_path = os.path.join(tmp_dir, chrom_sizes_fname)
@@ -387,7 +517,11 @@ def setup_genome(genome_seq_file, genome_id, tmp_dir):
         f.write(f"{k}\t{v}\n")
     f.close()
 
-    return genome_seq_path, chrom_sizes_path
+    if len(invalid_chrom_names) > 0:
+        print(f"Warning! Genome sequence file {genome_seq_file}")
+        print(f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline")
+        print(f"were renamed in the intermediate files according to {chrom_rename_table_path}")
+    return genome_seq_path, chrom_sizes_path, chrom_rename_table_path
 
 
 def check_env():
@@ -436,7 +570,7 @@ def run_do_chains_pl(def_path, project_dir, executor, args):
     if args.executor_partition:
         cmd += f" --cluster_partition {args.executor_partition}"
     if args.cluster_parameters:
-        cmd += f" --clusterOptions \"{args.cluster_parameters}\""
+        cmd += f' --clusterOptions "{args.cluster_parameters}"'
     # additional params to doLastzChains script
     # add logging
     log_file = os.path.join(project_dir, "make_chains.log")
@@ -468,8 +602,10 @@ def run_do_chains_pl(def_path, project_dir, executor, args):
     f.close()
     make_executable(script_loc)
     print(f"Calling: {script_loc}...")
-    subprocess.call(script_loc, shell=True)
-    # that's it?
+    rc = subprocess.call(script_loc, shell=True)
+    if rc != 0:
+        print(f"Error! The script {script_loc} failed")
+        sys.exit(rc)
 
 
 def include_cmd_def_opts(def_params, args):
@@ -491,9 +627,7 @@ def include_cmd_def_opts(def_params, args):
         else def_params["FILL_PREPARE_MEMORY"]
     )
     def_params["CHAININGMEMORY"] = (
-        args.chaining_memory
-        if args.chaining_memory
-        else def_params["CHAININGMEMORY"]
+        args.chaining_memory if args.chaining_memory else def_params["CHAININGMEMORY"]
     )
     def_params["CHAINCLEANMEMORY"] = (
         args.chain_clean_memory
@@ -524,6 +658,85 @@ def check_proj_dir_for_resuming(project_dir):
     return ms_path
 
 
+def _make_chrom_rename_dict(table):
+    """Create new chrom name: old chrom name dict."""
+    ret = {}
+    if table is None:
+        # empty dict is also good
+        return ret
+    f = open(table, 'r')
+    for line in f:
+        ld = line.rstrip().split("\t")
+        old_name = ld[0]
+        new_name = ld[1]
+        ret[new_name] = old_name
+    f.close()
+    return ret
+
+
+def rename_chroms_in_chain(not_renamed_chain, renamed_chain_path, t_chrom_dct, q_chrom_dct):
+    """Rename chromosomes to original names in the output chains file."""
+    in_f = open(not_renamed_chain, "r")
+    out_f = open(renamed_chain_path, "w")
+    for line in in_f:
+        if not line.startswith("chain"):
+            # not a header
+            out_f.write(line)
+            continue
+        # this is a chain header
+        header_fields = line.rstrip().split()
+        # according to chain file specification fields 2 and 7 contain
+        # target and query chromosome/scaffold names
+        t_name = header_fields[1]
+        q_name = header_fields[6]
+
+        t_upd = t_chrom_dct.get(t_name)
+        q_upd = q_chrom_dct.get(q_name)
+
+        if t_upd is None and q_upd is None:
+            # those chromosomes were not renamed, keep line as is
+            out_f.write(line)
+            continue
+
+        if t_upd:
+            header_fields[1] = t_upd
+        if q_upd:
+            header_fields[6] = q_upd
+        upd_header = " ".join(header_fields)
+        out_f.write(f"{upd_header}\n")
+
+    in_f.close()
+    out_f.close()
+
+def check_results(project_dir, t_rename_table, q_rename_table, args):
+    """Check whether output chain file is present.
+    
+    If scaffolds were renamed -> return the original names.
+    """
+    chain_filename = f"{args.target_name}.{args.query_name}.allfilled.chain.gz"
+    chain_path = os.path.join(project_dir, chain_filename)
+    if not os.path.isfile(chain_path):
+        print(f"Error!!! Output file {chain_path} not found!")
+        print("The pipeline crashed. Please contact developers by creating an issue at:")
+        print("https://github.com/hillerlab/make_lastz_chains")
+        sys.exit(1)
+    if t_rename_table is None and q_rename_table is None:
+        return   # no need to rename chromosomes
+    # there is need to rename chromosomes
+    # unzip chain file, create temp chain file with renamed chromosomes/scaffolds
+    # rename chromosomes
+    print("Renaming chromosome names in the chain file")
+    unzip_cmd = f"gunzip {chain_path}"
+    subprocess.call(unzip_cmd, shell=True)
+    unzipped_filename = f"{args.target_name}.{args.query_name}.allfilled.chain"
+    unzipped_path = os.path.join(project_dir, unzipped_filename)
+    renamed_chain_path = os.path.join(project_dir, "RENAMED.chain")
+    t_chrom_dct = _make_chrom_rename_dict(t_rename_table)
+    q_chrom_dct = _make_chrom_rename_dict(q_rename_table)
+    rename_chroms_in_chain(unzipped_path, renamed_chain_path, t_chrom_dct, q_chrom_dct)
+
+    # remove temp file and rename output file + gzip it
+
 def main():
     args = parse_args()
     check_env()
@@ -542,8 +755,12 @@ def main():
     def_parameters["query"] = args.query_name
 
     # deal with input sequences, add respective parameters to def file
-    t_path, t_sizes = setup_genome(args.target_genome, args.target_name, project_dir)
-    q_path, q_sizes = setup_genome(args.query_genome, args.query_name, project_dir)
+    t_path, t_sizes, t_rename_table = setup_genome(
+        args.target_genome, args.target_name, project_dir
+    )
+    q_path, q_sizes, q_rename_table = setup_genome(
+        args.query_genome, args.query_name, project_dir
+    )
     print(f"Target path: {t_path} | chrom sizes: {t_sizes}")
     print(f"Query path: {q_path} | query sizes: {q_sizes}")
 
@@ -558,6 +775,7 @@ def main():
     def_path = write_def_file(def_parameters, project_dir, args.force_def)
     dump_make_chains_params(args, project_dir)
     run_do_chains_pl(def_path, project_dir, args.executor, args)
+    check_results(project_dir, t_rename_table, q_rename_table, args)
 
 
 if __name__ == "__main__":
