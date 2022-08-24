@@ -8,6 +8,7 @@ import argparse
 import sys
 import os
 import re
+import shutil
 import json
 import subprocess
 from datetime import datetime as dt
@@ -738,8 +739,9 @@ def check_results(project_dir, t_rename_table, q_rename_table, args):
     rename_chroms_in_chain(unzipped_path, renamed_chain_path, t_chrom_dct, q_chrom_dct)
     # remove temp file and rename output file + gzip it
     os.remove(unzipped_path)
-    os.move(renamed_chain_path, unzipped_path)
+    shutil.move(renamed_chain_path, unzipped_path)
     zip_cmd = f"gzip -9 {unzipped_path}"
+    subprocess.call(zip_cmd, shell=True)
 
 def main():
     args = parse_args()
