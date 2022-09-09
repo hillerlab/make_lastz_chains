@@ -61,7 +61,10 @@ def parse_args():
     app.add_argument(
         "query_genome", help="Query genome. Accepted formats are: fasta and 2bit."
     )
-    app.add_argument("--project_dir", help="Project directory. By default: pwd")
+    app.add_argument(
+        "--project_dir",
+        "--pd",
+        help="Project directory. By default: pwd")
     app.add_argument(
         "--DEF",
         help="DEF formatted configuration file, please read README.md for details.",
