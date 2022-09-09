@@ -216,12 +216,20 @@ def parse_def_file(def_arg):
     return ret
 
 
-def get_project_dir(dir_arg):
+def get_project_dir(dir_arg, force_arg):
     """Define project directory."""
     if dir_arg is None:
         return os.path.abspath(os.getcwd())
     os.mkdir(dir_arg) if not os.path.isdir(dir_arg) else None
-    return os.path.abspath(dir_arg)
+    project_dir = os.path.abspath(dir_arg)
+    # checking whether DEF file is present here
+    # if yes: this directory was already used
+    def_path = os.path.join(project_dir, "DEF")
+    if os.path.isfile(def_path) and force_arg is False:
+        print(f"Confusion: {def_path} already exists")
+        print(f"Please set --force_def to override")
+        sys.exit(1)
+    return project_dir
 
 
 def generate_def_params(def_arg, lastz_arg):
@@ -537,10 +545,11 @@ def check_env():
 def write_def_file(def_dct, project_dir, force):
     """Write DEF file to the project dir."""
     def_path = os.path.join(project_dir, "DEF")
-    if os.path.isfile(def_path) and force is False:
-        print(f"Confusion: {def_path} already exists")
-        print(f"Please set --force_def to override")
-        sys.exit(1)
+    # >>>> This functionality moved to get project dir function
+    # if os.path.isfile(def_path) and force is False:
+    #     print(f"Confusion: {def_path} already exists")
+    #     print(f"Please set --force_def to override")
+    #     sys.exit(1)
     now = dt.now()
     f = open(def_path, "w")
     f.write("### Make chains properties\n")
@@ -749,7 +758,7 @@ def check_results(project_dir, t_rename_table, q_rename_table, args):
 def main():
     args = parse_args()
     check_env()
-    project_dir = get_project_dir(args.project_dir)
+    project_dir = get_project_dir(args.project_dir, args.force_def)
     print(f"Project directory: {project_dir}")
     if args.resume:
         # the pipeline already been called -> resume execution
