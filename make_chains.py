@@ -713,9 +713,9 @@ def rename_chroms_in_chain(not_renamed_chain, renamed_chain_path, t_chrom_dct, q
             continue
 
         if t_upd:
-            header_fields[1] = t_upd
+            header_fields[2] = t_upd
         if q_upd:
-            header_fields[6] = q_upd
+            header_fields[7] = q_upd
         upd_header = " ".join(header_fields)
         out_f.write(f"{upd_header}\n")
 
