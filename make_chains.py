@@ -45,6 +45,16 @@ BLASTZ_K = 2400
 
 MASTER_SCRIPT = "master_script.sh"
 
+DO_LASTZ_STEPS = {
+    "partition",
+    "lastz",
+    "cat",
+    "chainRun",
+    "chainMerge",
+    "fillChains",
+    "cleanChains",
+}
+
 
 def parse_args():
     """Command line arguments parser."""
@@ -61,10 +71,7 @@ def parse_args():
     app.add_argument(
         "query_genome", help="Query genome. Accepted formats are: fasta and 2bit."
     )
-    app.add_argument(
-        "--project_dir",
-        "--pd",
-        help="Project directory. By default: pwd")
+    app.add_argument("--project_dir", "--pd", help="Project directory. By default: pwd")
     app.add_argument(
         "--DEF",
         help="DEF formatted configuration file, please read README.md for details.",
@@ -73,13 +80,15 @@ def parse_args():
         "--force_def",
         action="store_true",
         dest="force_def",
-        help="Continue execution if DEF file in the project dir already exists",
+        help=(
+            f"Continue execution if DEF file in the project dir already exists after the "
+            f"specified step. Available steps are: {DO_LASTZ_STEPS}"
+        ),
     )
 
     app.add_argument(
-        "--resume",
-        action="store_true",
-        dest="resume",
+        "--continue_arg",
+        default=None,
         help=(
             "Resume execution from the last completed step, "
             "Please specify existing --project_dir to use this option"
@@ -181,14 +190,18 @@ def parse_args():
     args = app.parse_args()
 
     # >>> sanity checks
-    resume_cond_1 = args.resume is True and args.project_dir is None
-    resume_cond_2 = args.resume is True and not os.path.isdir(args.project_dir)
+    resume_cond_1 = args.continue_arg is not None and args.project_dir is None
+    resume_cond_2 = args.continue_arg is not None and not os.path.isdir(args.project_dir)
 
     if resume_cond_1 or resume_cond_2:
         err_msg = (
             "Error! --resume mode implies already existing project."
             "Please specify already existing project with --project_dir"
         )
+        sys.exit(err_msg)
+
+    if args.continue_arg and args.continue_arg  not in DO_LASTZ_STEPS:
+        err_msg = (f"Error! Invalid --continue_arg, please specify one of these steps: {DO_LASTZ_STEPS}")
         sys.exit(err_msg)
     # >>> sanity checks
     return args
@@ -216,7 +229,7 @@ def parse_def_file(def_arg):
     return ret
 
 
-def get_project_dir(dir_arg, force_arg):
+def get_project_dir(dir_arg, force_arg, resume_arg):
     """Define project directory."""
     if dir_arg is None:
         return os.path.abspath(os.getcwd())
@@ -225,6 +238,16 @@ def get_project_dir(dir_arg, force_arg):
     # checking whether DEF file is present here
     # if yes: this directory was already used
     def_path = os.path.join(project_dir, "DEF")
+    if resume_arg is not None:
+        # trying to resume the existing run, need DEF
+        if os.path.isfile(def_path):
+            return project_dir
+
+        else:
+            print(f"Error, incompatible parameters. With --continue_arg, ")
+            print(f"the pipeline expects DEF file to exist in the project dir.")
+            print(f"File {def_path} not found, abort.")
+            sys.exit(1)
     if os.path.isfile(def_path) and force_arg is False:
         print(f"Confusion: {def_path} already exists")
         print(f"Please set --force_def to override")
@@ -389,7 +412,7 @@ def _check_and_fix_chrom_names(chrom_names, path):
         upd_chrom_name = chrom_name.split(".")[0]
         ret[chrom_name] = upd_chrom_name
         upd_cnames_qc.append(upd_chrom_name)
-    
+
     if len(upd_cnames_qc) != len(set(upd_cnames_qc)):
         print(f"Error! Some chromosome names in {path} contain dots and spaces")
         print(f"Could not fix names automatically: the process produces non-unique")
@@ -455,7 +478,7 @@ def call_twobitfa_subprocess(cmd, genome_seq_file):
         sys.exit(1)
 
 
-def setup_genome(genome_seq_file, genome_id, tmp_dir):
+def setup_genome(genome_seq_file, genome_id, tmp_dir, continue_arg):
     """Setup genome sequence input.
 
     DoBlastzChainNet procedure requires the 2bit-formatted sequence
@@ -477,7 +500,9 @@ def setup_genome(genome_seq_file, genome_id, tmp_dir):
         # otherwise, create intermediate fasta with fixed chrom names
         two_bit_reader = TwoBitFile(genome_seq_file)
         two_bit_chrom_names = list(two_bit_reader.sequence_sizes().keys())
-        invalid_chrom_names = _check_and_fix_chrom_names(two_bit_chrom_names, genome_seq_file)
+        invalid_chrom_names = _check_and_fix_chrom_names(
+            two_bit_chrom_names, genome_seq_file
+        )
         if len(invalid_chrom_names) > 0:
             # there are invalid chrom names, that need to be renamed
             # (1) create intermediate fasta and rename chromosomes there
@@ -531,8 +556,12 @@ def setup_genome(genome_seq_file, genome_id, tmp_dir):
 
     if len(invalid_chrom_names) > 0:
         print(f"Warning! Genome sequence file {genome_seq_file}")
-        print(f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline")
-        print(f"were renamed in the intermediate files according to {chrom_rename_table_path}")
+        print(
+            f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline"
+        )
+        print(
+            f"were renamed in the intermediate files according to {chrom_rename_table_path}"
+        )
     return genome_seq_path, chrom_sizes_path, chrom_rename_table_path
 
 
@@ -542,7 +571,7 @@ def check_env():
     pass
 
 
-def write_def_file(def_dct, project_dir, force):
+def write_def_file(def_dct, project_dir, force, continue_arg):
     """Write DEF file to the project dir."""
     def_path = os.path.join(project_dir, "DEF")
     # >>>> This functionality moved to get project dir function
@@ -550,6 +579,9 @@ def write_def_file(def_dct, project_dir, force):
     #     print(f"Confusion: {def_path} already exists")
     #     print(f"Please set --force_def to override")
     #     sys.exit(1)
+    if continue_arg:
+        # it is already written
+        return def_path
     now = dt.now()
     f = open(def_path, "w")
     f.write("### Make chains properties\n")
@@ -584,6 +616,11 @@ def run_do_chains_pl(def_path, project_dir, executor, args):
         cmd += f" --cluster_partition {args.executor_partition}"
     if args.cluster_parameters:
         cmd += f' --clusterOptions "{args.cluster_parameters}"'
+    if args.continue_arg:
+        cmd += f" --continue {args.continue_arg}"
+
+    # if args.continue:/..
+
     # additional params to doLastzChains script
     # add logging
     log_file = os.path.join(project_dir, "make_chains.log")
@@ -659,7 +696,7 @@ def dump_make_chains_params(args, wd):
 
 
 def check_proj_dir_for_resuming(project_dir):
-    """Check whether the project dir is valid for -resume."""
+    """Check whether the project dir is valid for -continue."""
     def_path = os.path.join(project_dir, "DEF")
     ms_path = os.path.join(project_dir, MASTER_SCRIPT)
     if not os.path.isfile(ms_path) or not os.path.isfile(def_path):
@@ -677,7 +714,7 @@ def _make_chrom_rename_dict(table):
     if table is None:
         # empty dict is also good
         return ret
-    f = open(table, 'r')
+    f = open(table, "r")
     for line in f:
         ld = line.rstrip().split("\t")
         old_name = ld[0]
@@ -687,7 +724,9 @@ def _make_chrom_rename_dict(table):
     return ret
 
 
-def rename_chroms_in_chain(not_renamed_chain, renamed_chain_path, t_chrom_dct, q_chrom_dct):
+def rename_chroms_in_chain(
+    not_renamed_chain, renamed_chain_path, t_chrom_dct, q_chrom_dct
+):
     """Rename chromosomes to original names in the output chains file."""
     in_f = open(not_renamed_chain, "r")
     out_f = open(renamed_chain_path, "w")
@@ -725,18 +764,20 @@ def rename_chroms_in_chain(not_renamed_chain, renamed_chain_path, t_chrom_dct, q
 
 def check_results(project_dir, t_rename_table, q_rename_table, args):
     """Check whether output chain file is present.
-    
+
     If scaffolds were renamed -> return the original names.
     """
     chain_filename = f"{args.target_name}.{args.query_name}.allfilled.chain.gz"
     chain_path = os.path.join(project_dir, chain_filename)
     if not os.path.isfile(chain_path):
         print(f"Error!!! Output file {chain_path} not found!")
-        print("The pipeline crashed. Please contact developers by creating an issue at:")
+        print(
+            "The pipeline crashed. Please contact developers by creating an issue at:"
+        )
         print("https://github.com/hillerlab/make_lastz_chains")
         sys.exit(1)
     if t_rename_table is None and q_rename_table is None:
-        return   # no need to rename chromosomes
+        return  # no need to rename chromosomes
     # there is need to rename chromosomes
     # unzip chain file, create temp chain file with renamed chromosomes/scaffolds
     # rename chromosomes
@@ -755,18 +796,22 @@ def check_results(project_dir, t_rename_table, q_rename_table, args):
     zip_cmd = f"gzip -9 {unzipped_path}"
     subprocess.call(zip_cmd, shell=True)
 
+
 def main():
     args = parse_args()
     check_env()
-    project_dir = get_project_dir(args.project_dir, args.force_def)
+    project_dir = get_project_dir(args.project_dir, args.force_def, args.continue_arg)
     print(f"Project directory: {project_dir}")
-    if args.resume:
-        # the pipeline already been called -> resume execution
-        # but first check that the request is valid
-        ms_loc = check_proj_dir_for_resuming(project_dir)
-        subprocess.call(ms_loc, shell=True)
-        sys.exit(0)  # no need to continue
+    # if args.continue_arg:
+    #     # the pipeline already been called -> resume execution
+    #     # but first check that the request is valid
+    #     ms_loc = check_proj_dir_for_resuming(project_dir)
+    #     subprocess.call(ms_loc, shell=True)
+    #     sys.exit(0)  # no need to continue
 
+    # normal mode, generate DEF parameters from scratch and call the pipeline
+    # TODO: if continue_arg is not None, all this data must be already known
+    # no need to ask user to provide these
     def_parameters = generate_def_params(args.DEF, args.lastz)
     # define parameters inferred from input
     def_parameters["ref"] = args.target_name
@@ -774,10 +819,10 @@ def main():
 
     # deal with input sequences, add respective parameters to def file
     t_path, t_sizes, t_rename_table = setup_genome(
-        args.target_genome, args.target_name, project_dir
+        args.target_genome, args.target_name, project_dir, args.continue_arg
     )
     q_path, q_sizes, q_rename_table = setup_genome(
-        args.query_genome, args.query_name, project_dir
+        args.query_genome, args.query_name, project_dir, args.continue_arg
     )
     print(f"Target path: {t_path} | chrom sizes: {t_sizes}")
     print(f"Query path: {q_path} | query sizes: {q_sizes}")
@@ -790,7 +835,7 @@ def main():
     include_cmd_def_opts(def_parameters, args)
 
     # write def path and run the script
-    def_path = write_def_file(def_parameters, project_dir, args.force_def)
+    def_path = write_def_file(def_parameters, project_dir, args.force_def, args.continue_arg)
     dump_make_chains_params(args, project_dir)
     run_do_chains_pl(def_path, project_dir, args.executor, args)
     check_results(project_dir, t_rename_table, q_rename_table, args)
