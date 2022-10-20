@@ -34,11 +34,13 @@ pip3 install -r requirements.txt
 The script to be called is *make_chains.py*
 
 ```txt
-usage: make_chains.py [-h] [--project_dir PROJECT_DIR] [--DEF DEF] [--force_def] [--resume]
-                      [--executor EXECUTOR] [--executor_queuesize EXECUTOR_QUEUESIZE]
+usage: make_chains.py [-h] [--project_dir PROJECT_DIR] [--DEF DEF] [--force_def]
+                      [--continue_arg CONTINUE_ARG] [--executor EXECUTOR]
+                      [--executor_queuesize EXECUTOR_QUEUESIZE]
                       [--executor_partition EXECUTOR_PARTITION]
-                      [--cluster_parameters CLUSTER_PARAMETERS] [--seq1_chunk SEQ1_CHUNK]
-                      [--seq2_chunk SEQ2_CHUNK] [--blastz_h BLASTZ_H] [--blastz_y BLASTZ_Y]
+                      [--cluster_parameters CLUSTER_PARAMETERS] [--lastz LASTZ]
+                      [--seq1_chunk SEQ1_CHUNK] [--seq2_chunk SEQ2_CHUNK]
+                      [--blastz_h BLASTZ_H] [--blastz_y BLASTZ_Y]
                       [--blastz_l BLASTZ_L] [--blastz_k BLASTZ_K]
                       [--fill_prepare_memory FILL_PREPARE_MEMORY]
                       [--chaining_memory CHAINING_MEMORY]
@@ -55,26 +57,33 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  --project_dir PROJECT_DIR
+  --project_dir PROJECT_DIR, --pd PROJECT_DIR
                         Project directory. By default: pwd
-  --DEF DEF             DEF formatted configuration file, please read README.md for details.
-  --force_def           Continue execution if DEF file in the project dir already exists
-  --resume              Resume execution from the last completed step, Please specify
-                        existing --project_dir to use this option
+  --DEF DEF             DEF formatted configuration file, please read README.md
+                        for details.
+  --force_def           Start the pipeline even if a DEF file already exists
+                        (overwrite the project)
+  --continue_arg CONTINUE_ARG
+                        Continue execution in the already existing project
+                        starting with the specified step. Available steps are:
+                        {'lastz', 'chainMerge', 'cleanChains', 'cat', 'chainRun',
+                        'fillChains', 'partition'}Please specify existing
+                        --project_dir to use this option
 
 cluster_params:
-  --executor EXECUTOR   Cluster jobs executor. Please see README.md to get a list of all
-                        available systems. Default local
+  --executor EXECUTOR   Cluster jobs executor. Please see README.md to get a list
+                        of all available systems. Default local
   --executor_queuesize EXECUTOR_QUEUESIZE
-                        Controls NextFlow queueSize parameter: maximal number of jobs in the
-                        queue (default 2000)
+                        Controls NextFlow queueSize parameter: maximal number of
+                        jobs in the queue (default 2000)
   --executor_partition EXECUTOR_PARTITION
                         Set cluster queue/partition (default batch)
   --cluster_parameters CLUSTER_PARAMETERS
-                        Additional cluster parameters, regulates NextFlow clusterOptions
-                        (default None)
+                        Additional cluster parameters, regulates NextFlow
+                        clusterOptions (default None)
 
 def_params:
+  --lastz LASTZ         Path to specific lastz binary (if needed)
   --seq1_chunk SEQ1_CHUNK
                         Chunk size for target sequence (default 175000000)
   --seq2_chunk SEQ2_CHUNK

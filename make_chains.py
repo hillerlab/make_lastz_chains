@@ -81,8 +81,7 @@ def parse_args():
         action="store_true",
         dest="force_def",
         help=(
-            f"Continue execution if DEF file in the project dir already exists after the "
-            f"specified step. Available steps are: {DO_LASTZ_STEPS}"
+            "Start the pipeline even if a DEF file already exists (overwrite the project)"
         ),
     )
 
@@ -90,8 +89,9 @@ def parse_args():
         "--continue_arg",
         default=None,
         help=(
-            "Resume execution from the last completed step, "
-            "Please specify existing --project_dir to use this option"
+            f"Continue execution in the already existing project starting with the specified step. "
+            f"Available steps are: {DO_LASTZ_STEPS}"
+            f"Please specify existing --project_dir to use this option"
         ),
     )
 
