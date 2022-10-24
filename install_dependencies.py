@@ -44,6 +44,7 @@ LASTZ_DOWNLOADABLE = "lastz-1.04.00"
 # output directories
 BINARIES_DIR = "kent_binaries"
 HL_EXEC_DIR = "HL_kent_binaries"
+GENOMEALIGNMENTTOOLS = "GenomeAlignmentTools"
 
 # channels related
 CONDA = "conda"
@@ -457,7 +458,15 @@ def check_stat(stat_lst):
     
     if any(x == FAILED for x in stat_lst.values()):
         print("\n### Error! Could not install some binaries (see above)")
-        
+    return
+
+
+def init_submodules():
+    """Init git submodules."""
+    subprocess.call("git submodule init", shell=True)
+    subprocess.call("git submodule update", shell=True)
+    return
+
 
 def main():
     """Download/install all packeges."""
@@ -468,6 +477,7 @@ def main():
         print("Allowing download to fail")
 
     os.mkdir(BINARIES_DIR) if not os.path.isdir(BINARIES_DIR) else None
+    init_submodules() if not os.path.isdir(GENOMEALIGNMENTTOOLS) else None
 
     conda_available = _check_conda_available()
     docker_available = _check_docker_available()
