@@ -34,6 +34,7 @@ DO_LASTZ_EXE = "doLastzChain.pl"
 HL_SCRIPTS = "HL_scripts"
 HL_KENT_BINARIES = "HL_kent_binaries"
 KENT_BINARIES = "kent_binaries"
+GENOME_ALIGNMENT_TOOLS = "GenomeAlignmentTools/src"
 
 # defaults
 SEQ1_CHUNK = 175_000_000
@@ -632,6 +633,7 @@ def run_do_chains_pl(def_path, project_dir, executor, args):
     hl_scripts_env = os.path.join(HERE, HL_SCRIPTS)
     hl_kent_env = os.path.join(HERE, HL_KENT_BINARIES)
     kent_env = os.path.join(HERE, KENT_BINARIES)
+    genome_ali_anv = os.path.join(HERE, GENOME_ALIGNMENT_TOOLS)
 
     now = dt.now()
 
@@ -645,6 +647,7 @@ def run_do_chains_pl(def_path, project_dir, executor, args):
     f.write(f"export PATH={hl_scripts_env}:$PATH\n")
     f.write(f"export PATH={hl_kent_env}:$PATH\n")
     f.write(f"export PATH={kent_env}:$PATH\n")
+    f.write(f"export PATH={genome_ali_anv}:$PATH\n")
     f.write("\n")
 
     f.write(f"{cmd}\n")

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # lightweight version of UCSC's kent src doBlastzChainNet.pl that automates lastz and chaining
-# This script also runs chainGapFiller and chainCleaner
+# This script also runs RepeatFiller and chainCleaner
 
 use Getopt::Long;
 use warnings;
@@ -24,7 +24,7 @@ my $splitChain_into_randomParts = "splitChain_into_randomParts.pl";  # fine, her
 my $axtChain = `which axtChain`; chomp($axtChain);  # fine, here
 my $chainSort = `which chainSort`; chomp($chainSort);  # fine, here
 my $scoreChain = `which chainScore`; chomp($scoreChain);  # replaced with chainScore
-my $chainGapFiller = `which chainGapFiller.py`; chomp($chainGapFiller);
+my $RepeatFiller = `which RepeatFiller.py`; chomp($RepeatFiller);
 my $chainExtractID = `which chainExtractID.py`; chomp($chainExtractID);
 my $lastz = "lastz";  # installed
 my $chainCleaner = "chainCleaner";  # somewhat here ++ not for macBook yet
@@ -90,7 +90,7 @@ my ($secondsStart, $secondsEnd);
 #################################################################################################
 sub usage {
 	my ($status) = @_;
-	print "Automates UCSC's lastz/chain pipeline, including chainGapFiller and chainCleaner.";
+	print "Automates UCSC's lastz/chain pipeline, including RepeatFiller and chainCleaner.";
 
 print "
     -clusterRunDir dir    Optional: Full path to a directory ƒthat will hold all temporary files and steps during the cluster run (default current directory).
@@ -98,7 +98,7 @@ print "
     -chainMinScore n      Specify minimum score for a chain in axtChain (default: $chainMinScore)
     -chainLinearGap type  Specify gap costs used in axtChain (can be loose|medium|filename. default: loose)
     -maxNumLastzJobs n    max number of lastz jobs that will be submitted to the cluster queue (default $maxNumLastzJobs)
-    -numFillJobs n        number of jobs for the chainGapFiller step that will be submitted to the cluster queue (default $numFillJobs)
+    -numFillJobs n        number of jobs for the RepeatFiller step that will be submitted to the cluster queue (default $numFillJobs)
     -verbose              Optional flag: Enable verbose output	 
     -debug                Don't actually run commands, just display them.
 	-executor             Select cluster jobs executor, local is default (see nextflow executor documentation for more)
@@ -598,7 +598,7 @@ sub doChainMerge {
 
 ############################################################################################################################################
 # added by Nikolai Hecker
-# runs chainGapFiller
+# runs RepeatFiller
 ############################################################################################################################################
 sub doFillChains {
 	&HgAutomate::verbose(1, "doFillChains ....\n");
@@ -627,7 +627,7 @@ sub doFillChains {
 	my $jobsDir = "$runDir/jobs";
 	&HgAutomate::mustMkdir($jobsDir);
 
-	## process chainGapfiller parameters
+	## process RepeatFiller parameters
 	my $lastzParameters = "K=$defVars{'FILL_BLASTZ_K'} L=$defVars{'FILL_BLASTZ_L'}";
 	$lastzParameters .= " W=$defVars{'FILL_BLASTZ_W'}" if (defined($defVars{'FILL_BLASTZ_W'}));
 	$lastzParameters .= " Q=$defVars{'FILL_BLASTZ_Q'}" if (defined($defVars{'FILL_BLASTZ_Q'}));
@@ -655,7 +655,7 @@ sub doFillChains {
 	# para prepare chain filling (unzipped and build index)
 	my $jobfprepare = "$runDir/jobList_prepare.txt";
 	my $prepareScript = "$runDir/fillPrepare.sh";
-	my $runFillScript = "$runDir/runChainGapFiller.sh";
+	my $runFillScript = "$runDir/runRepeatFiller.sh";
 	my $paraRunPrep = "parallel_executor.py $runDir/fillPrepare_$tDb$qDb $jobfprepare -q medium --memoryMb $fillPrepMemory --maxNumResubmission 1 -e $nf_executor --co \"$clusterOptions\" -p $cluster_partition --eq $queueSize\n";
 
 	# para merge chains and gzip
@@ -679,8 +679,8 @@ sub doFillChains {
 	print $fh "done\n";
 	close($fh);
 
-	### write script for calling runChainGapFiller on cluster 
-	open($fh, ">$runFillScript") || croak "ERROR! Can't write to chainGapFiller script '$runDir/$runFillScript'.";
+	### write script for calling runRepeatFiller on cluster 
+	open($fh, ">$runFillScript") || croak "ERROR! Can't write to RepeatFiller script '$runDir/$runFillScript'.";
 	print $fh "#!/bin/bash\nset -e\nset -o pipefail\n";
 	print $fh "#get variables paths\n";
 	print $fh "chainf=\$1\n";
@@ -689,10 +689,10 @@ sub doFillChains {
 #	print $fh "tdir=`mktemp -d`\n";
 #	print $fh "trap \"echo \\\"cleanup tempdir \$tdir\\\"; rm -rf \$tdir\" EXIT\n";
 	print $fh "tnamechainf=\${chainf##*/in}\n\n";
-	print $fh "#run chainGapFiller\n";
-	print $fh "echo \"..calling chainGapFiller: \"\n";
-#	print $fh "$chainGapFiller --workdir \$tdir --chainExtractID $chainExtractID --lastz $lastz --axtChain $axtChain --chainSort $chainSort -c \$chainf -T2 \$rseq -Q2 \$qseq $param --lastzParameters '$lastzParameters ' | $scoreChain -linearGap=$chainLinearGap $scoreChainParameters stdin \$rseq \$qseq stdout | $chainSort stdin $filledDir/\$tnamechainf.chain\n";
-	print $fh "$chainGapFiller --workdir $runDir --chainExtractID $chainExtractID --lastz $lastz --axtChain $axtChain --chainSort $chainSort -c \$chainf -T2 \$rseq -Q2 \$qseq $param --lastzParameters '$lastzParameters ' | $scoreChain -linearGap=$chainLinearGap $scoreChainParameters stdin \$rseq \$qseq stdout | $chainSort stdin $filledDir/\$tnamechainf.chain\n";
+	print $fh "#run RepeatFiller\n";
+	print $fh "echo \"..calling RepeatFiller: \"\n";
+#	print $fh "$RepeatFiller --workdir \$tdir --chainExtractID $chainExtractID --lastz $lastz --axtChain $axtChain --chainSort $chainSort -c \$chainf -T2 \$rseq -Q2 \$qseq $param --lastzParameters '$lastzParameters ' | $scoreChain -linearGap=$chainLinearGap $scoreChainParameters stdin \$rseq \$qseq stdout | $chainSort stdin $filledDir/\$tnamechainf.chain\n";
+	print $fh "$RepeatFiller --workdir $runDir --chainExtractID $chainExtractID --lastz $lastz --axtChain $axtChain --chainSort $chainSort -c \$chainf -T2 \$rseq -Q2 \$qseq $param --lastzParameters '$lastzParameters ' | $scoreChain -linearGap=$chainLinearGap $scoreChainParameters stdin \$rseq \$qseq stdout | $chainSort stdin $filledDir/\$tnamechainf.chain\n";
 #	print $fh "echo \"..clean up temp directory: \"\n";
 #	print $fh "rm -rf \$tdir\n";
 	close($fh);
@@ -851,7 +851,7 @@ chomp $secondsStart;
 &checkDef();
 croak "\n-clusterRunDir must specify a full path.\n" if ($clusterRunDir !~ /^\//);
 
-print "Will run chainGapFiller. \n" if ($fillChains == 1);
+print "Will run RepeatFiller. \n" if ($fillChains == 1);
 print "Will run chainCleaner " if ($cleanChains == 1);
 if (exists $defVars{'CLEANCHAIN_PARAMETERS'}) {
 	print "with parameters: $defVars{'CLEANCHAIN_PARAMETERS'}\n";
