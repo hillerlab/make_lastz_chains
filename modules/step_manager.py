@@ -60,7 +60,7 @@ class StepManager:
                 self.mark_step_status(step, StepStatus.RUNNING)
                 try:
                     # Execute the actual step function here
-                    step_to_function[step](project_dir, params)
+                    step_to_function[step](project_dir, params, step_executables)
                     # After successful execution:
                     self.mark_step_status(step, StepStatus.COMPLETED)
                 except Exception as e:

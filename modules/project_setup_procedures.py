@@ -107,7 +107,7 @@ def rename_chrom_names_fasta(genome_seq_file, tmp_dir, genome_id, invalid_chrom_
     return renamed_fasta_path, rename_table
 
 
-def setup_genome_sequences(genome_seq_file, genome_id, project_dir, executables):
+def setup_genome_sequences(genome_seq_file, genome_id, label, project_dir, executables):
     """Setup genome sequence input.
 
     DoBlastzChainNet procedure requires the 2bit-formatted sequence
@@ -143,7 +143,7 @@ def setup_genome_sequences(genome_seq_file, genome_id, project_dir, executables)
                 fasta_dump_path, project_dir, genome_id, invalid_chrom_names
             )
             genome_seq_path = os.path.abspath(
-                os.path.join(project_dir, f"{genome_id}.2bit")
+                os.path.join(project_dir, f"{label}.2bit")
             )
             os.remove(fasta_dump_path)
             # (2) create 2bit with renamed sequences
@@ -164,12 +164,12 @@ def setup_genome_sequences(genome_seq_file, genome_id, project_dir, executables)
                 genome_seq_file, project_dir, genome_id, invalid_chrom_names
             )
 
-        genome_seq_path = os.path.abspath(os.path.join(project_dir, f"{genome_id}.2bit"))
+        genome_seq_path = os.path.abspath(os.path.join(project_dir, f"{label}.2bit"))
         cmd = f"{executables.fa_to_two_bit} {genome_seq_file} {genome_seq_path}"
         call_two_bit_to_fa_subprocess(cmd, genome_seq_file)
 
     # now need to create chrom.sizes file
-    chrom_sizes_filename = f"{genome_id}.chrom.sizes"
+    chrom_sizes_filename = f"{label}.chrom.sizes"
     chrom_sizes_path = os.path.join(project_dir, chrom_sizes_filename)
 
     # must be without errors now
@@ -181,7 +181,7 @@ def setup_genome_sequences(genome_seq_file, genome_id, project_dir, executables)
         f.write(f"{k}\t{v}\n")
     f.close()
 
-    to_log(f"For {genome_id} sequence file: {genome_seq_path}; chrom sizes saved to: {chrom_sizes_path}")
+    to_log(f"For {genome_id} ({label}) sequence file: {genome_seq_path}; chrom sizes saved to: {chrom_sizes_path}")
 
     if len(invalid_chrom_names) > 0:
         to_log(f"Warning! Genome sequence file {genome_seq_file}")

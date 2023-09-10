@@ -5,7 +5,6 @@ import sys
 import os
 import subprocess
 import shutil
-import twobitreader
 from constants import Constants
 from modules.project_directory import OutputDirectoryManager
 from modules.step_manager import StepManager
@@ -18,8 +17,8 @@ from version import __version__
 
 __author__ = "Bogdan Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova"
 __maintainer__ = "Bogdan Kirilenko"
+
 SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
-# TODO: setup proper logger
 
 
 def parse_args():
@@ -53,6 +52,8 @@ def parse_args():
         help="Overwrite output directory if exists"
     )
 
+    app.add_argument("--cluster_executor", default="local", help="Nextflow executor parameter")
+
     # Pipeline parameters group
     pipeline_params = app.add_argument_group('Pipeline Parameters')
     pipeline_params.add_argument("--lastz_y", default=Constants.DEFAULT_LASTZ_Y, type=int)
@@ -68,7 +69,7 @@ def parse_args():
     pipeline_params.add_argument("--fill_chain", default=1, type=int)
     pipeline_params.add_argument("--fill_unmask", default=1, type=int)
     pipeline_params.add_argument("--fill_chain_min_score", default=25000, type=int)
-    pipeline_params.add_argument("--fill_insert_chain_minscore", default=5000, type=int)
+    pipeline_params.add_argument("--fill_insert_chain_min_score", default=5000, type=int)
     pipeline_params.add_argument("--fill_gap_max_size_t", default=20000, type=int)
     pipeline_params.add_argument("--fill_gap_max_size_q", default=20000, type=int)
     pipeline_params.add_argument("--fill_gap_min_size_t", default=30, type=int)
@@ -153,10 +154,12 @@ def run_pipeline(args):
     # initiate input files
     target_chrom_rename_table = setup_genome_sequences(args.target_genome,
                                                        args.target_name,
+                                                       Constants.TARGET_LABEL,
                                                        project_dir,
                                                        step_executables)
     query_chrom_rename_table = setup_genome_sequences(args.query_genome,
                                                       args.query_name,
+                                                      Constants.QUERY_LABEL,
                                                       project_dir,
                                                       step_executables)
     # now execute steps
