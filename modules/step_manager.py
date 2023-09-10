@@ -42,7 +42,7 @@ class StepManager:
         self.steps[step] = status
         self.save_steps()
 
-    def execute_steps(self, project_dir, params):
+    def execute_steps(self, project_dir, params, step_executables):
         step_to_function = {
             PipelineSteps.PARTITION: PipelineSteps.partition_step,
             PipelineSteps.LASTZ: PipelineSteps.lastz_step,

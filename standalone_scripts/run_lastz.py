@@ -23,7 +23,8 @@ FORMAT_ARG = "--format=axt+"
 ALLOC_ARG = "--traceback=800.0M"
 
 """Run lastz example:
-/beegfs/software/lastz/lastz-1.04.15/lastz tParts/part000.2bit[multiple] /tmp/blastz.asiAtt/part000.2bit  K=2400 H=2000 L=3000 Y=9400  --format=axt+ > /tmp/blastz.asiAtt/little.raw
+/beegfs/software/lastz/lastz-1.04.15/lastz tParts/part000.2bit[multiple] /tmp/blastz.asiAtt/part000.2bit 
+K=2400 H=2000 L=3000 Y=9400  --format=axt+ > /tmp/blastz.asiAtt/little.raw
 
 Run blastz-run-ucsc example:
 blastz-run-ucsc
@@ -193,25 +194,6 @@ def parse_file_spec(filename):
 
 def call_process(cmd):
     subprocess.call(cmd, shell=True)
-
-
-# def create_temp_fasta(prefix, specs, temp_dir, twobit):
-#     """Create temp fasta file with name containing start/end.
-    
-#     Bogdan: just recapitulating blastz-run-ucsc,
-#     I don't understand why this is necessary.
-#     """
-#     print(specs)
-#     twobit_fname, _seq, _start, _end = specs
-#     filename = f"{prefix}.{_seq}.{_start}.{_end}.fa"
-#     path = os.path.join(temp_dir, filename)
-#     local = f"[{_start},{_end}]"  # B: don't know what local stands for
-#     src_dir = os.path.dirname(twobit)
-#     src = os.path.join(src_dir, twobit_fname)
-#     cmd = f"twoBitToFa {src}:{_seq} {path}"
-#     print(cmd)
-#     call_process(cmd)
-#     return path, local
 
 
 def build_lastz_command(t_specs, q_specs, blastz_options):

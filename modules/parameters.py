@@ -1,4 +1,6 @@
 """Class to manage pipeline parameters."""
+import os
+import json
 
 
 class PipelineParameters:
@@ -38,4 +40,11 @@ class PipelineParameters:
         self.__sanity_checks()
 
     def __sanity_checks(self):
+        # TODO: implement this method
         pass
+
+    def dump_to_json(self, directory):
+        json_file_path = os.path.join(directory, "pipeline_parameters.json")
+        attributes = vars(self)  # get all attributes as a dictionary
+        with open(json_file_path, "w") as f:
+            json.dump(attributes, f, indent=4)

@@ -11,7 +11,8 @@ class Constants:
     DEFAULT_LASTZ_L = 3000
     DEFAULT_LASTZ_K = 2400
 
-    DEFAULT_CLEANCHAIN_PARAMS = (
+    # TODO: fill the rest of defaults and constants
+    DEFAULT_CLEAN_CHAIN_PARAMS = (
         "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 "
         "-maxSuspectScore=100000 -minBrokenChainScore=75000"
     )

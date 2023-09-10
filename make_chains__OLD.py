@@ -31,7 +31,7 @@ Q_CHROM_RENAME_TABLE = "query_chromosomes_rename_table.tsv"
 # directories with all necessary scripts
 DO_LASTZ_DIR = "doLastzChains"
 DO_LASTZ_EXE = "doLastzChain.pl"
-HL_SCRIPTS = "HL_scripts"
+HL_SCRIPTS = "HL_scripts__deprecated"
 HL_KENT_BINARIES = "HL_kent_binaries"
 KENT_BINARIES = "kent_binaries"
 GENOME_ALIGNMENT_TOOLS = "GenomeAlignmentTools/src"
