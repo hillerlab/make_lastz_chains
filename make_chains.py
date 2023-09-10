@@ -61,27 +61,43 @@ def parse_args():
     pipeline_params.add_argument("--lastz_l", default=Constants.DEFAULT_LASTZ_L, type=int)
     pipeline_params.add_argument("--lastz_k", default=Constants.DEFAULT_LASTZ_K, type=int)
     pipeline_params.add_argument("--seq1_chunk", default=Constants.DEFAULT_SEQ1_CHUNK, type=int)
-    pipeline_params.add_argument("--seq1_lap", default=0, type=int)
-    pipeline_params.add_argument("--seq1_limit", default=4000, type=int)
+    pipeline_params.add_argument("--seq1_lap", default=Constants.DEFAULT_SEQ1_LAP, type=int)
+    pipeline_params.add_argument("--seq1_limit", default=Constants.DEFAULT_SEQ1_LIMIT, type=int)
     pipeline_params.add_argument("--seq2_chunk", default=Constants.DEFAULT_SEQ2_CHUNK, type=int)
-    pipeline_params.add_argument("--seq2_lap", default=10000, type=int)
-    pipeline_params.add_argument("--seq2_limit", default=10000, type=int)
-    pipeline_params.add_argument("--fill_chain", default=1, type=int)
-    pipeline_params.add_argument("--fill_unmask", default=1, type=int)
-    pipeline_params.add_argument("--fill_chain_min_score", default=25000, type=int)
-    pipeline_params.add_argument("--fill_insert_chain_min_score", default=5000, type=int)
-    pipeline_params.add_argument("--fill_gap_max_size_t", default=20000, type=int)
-    pipeline_params.add_argument("--fill_gap_max_size_q", default=20000, type=int)
-    pipeline_params.add_argument("--fill_gap_min_size_t", default=30, type=int)
-    pipeline_params.add_argument("--fill_gap_min_size_q", default=30, type=int)
-    pipeline_params.add_argument("--fill_lastz_k", default=2000, type=int)
-    pipeline_params.add_argument("--fill_lastz_l", default=3000, type=int)
-    pipeline_params.add_argument("--fill_memory", default=15000, type=int)
-    pipeline_params.add_argument("--fill_prepare_memory", default=50000, type=int)
-    pipeline_params.add_argument("--chaining_queue", default="medium")
-    pipeline_params.add_argument("--chaining_memory", default=50000, type=int)
-    pipeline_params.add_argument("--clean_chain", default=1, type=int)
-    pipeline_params.add_argument("--chain_clean_memory", default=100000, type=int)
+    pipeline_params.add_argument("--seq2_lap", default=Constants.DEFAULT_SEQ2_LAP, type=int)
+    pipeline_params.add_argument("--seq2_limit", default=Constants.DEFAULT_SEQ2_LIMIT, type=int)
+    pipeline_params.add_argument("--fill_chain", default=Constants.DEFAULT_FILL_CHAIN_ARG, type=int)
+    pipeline_params.add_argument("--fill_unmask", default=Constants.DEFAULT_FILL_UNMASK_ARG, type=int)
+    pipeline_params.add_argument("--fill_chain_min_score",
+                                 default=Constants.DEFAULT_FILL_CHAIN_MIN_SCORE,
+                                 type=int)
+    pipeline_params.add_argument("--fill_insert_chain_min_score",
+                                 default=Constants.DEFAULT_INSERT_CHAIN_MIN_SCORE,
+                                 type=int)
+    pipeline_params.add_argument("--fill_gap_max_size_t",
+                                 default=Constants.DEFAULT_FILL_GAP_MAX_SIZE_T,
+                                 type=int)
+    pipeline_params.add_argument("--fill_gap_max_size_q",
+                                 default=Constants.DEFAULT_FILL_GAP_MAX_SIZE_Q,
+                                 type=int)
+    pipeline_params.add_argument("--fill_gap_min_size_t",
+                                 default=Constants.DEFAULT_FILL_GAP_MIN_SIZE_T,
+                                 type=int)
+    pipeline_params.add_argument("--fill_gap_min_size_q",
+                                 default=Constants.DEFAULT_FILL_GAP_MIN_SIZE_Q,
+                                 type=int)
+    pipeline_params.add_argument("--fill_lastz_k", default=Constants.DEFAULT_FILL_LASTZ_K, type=int)
+    pipeline_params.add_argument("--fill_lastz_l", default=Constants.DEFAULT_FILL_LASTZ_L, type=int)
+    pipeline_params.add_argument("--fill_memory", default=Constants.DEFAULT_FILL_MEMORY, type=int)
+    pipeline_params.add_argument("--fill_prepare_memory",
+                                 default=Constants.DEFAULT_FILL_PREPARE_MEMORY,
+                                 type=int)
+    # pipeline_params.add_argument("--chaining_queue", default="medium")
+    pipeline_params.add_argument("--chaining_memory", default=Constants.DEFAULT_CHAINING_MEMORY, type=int)
+    pipeline_params.add_argument("--clean_chain", default=Constants.DEFAULT_CLEAN_CHAIN_ARG, type=int)
+    pipeline_params.add_argument("--chain_clean_memory",
+                                 default=Constants.DEFAULT_CHAIN_CLEAN_MEMORY,
+                                 type=int)
     pipeline_params.add_argument("--clean_chain_parameters",
                                  default=Constants.DEFAULT_CLEAN_CHAIN_PARAMS)
 
