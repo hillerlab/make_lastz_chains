@@ -1,8 +1,10 @@
 """Project-wide constants."""
+import os
 
 
 class Constants:
     DESCRIPTION = "Pipeline to create chain-formatted pairwise genome alignments."
+
     # defaults
     # DEFAULT_SEQ1_CHUNK = 175_000_000
     # DEFAULT_SEQ2_CHUNK = 50_000_000
@@ -33,3 +35,10 @@ class Constants:
 
     PARAMS_JSON_FILENAME = "pipeline_parameters.json"
     LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"
+
+    class NextflowConstants:
+        SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
+        NF_DIRNAME = "parallelization"
+        NF_DIR = os.path.abspath(os.path.join(SCRIPT_LOCATION, NF_DIRNAME))
+        NF_SCRIPT_PATH = os.path.join(NF_DIR, "execute_joblist.nf")
+        LASTZ_CONFIG_PATH = os.path.join(NF_DIR, "lastz_step_config.nf")

@@ -9,10 +9,10 @@ class PipelineParameters:
         self.target_name = args.target_name
         self.query_name = args.query_name
         self.project_dir = args.project_dir
-        self.seq_1_dir = os.path.join(self.project_dir, Const.TARGET_SEQ_FILENAME)
-        self.seq_1_len = os.path.join(self.project_dir, Const.TARGET_CHROM_SIZES_FILENAME)
-        self.seq_2_dir = os.path.join(self.project_dir, Const.QUERY_SEQ_FILENAME)
-        self.seq_2_len = os.path.join(self.project_dir, Const.QUERY_CHROM_SIZES_FILENAME)
+        self.seq_1_dir = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_SEQ_FILENAME))
+        self.seq_1_len = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_CHROM_SIZES_FILENAME))
+        self.seq_2_dir = os.path.abspath(os.path.join(self.project_dir, Const.QUERY_SEQ_FILENAME))
+        self.seq_2_len = os.path.abspath(os.path.join(self.project_dir, Const.QUERY_CHROM_SIZES_FILENAME))
 
         self.lastz_y = args.lastz_y
         self.lastz_h = args.lastz_h
