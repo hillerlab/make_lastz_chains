@@ -1,6 +1,7 @@
 """Partition step implementation."""
 import os
 from constants import Constants
+from modules.make_chains_logging import to_log
 from modules.common_funcs import read_chrom_sizes
 
 
@@ -37,6 +38,8 @@ def do_partition_for_genome(genome_label, project_dir, params, executables):
     with open(partition_file_path, 'w') as f:
         for part in partition_list:
             f.write(f"{part}\n")
+    to_log(f"Saving {genome_label} partitions to: {partition_file_path}")
+    return partition_list
 
 
 # Not necessary: just a reference, translated from perl

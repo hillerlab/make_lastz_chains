@@ -27,4 +27,9 @@ class Constants:
     QUERY_SEQ_FILENAME = f"{QUERY_LABEL}.2bit"
     QUERY_CHROM_SIZES_FILENAME = f"{QUERY_LABEL}.chrom.sizes"
 
+    # file and directory names
     TEMP_LASTZ_DIRNAME = "TEMP_run.lastz"
+    TEMP_PSL_DIRNAME = "TEMP_psl"
+
+    PARAMS_JSON_FILENAME = "pipeline_parameters.json"
+    LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"

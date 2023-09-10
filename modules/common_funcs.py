@@ -12,3 +12,9 @@ def read_chrom_sizes(chrom_sizes_path):
         chrom_sizes[chrom] = chrom_size
     f.close()
     return chrom_sizes
+
+
+def read_list_txt_file(txt_file):
+    """Just read a txt file as a list of strings."""
+    with open(txt_file, "r") as f:
+        return [x.rstrip() for x in f]

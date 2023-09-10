@@ -55,7 +55,7 @@ class PipelineParameters:
         pass
 
     def dump_to_json(self, directory):
-        json_file_path = os.path.join(directory, "pipeline_parameters.json")
+        json_file_path = os.path.join(directory, Const.PARAMS_JSON_FILENAME)
         attributes = vars(self)  # get all attributes as a dictionary
         with open(json_file_path, "w") as f:
             json.dump(attributes, f, indent=4)

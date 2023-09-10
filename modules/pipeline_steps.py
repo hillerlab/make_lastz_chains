@@ -5,7 +5,7 @@ import json
 from constants import Constants
 from modules.make_chains_logging import to_log
 from steps_implementations.partition import do_partition_for_genome
-
+from steps_implementations.lastz_step import do_lastz
 
 class PipelineSteps:
     PARTITION = "partition"
@@ -28,14 +28,17 @@ class PipelineSteps:
 
     @staticmethod
     def partition_step(project_dir, params, executables):
-        to_log("# Step Partition")
-        do_partition_for_genome(Constants.TARGET_LABEL, project_dir, params, executables)
-        do_partition_for_genome(Constants.QUERY_LABEL, project_dir, params, executables)
+        to_log("### Step Partition ###")
+        target_partitions_list = do_partition_for_genome(Constants.TARGET_LABEL, project_dir, params, executables)
+        query_partitions_list = do_partition_for_genome(Constants.QUERY_LABEL, project_dir, params, executables)
+        to_log(f"Num. target partitions: {len(target_partitions_list)}")
+        to_log(f"Num. query partitions: {len(query_partitions_list)}")
+        to_log(f"Num. lastz jobs: {len(target_partitions_list) * len(query_partitions_list)}")
 
     @staticmethod
     def lastz_step(project_dir, params, executables):
         to_log("# Step Lastz")
-        pass
+        do_lastz(project_dir, params, executables)
 
     @staticmethod
     def cat_step(project_dir, params, executables):

@@ -11,6 +11,7 @@ from subprocess import PIPE
 import shutil
 import string
 import random
+import json
 from twobitreader import TwoBitFile
 
 
@@ -18,7 +19,7 @@ __author__ = "Bogdan Kirilenko, 2022"
 __email__ = "Bogdan.Kirilenko@senckenberg.de"
 
 
-BLASTZ_PREFIX = "BLASTZ_"
+BLASTZ_PREFIX = "lastz_"
 FORMAT_ARG = "--format=axt+"
 ALLOC_ARG = "--traceback=800.0M"
 
@@ -46,6 +47,7 @@ Bogdan: probably it makes sense to also add
 --allocate=800M
 """
 
+
 def _gen_random_string(n):
     return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(n))
 
@@ -60,14 +62,14 @@ def parse_args():
     app = argparse.ArgumentParser()
     app.add_argument("target", help="Target: single sequence file or .lst")
     app.add_argument("query", help="Query: single sequence file or .lst")
-    app.add_argument("DEF_file", help="DEF configuration file")
+    app.add_argument("params_json", help="pipeline configuration file")
     app.add_argument("output", help="Output file location")
 
-    app.add_argument("--outFormat", choices=["psl", "axt"], help="Output format axt|psl")
+    app.add_argument("--output_format", choices=["psl", "axt"], help="Output format axt|psl")
     app.add_argument("--gz", help="Compress output with gzip")
     app.add_argument("--temp_dir",
                      help="Temp directory to save intermediate fasta files (if needed)\n"
-                          "/tmp/ is default, however, DEF_file key TMPDIR can provide a value"
+                          "/tmp/ is default, however, params_json key TMPDIR can provide a value"
                           "the command line argument has a higher priority than DEF file"
                     )
     app.add_argument("--verbose",
@@ -89,24 +91,9 @@ def clean_die(tmp_dir, msg):
     sys.exit(1)
 
 
-def read_def_file(def_file):
-    """Read variables defined in def file."""
-    ret = {}
-    f = open(def_file, 'r')
-    for line_ in f:
-        if line_.startswith("#"):
-            continue
-        line = line_.rstrip()
-        if len(line) == 0:
-            continue
-        if "=" not in line:
-            continue
-        var_and_val = line.split("=")
-        var = var_and_val[0]
-        val = var_and_val[1].split()[0]
-        ret[var] = val
-    f.close()
-    return ret
+def read_json_file(file_path):
+    with open(file_path, 'r') as f:
+        return json.load(f)
 
 
 def read_chrom_sizes(chrom_sizes):
@@ -118,26 +105,6 @@ def read_chrom_sizes(chrom_sizes):
         ret[ld[0]] = int(ld[1])
     f.close()
     return ret
-
-
-def load_seq_sizes(def_vars):
-    """Load sequence sizes."""
-    seq1_sizes, seq2_sizes = {}, {}
-    if def_vars.get("SEQ1_LEN"):
-        seq1_sizes = read_chrom_sizes(def_vars.get("SEQ1_LEN"))
-    elif def_vars.get("SEQ1_CTGLEN"):
-        seq1_sizes = read_chrom_sizes(def_vars.get("SEQ1_CTGLEN"))
-    else:
-        clean_die("", "Cannot find SEQ1_LEN|SEQ1_CTGLEN in the DEF file")
-    
-    if def_vars.get("SEQ2_LEN"):
-        seq2_sizes = read_chrom_sizes(def_vars.get("SEQ2_LEN"))
-    elif def_vars.get("SEQ1_CTGLEN"):
-        seq2_sizes = read_chrom_sizes(def_vars.get("SEQ2_CTGLEN"))
-    else:
-        clean_die("", "Cannot find SEQ2_LEN|SEQ2_CTGLEN in the DEF file")
-    
-    return seq1_sizes, seq2_sizes
 
 
 def get_temp_dir(tmp_dir_param):
@@ -155,7 +122,7 @@ def get_temp_dir(tmp_dir_param):
     return tmp_path
 
 
-def _define_if_not(dct, key, val):
+def define_if_not(dct, key, val):
     if not dct.get(key):
         dct[key] = val
     else:
@@ -167,7 +134,7 @@ def get_blastz_params(def_vals):
     for k, v in def_vals.items():
         if not k.startswith(BLASTZ_PREFIX):
             continue
-        lastz_key = k.replace(BLASTZ_PREFIX, "")
+        lastz_key = k.replace(BLASTZ_PREFIX, "").upper()
         kv_pair = f"{lastz_key}={v}"
         params_lst.append(kv_pair)
     params_line = " ".join(params_lst)
@@ -229,7 +196,7 @@ def call_lastz(cmd):
 
 
 def make_psl_if_needed(raw_out, out_format, s1p, s2p, v):
-    """Comvert lastz output to psl if needed."""
+    """Convert lastz output to psl if needed."""
     if out_format == "axt":
         return raw_out  # it's already AXT
     # need to convert to PSL
@@ -311,13 +278,12 @@ def main():
     args = parse_args()
     # not orthodox solution but...
     v = verbose_msg if args.verbose else lambda x: None
-    def_vars = read_def_file(args.DEF_file)
-    # seq1_sizes, seq2_sizes = load_seq_sizes(def_vars)
-    seq_1_sizes_path = def_vars["SEQ1_LEN"]
-    seq_2_sizes_path = def_vars["SEQ2_LEN"]
+    pipeline_params = read_json_file(args.params_json)
+    seq_1_sizes_path = pipeline_params["seq_1_len"]
+    seq_2_sizes_path = pipeline_params["seq_2_len"]
     temp_is_needed = check_temp_is_needed(args.target, args.query)
     # create temp dir iff input contains .lst files
-    tmp_dir = get_temp_dir(def_vars.get("TMPDIR")) if temp_is_needed else None
+    tmp_dir = get_temp_dir(pipeline_params.get("temp_dir")) if temp_is_needed else None
     tmp_dir = args.temp_dir if args.temp_dir else tmp_dir
 
     v(f"Temp directory is needed: {temp_is_needed}: {tmp_dir}")
@@ -330,14 +296,14 @@ def main():
     query_specs = parse_file_spec(query_seqs)
     v(f"Target specs: {target_specs} | Query specs: {query_specs}")
 
-    _define_if_not(def_vars, "BLASTZ_H", 2000)
-    blastz_options = get_blastz_params(def_vars)
-    v(f"BLASTZ options: {blastz_options}")
+    define_if_not(pipeline_params, "lastz_h", 2000)
+    blastz_options = get_blastz_params(pipeline_params)
+    v(f"LASTZ options: {blastz_options}")
 
     cmd = build_lastz_command(target_specs, query_specs, blastz_options)
     v(f"Lastz command: {cmd}")
     lastz_output = call_lastz(cmd)
-    out_to_save = make_psl_if_needed(lastz_output, args.outFormat, seq_1_sizes_path, seq_2_sizes_path, v)
+    out_to_save = make_psl_if_needed(lastz_output, args.output_format, seq_1_sizes_path, seq_2_sizes_path, v)
     f = open(args.output, "w")
     f.write(out_to_save)
     f.close()
