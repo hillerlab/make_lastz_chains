@@ -2,14 +2,16 @@
 import os
 import subprocess
 from itertools import product
+from modules.make_chains_logging import to_log
 from constants import Constants
 from modules.common_funcs import read_list_txt_file
 
 
 def create_lastz_jobs(project_dir, executables):
+    to_log("LASTZ: making jobs")
     lastz_working_dir = os.path.join(project_dir, Constants.TEMP_LASTZ_DIRNAME)
     target_partitions_file = os.path.join(lastz_working_dir, f"{Constants.TARGET_LABEL}_partitions.txt")
-    query_partitions_file = os.path.join(lastz_working_dir, f"{Constants.TARGET_LABEL}_partitions.txt")
+    query_partitions_file = os.path.join(lastz_working_dir, f"{Constants.QUERY_LABEL}_partitions.txt")
     target_partitions = read_list_txt_file(target_partitions_file)
     query_partitions = read_list_txt_file(query_partitions_file)
 
@@ -19,10 +21,11 @@ def create_lastz_jobs(project_dir, executables):
 
     jobs = []
 
-    for target, query in product(target_partitions, query_partitions):
+    for num, (target, query) in enumerate(product(target_partitions, query_partitions), 1):
+        output_filename = f"{target.split(':')[-2]}_{query.split(':')[-2]}__{num}.psl"
         output_file = os.path.join(
             output_dir,
-            f"{target.split(':')[-2]}_{query.split(':')[-2]}.psl"
+            output_filename
         )
         lastz_exec = os.path.abspath(executables.lastz_wrapper)
         job = f"{lastz_exec} {target} {query} {params_file} {output_file} --output_format psl "
@@ -33,7 +36,8 @@ def create_lastz_jobs(project_dir, executables):
     joblist_path = os.path.join(lastz_working_dir, Constants.LASTZ_JOBLIST_FILENAME)
     with open(joblist_path, "w") as f:
         for job in jobs:
-            f.write(f"{job}\n")  # or execute the job
+            f.write(f"{job}\n")
+    to_log(f"LASTZ: saved {len(jobs)} jobs to {joblist_path}")
 
 
 def do_lastz(project_dir, params, executables):
