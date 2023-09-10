@@ -11,6 +11,10 @@ from modules.project_directory import OutputDirectoryManager
 from modules.step_manager import StepManager
 from modules.parameters import PipelineParameters
 from modules.pipeline_steps import PipelineSteps
+from modules.make_chains_logging import setup_logger
+from modules.make_chains_logging import to_log
+from modules.project_setup_procedures import setup_genome_sequences
+from version import __version__
 
 __author__ = "Bogdan Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova"
 __maintainer__ = "Bogdan Kirilenko"
@@ -39,6 +43,14 @@ def parse_args():
         help="Continue pipeline execution from this step",
         choices=PipelineSteps.ORDER,
         default=None,
+    )
+
+    app.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        dest="force",
+        help="Overwrite output directory if exists"
     )
 
     # Pipeline parameters group
@@ -86,6 +98,8 @@ class StepExecutables:
         self.lastz_wrapper = self.__find_script("run_lastz.py")
         self.split_chain_into_random_parts = self.__find_script("split_chain_into_random_parts.pl")
         self.bundle_chrom_split_psl_files = self.__find_script("bundle_chrom_split_psl_files.perl")
+        self.fa_to_two_bit = self.__find_binary("faToTwoBit")
+        self.two_bit_to_fa = self.__find_binary("twoBitToFa")
 
     @staticmethod
     def __find_script(script_name):
@@ -97,7 +111,30 @@ class StepExecutables:
 
     @staticmethod
     def __find_binary(binary_name):
-        pass
+        binary_path = shutil.which(binary_name)
+        if binary_path is None:
+            raise ValueError(f"Error! Cannot locate binary: {binary_name}")
+        return binary_path
+
+
+def log_version():
+    """Get git hash and current branch if possible."""
+    cmd_hash = "git rev-parse HEAD"
+    cmd_branch = "git rev-parse --abbrev-ref HEAD"
+    try:
+        git_hash = subprocess.check_output(
+            cmd_hash, shell=True, cwd=SCRIPT_LOCATION
+        ).decode("utf-8").strip()
+        git_branch = subprocess.check_output(
+            cmd_branch, shell=True, cwd=SCRIPT_LOCATION
+        ).decode("utf-8").strip()
+    except subprocess.CalledProcessError:
+        git_hash = "unknown"
+        git_branch = "unknown"
+    version = f"Version {__version__}\nCommit: {git_hash}\nBranch: {git_branch}\n"
+    to_log("# Make Lastz Chains #")
+    to_log(version)
+    return version
 
 
 def run_pipeline(args):
@@ -105,11 +142,23 @@ def run_pipeline(args):
     project_dir = OutputDirectoryManager(args).project_dir
     step_manager = StepManager(project_dir, args)
     parameters = PipelineParameters(args)
+    log_file = os.path.join(project_dir, "run.log")
+    setup_logger(log_file)
+    log_version()
+    to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
 
     # TODO: prepare input data
     parameters.dump_to_json(project_dir)
     step_executables = StepExecutables()
-
+    # initiate input files
+    target_chrom_rename_table = setup_genome_sequences(args.target_genome,
+                                                       args.target_name,
+                                                       project_dir,
+                                                       step_executables)
+    query_chrom_rename_table = setup_genome_sequences(args.query_genome,
+                                                      args.query_name,
+                                                      project_dir,
+                                                      step_executables)
     # now execute steps
     step_manager.execute_steps(project_dir, parameters, step_executables)
 
