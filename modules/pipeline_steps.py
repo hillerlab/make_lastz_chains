@@ -6,6 +6,8 @@ from constants import Constants
 from modules.make_chains_logging import to_log
 from steps_implementations.partition import do_partition_for_genome
 from steps_implementations.lastz_step import do_lastz
+from steps_implementations.cat_step import do_cat
+
 
 class PipelineSteps:
     PARTITION = "partition"
@@ -43,11 +45,13 @@ class PipelineSteps:
     @staticmethod
     def cat_step(project_dir, params, executables):
         to_log("# Step Cat")
+        do_cat(project_dir, params, executables)
         pass
 
     @staticmethod
     def chain_run_step(project_dir, params, executables):
         to_log("# Step Chain Run")
+        raise NotImplementedError("not yet")
         pass
 
     @staticmethod

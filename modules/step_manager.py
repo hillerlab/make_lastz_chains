@@ -66,3 +66,4 @@ class StepManager:
                 except Exception as e:
                     print(f"An error occurred while executing {step}: {e}")
                     self.mark_step_status(step, StepStatus.FAILED)
+                    break

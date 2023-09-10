@@ -56,6 +56,7 @@ class Constants:
     # file and directory names
     TEMP_LASTZ_DIRNAME = "TEMP_run.lastz"
     TEMP_PSL_DIRNAME = "TEMP_psl"
+    TEMP_CAT_DIRNAME = "TEMP_run.cat"
 
     PARAMS_JSON_FILENAME = "pipeline_parameters.json"
     LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"
