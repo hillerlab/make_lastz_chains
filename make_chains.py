@@ -164,7 +164,6 @@ def run_pipeline(args):
     log_version()
     to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
 
-    # TODO: prepare input data
     parameters.dump_to_json(project_dir)
     step_executables = StepExecutables()
     # initiate input files
@@ -182,7 +181,7 @@ def run_pipeline(args):
     step_manager.execute_steps(project_dir, parameters, step_executables)
 
     # check result?
-    # TODO: implement this part
+    # TODO: implement sanity checks
 
 
 def main():
