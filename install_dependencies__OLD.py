@@ -22,6 +22,7 @@ TO BE FILLED
 HGDOWNLOAD = "rsync://hgdownload.soe.ucsc.edu/genome/admin/exe/"
 HGDOWNLOAD_HTTPS = "https://hgdownload.cse.ucsc.edu/admin/exe/"
 
+
 # binaries names
 class Required:
     AXTCHAIN = "axtChain"

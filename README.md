@@ -1,3 +1,5 @@
+# THIS VERSION IS UNDER DEVELOPMENT
+
 # Make Lastz Chains
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
@@ -26,7 +28,7 @@ cd chains_builder
 # install python packages (just two)
 pip3 install -r requirements.txt
 # download/build all necessary binaries: 
-./install_dependencies.py
+./install_dependencies__OLD.py
 ```
 
 ### Usage
@@ -102,7 +104,7 @@ def_params:
 
 ### Minimal example
 ```bash
-./make_chains.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
+./make_chains__OLD.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
  ```
 
 ### Output
