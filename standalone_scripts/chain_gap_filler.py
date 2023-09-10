@@ -34,7 +34,7 @@ def build_args_parser():
         description=("This script extracts a chain from all.chain file by ID, "
                      "finds gaps and using lastz patches these gaps, "
                      "then inserts new blocks to a chain"),
-        epilog=("Example of use:\nchainGapFiller.py -c hg38.speTri2.all.chain "
+        epilog=("Example of use:\nchain_gap_filler.py -c hg38.speTri2.all.chain "
                 "-ix hg38.speTri2.all.bb -T2 hg38.2bit "
                 "-Q2 speTri2.2bit -um -m mini.chains -o out.chain"),
     )

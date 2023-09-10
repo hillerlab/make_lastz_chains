@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Generate chrom.sizes file."""
-from twobitreader import TwoBitFile
-from twobitreader import TwoBitFileError
 import sys
 import os
 import argparse
+from collections import Counter
+from twobitreader import TwoBitFile
+from twobitreader import TwoBitFileError
 
-
-__author__ = "Bogdan Kirilenko, 2022"
+__author__ = "Bogdan M. Kirilenko"
 
 
 def parse_args():
@@ -23,7 +23,7 @@ def parse_args():
     return args
 
 
-def parse_twobit(in_file):
+def get_seq_lens_from_twobit(in_file):
     """Parse twobit file if it's twobit file."""
     try:
         two_bit_reader = TwoBitFile(in_file)
@@ -34,35 +34,30 @@ def parse_twobit(in_file):
         return None
 
 
-def parse_fasta(in_file):
-    """In file is fasta, parse it."""
+def count_seq_lens_in_fasta(in_file):
+    """In file is fasta, count sequence lengths here."""
+    ret = Counter()
     current_seq = None
-    current_len = 0
-    ret = {}
 
-    f = open(in_file, "r")
-    for line in f:
-        if line.startswith("#"):
-            continue
-        if line.startswith(">"):
-            # sequence identifier
-            seq_id = line.lstrip(">").rstrip()
-            current_seq = seq_id
-            current_len = 0
-            ret[current_seq] = 0
-        else:
-            seq_len = len(line.rstrip())
-            ret[current_seq] += seq_len
-    f.close()
+    with open(in_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("#"):
+                continue
+            if line.startswith(">"):
+                current_seq = line[1:]
+            else:
+                ret[current_seq] += len(line)
+
     return ret
 
 
 def main():
     args = parse_args()
     # read what we have as input
-    seq_lens = parse_twobit(args.input)
+    seq_lens = get_seq_lens_from_twobit(args.input)
     if seq_lens is None:
-        seq_lens = parse_fasta(args.input)
+        seq_lens = count_seq_lens_in_fasta(args.input)
     # save out
     f = open(args.output, 'w')
     for k, v in seq_lens.items():
