@@ -2,21 +2,21 @@
 import json
 import os
 from modules.pipeline_steps import PipelineSteps
+from enum import Enum
+
+
+class StepStatus(Enum):
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class StepManager:
     def __init__(self, project_dir, args):
         self.project_dir = project_dir
         self.steps_file = os.path.join(self.project_dir, "steps.json")
-        self.steps = {
-            "partition": "not_started",
-            "lastz": "not_started",
-            "cat": "not_started",
-            "chainRun": "not_started",
-            "chainMerge": "not_started",
-            "fillChains": "not_started",
-            "cleanChains": "not_started",
-        }
+        self.steps = {s: StepStatus.NOT_STARTED for s in PipelineSteps.ORDER}
         self.continue_arg = args.continue_arg if hasattr(args, 'continue_arg') else None
         self.load_or_init_steps()
 
@@ -30,12 +30,13 @@ class StepManager:
             self.save_steps()
 
     def save_steps(self):
+        serializable_steps = {k: v.value for k, v in self.steps.items()}
         with open(self.steps_file, "w") as f:
-            json.dump(self.steps, f, indent=4)
+            json.dump(serializable_steps, f, indent=4)
 
     def set_continue_from_step(self, step):
         for s in self.steps.keys():
-            self.steps[s] = "not_started" if s == step else "completed"
+            self.steps[s] = StepStatus.NOT_STARTED if s == step else StepStatus.COMPLETED
         self.save_steps()
 
     def mark_step_status(self, step, status):
@@ -54,14 +55,14 @@ class StepManager:
         }
 
         for step in PipelineSteps.ORDER:
-            status = self.steps.get(step, "not_started")
-            if status == "not_started":
-                self.mark_step_status(step, "running")
+            status = self.steps.get(step, StepStatus.NOT_STARTED)
+            if status == StepStatus.NOT_STARTED:
+                self.mark_step_status(step, StepStatus.RUNNING)
                 try:
                     # Execute the actual step function here
                     step_to_function[step](project_dir, params)
                     # After successful execution:
-                    self.mark_step_status(step, "completed")
+                    self.mark_step_status(step, StepStatus.COMPLETED)
                 except Exception as e:
                     print(f"An error occurred while executing {step}: {e}")
-                    self.mark_step_status(step, "failed")
+                    self.mark_step_status(step, StepStatus.FAILED)

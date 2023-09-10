@@ -12,6 +12,5 @@ temp/*
 .DS_Store
 .idea/*
 venv/*
-.idea/*
 __pycache__/*
 modules/__pycache__/*
