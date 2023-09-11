@@ -26,6 +26,9 @@ class PipelineParameters:
         self.seq_2_lap = args.seq2_lap
         self.seq_2_limit = args.seq2_limit
 
+        self.chain_min_score = args.min_chain_score
+        self.chain_linear_gap = args.chain_linear_gap
+
         self.fill_chain = args.fill_chain
         self.fill_unmask = args.fill_unmask
         self.fill_chain_min_score = args.fill_chain_min_score

@@ -5,6 +5,7 @@ import sys
 import os
 import subprocess
 import shutil
+from datetime import datetime as dt
 from constants import Constants
 from modules.project_directory import OutputDirectoryManager
 from modules.step_manager import StepManager
@@ -66,6 +67,13 @@ def parse_args():
     pipeline_params.add_argument("--seq2_chunk", default=Constants.DEFAULT_SEQ2_CHUNK, type=int)
     pipeline_params.add_argument("--seq2_lap", default=Constants.DEFAULT_SEQ2_LAP, type=int)
     pipeline_params.add_argument("--seq2_limit", default=Constants.DEFAULT_SEQ2_LIMIT, type=int)
+    pipeline_params.add_argument("--min_chain_score",
+                                 default=Constants.DEFAULT_MIN_CHAIN_SCORE,
+                                 type=int)
+    # TODO: add "choices" -> must be loose, medium, or smth else
+    pipeline_params.add_argument("--chain_linear_gap",
+                                 default=Constants.DEFAULT_CHAIN_LINEAR_GAP,
+                                 type=str)
     pipeline_params.add_argument("--fill_chain", default=Constants.DEFAULT_FILL_CHAIN_ARG, type=int)
     pipeline_params.add_argument("--fill_unmask", default=Constants.DEFAULT_FILL_UNMASK_ARG, type=int)
     pipeline_params.add_argument("--fill_chain_min_score",
@@ -156,6 +164,7 @@ def log_version():
 
 def run_pipeline(args):
     # setup project dir, parameters and step manager
+    start_time = dt.now()
     project_dir = OutputDirectoryManager(args).project_dir
     step_manager = StepManager(project_dir, args)
     parameters = PipelineParameters(args)
@@ -182,6 +191,8 @@ def run_pipeline(args):
 
     # check result?
     # TODO: implement sanity checks
+    tot_runtime = dt.now() - start_time
+    to_log(f"make_lastz_chains completed in {tot_runtime}")
 
 
 def main():

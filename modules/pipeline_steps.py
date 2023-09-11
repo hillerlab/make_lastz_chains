@@ -7,6 +7,7 @@ from modules.make_chains_logging import to_log
 from steps_implementations.partition import do_partition_for_genome
 from steps_implementations.lastz_step import do_lastz
 from steps_implementations.cat_step import do_cat
+from steps_implementations.chain_run_step import do_chain_run
 
 
 class PipelineSteps:
@@ -51,13 +52,13 @@ class PipelineSteps:
     @staticmethod
     def chain_run_step(project_dir, params, executables):
         to_log("# Step Chain Run")
-        raise NotImplementedError("not yet")
+        do_chain_run(project_dir, params, executables)
         pass
 
     @staticmethod
     def chain_merge_step(project_dir, params, executables):
         to_log("# Step Chain Merge")
-        pass
+        raise NotImplementedError("not yet")
 
     @staticmethod
     def fill_chains_step(project_dir, params, executables):
@@ -67,4 +68,7 @@ class PipelineSteps:
     @staticmethod
     def clean_chains_step(project_dir, params, executables):
         to_log("# Step Clean Chains")
+        if params.clean_chain == 0:
+            # TODO: consider bool here
+            to_log("Skipping clean chain")
         pass

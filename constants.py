@@ -20,6 +20,9 @@ class Constants:
     DEFAULT_LASTZ_L = 3000
     DEFAULT_LASTZ_K = 2400
 
+    DEFAULT_MIN_CHAIN_SCORE = 10_000
+    DEFAULT_CHAIN_LINEAR_GAP = "loose"
+
     DEFAULT_FILL_CHAIN_ARG = 1  # TODO: consider bool
     DEFAULT_FILL_UNMASK_ARG = 1  # TODO: consider bool
     DEFAULT_FILL_CHAIN_MIN_SCORE = 25_000
@@ -57,9 +60,13 @@ class Constants:
     TEMP_LASTZ_DIRNAME = "TEMP_run.lastz"
     TEMP_PSL_DIRNAME = "TEMP_psl"
     TEMP_CAT_DIRNAME = "TEMP_run.cat"
+    TEMP_AXT_CHAIN_DIRNAME = "TEMP_axtChain"
+    SPLIT_PSL_DIRNAME = "splitPSL"
 
     PARAMS_JSON_FILENAME = "pipeline_parameters.json"
     LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"
+
+    BUNDLE_PSL_MAX_BASES = 1_000_000
 
     class NextflowConstants:
         SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
