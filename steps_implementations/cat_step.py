@@ -12,6 +12,7 @@ def do_cat(project_dir, params, executables):
 
     # 1. List PSL Files
     psl_files = [f for f in os.listdir(psl_output_dir) if f.endswith('.psl')]
+    print(psl_files)
 
     # 2. Concatenate Files
     output_file_path = os.path.join(cat_out_dirname, "concatenated.psl.gz")
