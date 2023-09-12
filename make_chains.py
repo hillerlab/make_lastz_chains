@@ -122,7 +122,6 @@ class StepExecutables:
         self.partition_script = self.__find_script("partitionSequence.pl")
         self.lastz_wrapper = self.__find_script("run_lastz.py")
         self.split_chain_into_random_parts = self.__find_script("split_chain_into_random_parts.pl")
-        self.bundle_chrom_split_psl_files = self.__find_script("bundle_chrom_split_psl_files.perl")
         self.hl_kent_binaries_path = os.path.join(SCRIPT_LOCATION, Constants.KENT_BINARIES_DIRNAME)
         self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
         self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
@@ -181,6 +180,7 @@ def run_pipeline(args):
     setup_logger(log_file)
     log_version()
     to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
+    to_log(f"Pipeline started at {start_time}")
 
     parameters.dump_to_json(project_dir)
     step_executables = StepExecutables()

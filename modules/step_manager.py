@@ -1,6 +1,7 @@
 """Pipeline step manager."""
 import json
 import os
+import traceback
 from modules.pipeline_steps import PipelineSteps
 from enum import Enum
 
@@ -65,5 +66,6 @@ class StepManager:
                     self.mark_step_status(step, StepStatus.COMPLETED)
                 except Exception as e:
                     print(f"An error occurred while executing {step}: {e}")
+                    traceback.print_exc()
                     self.mark_step_status(step, StepStatus.FAILED)
                     break
