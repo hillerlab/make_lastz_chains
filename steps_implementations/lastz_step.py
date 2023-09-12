@@ -1,4 +1,8 @@
-"""LASTZ step implementation."""
+"""LASTZ step implementation.
+
+Creates a lastz joblist for NxK chunks created at the partitioning step.
+Executes these lastz alignment jobs in parallel.
+"""
 import os
 import subprocess
 from itertools import product

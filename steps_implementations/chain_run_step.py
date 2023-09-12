@@ -3,6 +3,7 @@ import os
 import subprocess
 from parallelization.nextflow_wrapper import NextflowWrapper
 from constants import Constants
+from steps_implementations.bundle_psl_step import do_bundle_psl
 
 
 def do_chain_run(project_dir, params, executables):
@@ -28,25 +29,28 @@ def do_chain_run(project_dir, params, executables):
 
     # Mocking the bundling of PSL files
     # bundle_psl_for_chaining(input_dir, output_dir, output_file_list, max_bases, gzipped)
-
+    do_bundle_psl(project_dir, params, executables)
+    # print(bundled_output_dir)
+    #
+    # return
     # Mocking the parallel execution
-    f = open(joblist_path, "w")
-
-    # Loop through the PSL files and prepare chaining commands
-    psl_files = [f for f in os.listdir(split_psl_dir) if f.endswith(".psl")]
-    for psl_file in psl_files:
-        output_chain_file = os.path.join(chain_dir, f"{psl_file}.chain")
-
-        # Prepare the chaining command as a string
-        axt_chain_command = f"{executables.axt_chain} -psl -verbose=0 {matrix} -minScore={min_score} -linearGap={linear_gap} stdin {seq1_dir} {seq2_dir} stdout"
-
-        chain_anti_repeat_command = f"{executables.chain_anti_repeat} {seq1_dir} {seq2_dir} stdin {output_chain_file}"
-
-        # Combine the two commands into a single string using a pipe
-        full_command = f"{axt_chain_command} | {chain_anti_repeat_command}"
-
-        f.write(f"{full_command}\n")
-    f.close()
+    # f = open(joblist_path, "w")
+    #
+    # # Loop through the PSL files and prepare chaining commands
+    # psl_files = [f for f in os.listdir(split_psl_dir) if f.endswith(".psl")]
+    # for psl_file in psl_files:
+    #     output_chain_file = os.path.join(chain_dir, f"{psl_file}.chain")
+    #
+    #     # Prepare the chaining command as a string
+    #     axt_chain_command = f"{executables.axt_chain} -psl -verbose=0 {matrix} -minScore={min_score} -linearGap={linear_gap} stdin {seq1_dir} {seq2_dir} stdout"
+    #
+    #     chain_anti_repeat_command = f"{executables.chain_anti_repeat} {seq1_dir} {seq2_dir} stdin {output_chain_file}"
+    #
+    #     # Combine the two commands into a single string using a pipe
+    #     full_command = f"{axt_chain_command} | {chain_anti_repeat_command}"
+    #
+    #     f.write(f"{full_command}\n")
+    # f.close()
 
     # TODO check joblist validity
     # TODO execute jobs in parallel

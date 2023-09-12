@@ -42,6 +42,8 @@ class Constants:
     DEFAULT_CLEAN_CHAIN_ARG = 1  # TODO: consider bool
     DEFAULT_CHAIN_CLEAN_MEMORY = 100_000
 
+    BUNDLE_PSL_MAX_BASES = 1_000_000
+
     # TODO: fill the rest of defaults and constants
     DEFAULT_CLEAN_CHAIN_PARAMS = (
         "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 "
@@ -66,7 +68,7 @@ class Constants:
     PARAMS_JSON_FILENAME = "pipeline_parameters.json"
     LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"
 
-    BUNDLE_PSL_MAX_BASES = 1_000_000
+    KENT_BINARIES_DIRNAME = "HL_kent_binaries"
 
     class NextflowConstants:
         SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
@@ -74,3 +76,8 @@ class Constants:
         NF_DIR = os.path.abspath(os.path.join(SCRIPT_LOCATION, NF_DIRNAME))
         NF_SCRIPT_PATH = os.path.join(NF_DIR, "execute_joblist.nf")
         LASTZ_CONFIG_PATH = os.path.join(NF_DIR, "lastz_step_config.nf")
+
+    class ToolNames:
+        PSL_SORT_ACC = "pslSortAcc"
+        TWO_BIT_TO_FA = "twoBitToFa"
+        FA_TO_TWO_BIT = "faToTwoBit"

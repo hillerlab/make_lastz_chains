@@ -15,8 +15,7 @@ import json
 from twobitreader import TwoBitFile
 
 
-__author__ = "Bogdan Kirilenko, 2022"
-__email__ = "Bogdan.Kirilenko@senckenberg.de"
+__author__ = "Bogdan M. Kirilenko"
 
 
 BLASTZ_PREFIX = "lastz_"

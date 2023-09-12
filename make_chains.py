@@ -123,8 +123,10 @@ class StepExecutables:
         self.lastz_wrapper = self.__find_script("run_lastz.py")
         self.split_chain_into_random_parts = self.__find_script("split_chain_into_random_parts.pl")
         self.bundle_chrom_split_psl_files = self.__find_script("bundle_chrom_split_psl_files.perl")
-        self.fa_to_two_bit = self.__find_binary("faToTwoBit")
-        self.two_bit_to_fa = self.__find_binary("twoBitToFa")
+        self.hl_kent_binaries_path = os.path.join(SCRIPT_LOCATION, Constants.KENT_BINARIES_DIRNAME)
+        self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
+        self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
+        self.psl_sort_acc = self.__find_binary(Constants.ToolNames.PSL_SORT_ACC)
 
     @staticmethod
     def __find_script(script_name):
@@ -134,11 +136,18 @@ class StepExecutables:
             raise ValueError(f"Error! Cannot locate script: {script_name}")
         return abs_path
 
-    @staticmethod
-    def __find_binary(binary_name):
+    def __find_binary(self, binary_name):
         binary_path = shutil.which(binary_name)
+
         if binary_path is None:
-            raise ValueError(f"Error! Cannot locate binary: {binary_name}")
+            # Try to find it in the HL_kent_binaries directory
+            binary_path = os.path.join(self.hl_kent_binaries_path, binary_name)
+
+            if not os.path.exists(binary_path):
+                raise ValueError(
+                    f"Error! Cannot locate binary: {binary_name} - not "
+                    f"in $PATH and not in {self.hl_kent_binaries_path}"
+                )
         return binary_path
 
 
