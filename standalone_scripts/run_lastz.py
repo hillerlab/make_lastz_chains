@@ -273,6 +273,13 @@ def verbose_msg(msg):
     sys.stderr.write(f"{msg}\n")
 
 
+def check_if_output_is_non_empty(lastz_output):
+    for line in lastz_output.splitlines():
+        if line and not line.startswith("#"):
+            return True
+    return False
+
+
 def main():
     """Entry point."""
     args = parse_args()
@@ -303,13 +310,15 @@ def main():
     cmd = build_lastz_command(target_specs, query_specs, blastz_options)
     v(f"Lastz command: {cmd}")
     lastz_output = call_lastz(cmd)
-    out_to_save = make_psl_if_needed(lastz_output, args.output_format, seq_1_sizes_path, seq_2_sizes_path, v)
-    f = open(args.output, "w")
-    f.write(out_to_save)
-    f.close()
+    output_is_non_empty = check_if_output_is_non_empty(lastz_output)
 
-    # remove temp file if was used
-    if temp_is_needed:
+    if output_is_non_empty is True:
+        out_to_save = make_psl_if_needed(lastz_output, args.output_format, seq_1_sizes_path, seq_2_sizes_path, v)
+        f = open(args.output, "w")
+        f.write(out_to_save)
+        f.close()
+    # else -> output is empty -> do not save an output file -> no need
+    if temp_is_needed:  # remove temp file if was used
         shutil.rmtree(tmp_dir) if os.path.isdir(tmp_dir) else None
 
 
