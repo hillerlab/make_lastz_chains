@@ -126,6 +126,8 @@ class StepExecutables:
         self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
         self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
         self.psl_sort_acc = self.__find_binary(Constants.ToolNames.PSL_SORT_ACC)
+        self.axt_chain = self.__find_binary(Constants.ToolNames.AXT_CHAIN)
+        self.chain_anti_repeat = self.__find_binary(Constants.ToolNames.CHAIN_ANTI_REPEAT)
 
     @staticmethod
     def __find_script(script_name):

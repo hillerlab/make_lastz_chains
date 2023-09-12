@@ -54,3 +54,4 @@ def do_lastz(project_dir, params, executables):
                              Constants.NextflowConstants.LASTZ_CONFIG_PATH,
                              lastz_working_dir,
                              wait=True)
+    nextflow_manager.cleanup()

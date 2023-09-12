@@ -74,10 +74,14 @@ class Constants:
         SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
         NF_DIRNAME = "parallelization"
         NF_DIR = os.path.abspath(os.path.join(SCRIPT_LOCATION, NF_DIRNAME))
+
         NF_SCRIPT_PATH = os.path.join(NF_DIR, "execute_joblist.nf")
         LASTZ_CONFIG_PATH = os.path.join(NF_DIR, "lastz_step_config.nf")
+        CHAIN_CONFIG_PATH = os.path.join(NF_DIR, "chaining_config.nf")
 
     class ToolNames:
         PSL_SORT_ACC = "pslSortAcc"
         TWO_BIT_TO_FA = "twoBitToFa"
         FA_TO_TWO_BIT = "faToTwoBit"
+        AXT_CHAIN = "axtChain"
+        CHAIN_ANTI_REPEAT = "chainAntiRepeat"
