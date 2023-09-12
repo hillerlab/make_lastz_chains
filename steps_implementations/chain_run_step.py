@@ -13,15 +13,15 @@ def psl_bundle(cat_out_dirname, chain_run_dir, psl_sort_acc, params):
     concatenated_files = [os.path.join(cat_out_dirname, x) for x in os.listdir(cat_out_dirname)]
     file_list_arg = " ".join(concatenated_files)
 
-    psl_sort_temp_dir = os.path.join(chain_run_dir, "psl_sort_temp_dir")
+    psl_sort_temp_dir = os.path.join(chain_run_dir, Constants.PSL_SORT_TEMP_DIRNAME)
     os.makedirs(psl_sort_temp_dir, exist_ok=True)
-    sorted_psl_dir = os.path.join(chain_run_dir, "sorted_psl")
+    sorted_psl_dir = os.path.join(chain_run_dir, Constants.SORTED_PSL_DIRNAME)
     os.makedirs(sorted_psl_dir, exist_ok=True)
     sort_cmd = [psl_sort_acc, "nohead", sorted_psl_dir, psl_sort_temp_dir, file_list_arg]
     subprocess.call(sort_cmd)
     shutil.rmtree(psl_sort_temp_dir)
     # 1.2 -> bundle chrom split files
-    split_psl_dir = os.path.join(chain_run_dir, "split_psl")
+    split_psl_dir = os.path.join(chain_run_dir, Constants.SPLIT_PSL_DIRNAME)
     os.makedirs(split_psl_dir, exist_ok=True)
     bundle_chrom_split_psl_files(sorted_psl_dir, params.seq_1_len, split_psl_dir, Constants.BUNDLE_PSL_MAX_BASES)
 
@@ -36,10 +36,10 @@ def make_chains_joblist(chain_run_dir, params, executables):
     min_score = params.chain_min_score
     linear_gap = params.chain_linear_gap
 
-    chain_out_dir = os.path.join(chain_run_dir, "chain")
+    chain_out_dir = os.path.join(chain_run_dir, Constants.CHAIN_RUN_OUT_DIRNAME)
     os.makedirs(chain_out_dir, exist_ok=True)
 
-    split_psl_dir = os.path.join(chain_run_dir, "split_psl")
+    split_psl_dir = os.path.join(chain_run_dir, Constants.SPLIT_PSL_DIRNAME)
     bundle_filenames = os.listdir(split_psl_dir)
 
     cluster_jobs = []
@@ -78,7 +78,7 @@ def do_chain_run(project_dir, params, executables):
     chain_jobs = make_chains_joblist(chain_run_dir, params, executables)
 
     # Part 3: execute cluster jobs
-    joblist_path = os.path.join(chain_run_dir, "chains_joblist")
+    joblist_path = os.path.join(chain_run_dir, Constants.CHAIN_JOBLIST_FILENAME)
     with open(joblist_path, "w") as f:
         f.write("\n".join(chain_jobs))
     nextflow_manager = NextflowWrapper()
@@ -87,28 +87,3 @@ def do_chain_run(project_dir, params, executables):
                              chain_run_dir,
                              wait=True)
     nextflow_manager.cleanup()
-    # Mocking the bundling of PSL files
-    # bundle_psl_for_chaining(input_dir, output_dir, output_file_list, max_bases, gzipped)
-    # print(bundled_output_dir)
-    #
-    # return
-    # Mocking the parallel execution
-    # f = open(joblist_path, "w")
-    #
-    # # Loop through the PSL files and prepare chaining commands
-    # psl_files = [f for f in os.listdir(split_psl_dir) if f.endswith(".psl")]
-    # for psl_file in psl_files:
-    #     output_chain_file = os.path.join(chain_dir, f"{psl_file}.chain")
-    #
-    #     # Prepare the chaining command as a string
-    #     axt_chain_command = f"{executables.axt_chain} -psl -verbose=0 {matrix} -minScore={min_score} -linearGap={linear_gap} stdin {seq1_dir} {seq2_dir} stdout"
-    #
-    #     chain_anti_repeat_command = f"{executables.chain_anti_repeat} {seq1_dir} {seq2_dir} stdin {output_chain_file}"
-    #
-    #     # Combine the two commands into a single string using a pipe
-    #     full_command = f"{axt_chain_command} | {chain_anti_repeat_command}"
-    #
-    #     f.write(f"{full_command}\n")
-    # f.close()
-    # TODO check joblist validity
-    # TODO execute jobs in parallel

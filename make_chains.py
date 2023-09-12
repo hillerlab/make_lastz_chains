@@ -4,9 +4,9 @@ import argparse
 import sys
 import os
 import subprocess
-import shutil
 from datetime import datetime as dt
 from constants import Constants
+from modules.step_executables import StepExecutables
 from modules.project_directory import OutputDirectoryManager
 from modules.step_manager import StepManager
 from modules.parameters import PipelineParameters
@@ -117,41 +117,6 @@ def parse_args():
     return args
 
 
-class StepExecutables:
-    def __init__(self):
-        self.partition_script = self.__find_script("partitionSequence.pl")
-        self.lastz_wrapper = self.__find_script("run_lastz.py")
-        self.split_chain_into_random_parts = self.__find_script("split_chain_into_random_parts.pl")
-        self.hl_kent_binaries_path = os.path.join(SCRIPT_LOCATION, Constants.KENT_BINARIES_DIRNAME)
-        self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
-        self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
-        self.psl_sort_acc = self.__find_binary(Constants.ToolNames.PSL_SORT_ACC)
-        self.axt_chain = self.__find_binary(Constants.ToolNames.AXT_CHAIN)
-        self.chain_anti_repeat = self.__find_binary(Constants.ToolNames.CHAIN_ANTI_REPEAT)
-
-    @staticmethod
-    def __find_script(script_name):
-        rel_path = os.path.join(SCRIPT_LOCATION, "standalone_scripts", script_name)
-        abs_path = os.path.abspath(rel_path)
-        if not os.path.isfile(abs_path):
-            raise ValueError(f"Error! Cannot locate script: {script_name}")
-        return abs_path
-
-    def __find_binary(self, binary_name):
-        binary_path = shutil.which(binary_name)
-
-        if binary_path is None:
-            # Try to find it in the HL_kent_binaries directory
-            binary_path = os.path.join(self.hl_kent_binaries_path, binary_name)
-
-            if not os.path.exists(binary_path):
-                raise ValueError(
-                    f"Error! Cannot locate binary: {binary_name} - not "
-                    f"in $PATH and not in {self.hl_kent_binaries_path}"
-                )
-        return binary_path
-
-
 def log_version():
     """Get git hash and current branch if possible."""
     cmd_hash = "git rev-parse HEAD"
@@ -175,6 +140,7 @@ def log_version():
 def run_pipeline(args):
     # setup project dir, parameters and step manager
     start_time = dt.now()
+    # TODO: class to hold paths within the project
     project_dir = OutputDirectoryManager(args).project_dir
     step_manager = StepManager(project_dir, args)
     parameters = PipelineParameters(args)
@@ -185,7 +151,7 @@ def run_pipeline(args):
     to_log(f"Pipeline started at {start_time}")
 
     parameters.dump_to_json(project_dir)
-    step_executables = StepExecutables()
+    step_executables = StepExecutables(SCRIPT_LOCATION)
     # initiate input files
     target_chrom_rename_table = setup_genome_sequences(args.target_genome,
                                                        args.target_name,

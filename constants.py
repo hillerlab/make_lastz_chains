@@ -62,8 +62,15 @@ class Constants:
     TEMP_LASTZ_DIRNAME = "TEMP_run.lastz"
     TEMP_PSL_DIRNAME = "TEMP_psl"
     TEMP_CAT_DIRNAME = "TEMP_run.cat"
+    CHAIN_JOBLIST_FILENAME = "chains_joblist"
+
     TEMP_AXT_CHAIN_DIRNAME = "TEMP_axtChain"
-    SPLIT_PSL_DIRNAME = "splitPSL"
+    # chain run dir content - TEMP_AXT_CHAIN_DIRNAME/*
+    SORTED_PSL_DIRNAME = "sorted_psl"
+    SPLIT_PSL_DIRNAME = "split_psl"
+    CHAIN_RUN_OUT_DIRNAME = "chain"
+    PSL_SORT_TEMP_DIRNAME = "psl_sort_temp_dir"
+    # >>>> chain run dir
 
     PARAMS_JSON_FILENAME = "pipeline_parameters.json"
     LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"
@@ -85,3 +92,4 @@ class Constants:
         FA_TO_TWO_BIT = "faToTwoBit"
         AXT_CHAIN = "axtChain"
         CHAIN_ANTI_REPEAT = "chainAntiRepeat"
+        CHAIN_MERGE_SORT = "chainMergeSort"

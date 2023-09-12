@@ -8,6 +8,7 @@ from steps_implementations.partition import do_partition_for_genome
 from steps_implementations.lastz_step import do_lastz
 from steps_implementations.cat_step import do_cat
 from steps_implementations.chain_run_step import do_chain_run
+from steps_implementations.chain_merge_step import do_chains_merge
 
 
 class PipelineSteps:
@@ -58,7 +59,8 @@ class PipelineSteps:
     @staticmethod
     def chain_merge_step(project_dir, params, executables):
         to_log("# Step Chain Merge")
-        raise NotImplementedError("not yet")
+        do_chains_merge(project_dir, params, executables)
+
 
     @staticmethod
     def fill_chains_step(project_dir, params, executables):
