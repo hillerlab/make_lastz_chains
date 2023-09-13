@@ -27,14 +27,14 @@ def split_chain_file(chain_file, id_to_fh, fhs):
                 out_fh.write("\n")
 
 
-def split_chains(chain, nsplit, prefix):
+def randomly_split_chains(chain, nsplit, prefix):
     chain_ids = get_chain_ids(chain)
     print(f"Found {len(chain_ids)} chain IDs")
 
     id_to_fh = assign_ids_to_files(chain_ids, nsplit)
-    max_num_filex = max(id_to_fh.values())
+    max_num_filex = max(id_to_fh.values()) + 1
 
-    fhs = [open(f"{prefix}{i}", 'w') for i in range(max_num_filex + 1)]
+    fhs = [open(f"{prefix}{i}", 'w') for i in range(max_num_filex)]
     split_chain_file(chain, id_to_fh, fhs)
 
     for fh in fhs:

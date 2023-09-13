@@ -100,3 +100,4 @@ class Constants:
         CHAIN_ANTI_REPEAT = "chainAntiRepeat"
         CHAIN_MERGE_SORT = "chainMergeSort"
         CHAIN_CLEANER = "chainCleaner"
+        REPEAT_FILLER = "chain_gap_filler.py"

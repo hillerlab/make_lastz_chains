@@ -58,6 +58,7 @@ class ProjectPaths:
         self.fill_chain_jobs_dir = self._j_abs(self.fill_chain_run_dir, "jobs")
 
         self.fill_chain_joblist_prepare = self._j_abs(self.fill_chain_run_dir, "jobList_prepare.txt")
+        self.repeat_filler_joblist = self._j_abs(self.fill_chain_run_dir, "repeat_filler_joblist.txt")
         self.fill_chain_joblist_merge = self._j_abs(self.fill_chain_run_dir, "fill_merge.txt")
 
         # CLEAN CHAIN

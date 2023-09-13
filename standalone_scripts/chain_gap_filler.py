@@ -830,6 +830,27 @@ def main():
 
     # 3) Check if executing the jobList returned nothing = no new blocks to add
     if all_mini_chains == "":
+        # This dirty patch is added by Bogdan Kirilenko
+        # if there is nothing to insert -> the script does not return anything
+        # TODO: refactor this part
+        if args.output:
+            try:
+                ouf = open(args.output, "w")
+            except IOError as e:
+                logging.error("Cannot write to output file", e.errno, e.strerror)
+                sys.exit(1)
+        else:  # Bogdan: ouf not defined if not args.output
+            ouf = sys.stdout
+
+            # print output
+        if args.output:
+            ouf.write(current_chain_string)
+        else:
+            print(current_chain_string)
+
+        # close output file handle
+        if args.output:
+            ouf.close()
         logging.info("Found no new blocks to insert in this chain. Done!")
     else:
         logging.info(

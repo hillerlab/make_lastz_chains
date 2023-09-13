@@ -78,7 +78,6 @@ def parse_args():
     return args
     
 
-
 def main():
     args = parse_args()
     # TODO: check that numeric?
@@ -86,6 +85,7 @@ def main():
     for chain_id in chain_ids:
         chain_str = chain_extract_id(args.chainIndex, chain_id, chain_file=args.chainFile)
         sys.stdout.write(chain_str)
+
 
 if __name__ == "__main__":
     main()

@@ -8,6 +8,10 @@
 To test:
 `./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f`
 
+To not forget:
+
+- gcc command to build chain_bst_lib.so
+
 Portable Hillerlab solution for generating pairwise genome alignment chains.
 These chains can be used as input for [TOGA](https://github.com/hillerlab/TOGA) or for generating multiz alignments.
 

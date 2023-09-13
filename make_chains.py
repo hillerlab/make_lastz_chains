@@ -183,6 +183,7 @@ def run_pipeline(args):
     # setup project dir, parameters and step manager
     start_time = dt.now()
     # TODO: class to hold paths within the project
+    step_executables = StepExecutables(SCRIPT_LOCATION)
     project_dir = OutputDirectoryManager(args).project_dir
     parameters = PipelineParameters(args)
     project_paths = ProjectPaths(project_dir, SCRIPT_LOCATION, parameters)
@@ -194,7 +195,6 @@ def run_pipeline(args):
     to_log(f"Pipeline started at {start_time}")
 
     parameters.dump_to_json(project_dir)
-    step_executables = StepExecutables(SCRIPT_LOCATION)
     # initiate input files
     setup_genome_sequences(args.target_genome,
                            args.target_name,
