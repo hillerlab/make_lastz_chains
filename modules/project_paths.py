@@ -86,7 +86,10 @@ class ProjectPaths:
             self.psl_sort_temp_dir,
             self.sorted_psl_dir,
             self.split_psl_dir,
-            self.chain_output_dir
+            self.chain_output_dir,
+            self.fill_chain_run_dir,
+            self.fill_chain_filled_dir,
+            self.fill_chain_jobs_dir
         ]
 
         for directory in directories_to_create:

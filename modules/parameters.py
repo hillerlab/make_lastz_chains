@@ -44,6 +44,8 @@ class PipelineParameters:
 
         self.fill_memory = args.fill_memory
         self.fill_prepare_memory = args.fill_prepare_memory
+        self.num_fill_jobs = args.num_fill_jobs
+
         # self.chaining_queue = args.chaining_queue
         self.chaining_memory = args.chaining_memory
         self.clean_chain = args.clean_chain

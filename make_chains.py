@@ -83,6 +83,7 @@ def parse_args():
                                  type=str)
     pipeline_params.add_argument("--fill_chain", default=Constants.DEFAULT_FILL_CHAIN_ARG, type=int)
     pipeline_params.add_argument("--fill_unmask", default=Constants.DEFAULT_FILL_UNMASK_ARG, type=int)
+    pipeline_params.add_argument("--num_fill_jobs", default=Constants.DEFAULT_NUM_FILL_JOBS, type=int)
     pipeline_params.add_argument("--fill_chain_min_score",
                                  default=Constants.DEFAULT_FILL_CHAIN_MIN_SCORE,
                                  type=int)

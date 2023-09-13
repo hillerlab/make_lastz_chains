@@ -43,6 +43,7 @@ class Constants:
     DEFAULT_CHAIN_CLEAN_MEMORY = 100_000
 
     BUNDLE_PSL_MAX_BASES = 1_000_000
+    DEFAULT_NUM_FILL_JOBS = 1_000
 
     # TODO: fill the rest of defaults and constants
     DEFAULT_CLEAN_CHAIN_PARAMS = (

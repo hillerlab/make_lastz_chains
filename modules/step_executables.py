@@ -11,7 +11,6 @@ class StepExecutables:
 
         self.partition_script = self.__find_script("partitionSequence.pl")
         self.lastz_wrapper = self.__find_script("run_lastz.py")
-        self.split_chain_into_random_parts = self.__find_script("split_chain_into_random_parts.pl")
         self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
         self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
         self.psl_sort_acc = self.__find_binary(Constants.ToolNames.PSL_SORT_ACC)
