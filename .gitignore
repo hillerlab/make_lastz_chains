@@ -28,5 +28,6 @@ chain_clean_micro_env/chainNet
 
 # test data
 test_out/
+test_out_2/
 test_data/humanChrX.fa
 test_data/mm39ChrX.fa

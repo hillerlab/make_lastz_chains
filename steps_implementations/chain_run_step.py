@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from parallelization.nextflow_wrapper import NextflowWrapper
 from steps_implementations.chain_run_bundle_substep import bundle_chrom_split_psl_files
-
+from modules.make_chains_logging import to_log
 
 from constants import Constants
 from modules.parameters import PipelineParameters
@@ -12,17 +12,34 @@ from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 
 
-def psl_bundle(cat_out_dirname, project_paths, psl_sort_acc, params):
+# def call_perl_bundle(executables, split_psl, seq_1_len, output_dir):
+#     # $call = "$bundleChromSplitPslFiles $splitPSL $defVars{'SEQ1_LEN'} $outputDir -maxBases $maxBases";
+#     cmd = [
+#         executables.bundle_script,
+#         split_psl,
+#         seq_1_len,
+#         output_dir,
+#         "-maxBases",
+#         str(50_000_000)
+#     ]
+#     print(" ".join(cmd))
+#     rc = subprocess.call(cmd)
+#     if rc != 0:
+#         raise ValueError("COMMAND CRASHED")
+
+
+def psl_bundle(cat_out_dirname, project_paths, executables, params):
     # 1.1 -> sort
     # TODO: potentially danger part here: can exceed the bash limit for number of arguments
     concatenated_files = [os.path.join(cat_out_dirname, x) for x in os.listdir(cat_out_dirname)]
     file_list_arg = " ".join(concatenated_files)
 
-    sort_cmd = [psl_sort_acc,
+    sort_cmd = [executables.psl_sort_acc,
                 "nohead",
                 project_paths.sorted_psl_dir,
                 project_paths.psl_sort_temp_dir,
                 file_list_arg]
+    to_log(" ".join(sort_cmd))
     subprocess.call(sort_cmd)
     shutil.rmtree(project_paths.psl_sort_temp_dir)
     # 1.2 -> bundle chrom split files
@@ -30,6 +47,8 @@ def psl_bundle(cat_out_dirname, project_paths, psl_sort_acc, params):
                                  params.seq_1_len,
                                  project_paths.split_psl_dir,
                                  Constants.BUNDLE_PSL_MAX_BASES)
+    # TODO: try original perl script, maybe here is a problem
+    # call_perl_bundle(executables, project_paths.sorted_psl_dir, params.seq_1_len, project_paths.split_psl_dir)
 
 
 def make_chains_joblist(project_paths: ProjectPaths,
@@ -72,7 +91,7 @@ def do_chain_run(params: PipelineParameters,
                  project_paths: ProjectPaths,
                  executables: StepExecutables):
     # Part 1: make bundles
-    psl_bundle(project_paths.cat_out_dirname, project_paths, executables.psl_sort_acc, params)
+    psl_bundle(project_paths.cat_out_dirname, project_paths, executables, params)
 
     # Part 2: create chains joblist
     chain_jobs = make_chains_joblist(project_paths, params, executables)
