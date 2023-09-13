@@ -24,13 +24,6 @@ class Version:
                     line = f'![version](https://img.shields.io/badge/version-{self.version_repr}-blue)\n'
                 f.write(line)
 
-    # def check_changelog(self, filename="VersionHistory.md"):
-    #     with open(filename, "r") as f:
-    #         header_lines = [x for x in f if x.startswith("# ") and x.endswith(" #\n")]
-    #     header_lines_with_this_v = [x for x in header_lines if f" {self.version_repr} " in x]
-    #     if len(header_lines_with_this_v) == 0:
-    #         print(f"Warning! The version {self.version_repr} is absent in the {filename}")
-
     def __repr__(self):
         return self.version_repr
 
@@ -38,7 +31,7 @@ class Version:
         return self.version_repr
 
 
-__version__ = Version(0, 0, 1)
+__version__ = Version(2, 0, 0, metadata="alpha")
 
 if __name__ == "__main__":
     print(f"Make Lastz Chains Version: {__version__}")

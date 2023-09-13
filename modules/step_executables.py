@@ -18,6 +18,7 @@ class StepExecutables:
         self.axt_chain = self.__find_binary(Constants.ToolNames.AXT_CHAIN)
         self.chain_anti_repeat = self.__find_binary(Constants.ToolNames.CHAIN_ANTI_REPEAT)
         self.chain_merge_sort = self.__find_binary(Constants.ToolNames.CHAIN_MERGE_SORT)
+        self.chain_cleaner = self.__find_binary(Constants.ToolNames.CHAIN_CLEANER)
 
     def __find_script(self, script_name):
         rel_path = os.path.join(self.root_dir, "standalone_scripts", script_name)

@@ -47,7 +47,7 @@ class ProjectPaths:
 
         # FILL CHAIN
         self.filled_chain_filename = f"{params.target_name}.{params.query_name}.filled.chain.gz"
-        self.filled_chain = self._j_abs(self.chain_run_dir, self.merged_chain_filename)
+        self.filled_chain = self._j_abs(self.chain_run_dir, self.filled_chain_filename)
 
         self.fill_chain_run_dir = self._j_abs(self.project_dir, "TEMP_run.fillChain")  # TODO: constant
         self.fill_chain_filled_dir = self._j_abs(self.fill_chain_run_dir, "filledChain")  # TODO: constant
@@ -55,7 +55,12 @@ class ProjectPaths:
 
         self.fill_chain_joblist_prepare = self._j_abs(self.fill_chain_run_dir, "jobList_prepare.txt")
         self.fill_chain_joblist_merge = self._j_abs(self.fill_chain_run_dir, "fill_merge.txt")
+
         # CLEAN CHAIN
+        self.before_cleaning_chain_filename = f"{params.target_name}.{params.query_name}.before_cleaning.chain.gz"
+        self.before_cleaning_chain = self._j_abs(self.chain_run_dir, self.before_cleaning_chain_filename)
+        self.clean_removed_suspects = self._j_abs(self.chain_run_dir, "removed_suspects.bed")
+        self.chain_cleaner_log = self._j_abs(self.chain_run_dir, "chain_cleaner.log")
         self._create_dirs()
 
     @staticmethod

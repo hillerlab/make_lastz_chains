@@ -3,7 +3,11 @@ import os
 import subprocess
 import json
 from constants import Constants
+from modules.parameters import PipelineParameters
+from modules.project_paths import ProjectPaths
+from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
+from modules.step_status import StepStatus
 from steps_implementations.partition import do_partition_for_genome
 from steps_implementations.lastz_step import do_lastz
 from steps_implementations.cat_step import do_cat
@@ -69,10 +73,10 @@ class PipelineSteps:
 
     @staticmethod
     def fill_chains_step(params, project_paths, executables):
-        if params.clean_chain == 0:
+        if params.fill_chain == 0:
             # TODO: consider bool here
-            to_log("Skipping chain merge")
-            return
+            to_log("Skipping chain fill")
+            return StepStatus.SKIPPED
         to_log("# Step Fill Chains")
         do_chains_fill(params, project_paths, executables)
 
@@ -82,5 +86,5 @@ class PipelineSteps:
         if params.clean_chain == 0:
             # TODO: consider bool here
             to_log("Skipping clean chain")
-            return
+            return StepStatus.SKIPPED
         do_chains_clean(params, project_paths, executables)

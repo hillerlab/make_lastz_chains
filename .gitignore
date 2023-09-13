@@ -20,4 +20,5 @@ test_out/
 HL_kent_binaries/pslSortAcc
 HL_kent_binaries/chainAntiRepeat
 HL_kent_binaries/chainMergeSort
+HL_kent_binaries/chainCleaner
 # to be continued

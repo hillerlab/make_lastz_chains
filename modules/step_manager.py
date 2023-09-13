@@ -3,14 +3,7 @@ import json
 import os
 import traceback
 from modules.pipeline_steps import PipelineSteps
-from enum import Enum
-
-
-class StepStatus(Enum):
-    NOT_STARTED = "not_started"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
+from modules.step_status import StepStatus
 
 
 class StepManager:
@@ -61,9 +54,10 @@ class StepManager:
                 self.mark_step_status(step, StepStatus.RUNNING)
                 try:
                     # Execute the actual step function here
-                    step_to_function[step](params, project_paths, step_executables)
+                    step_result = step_to_function[step](params, project_paths, step_executables)
+                    step_result = step_result if step_result else StepStatus.COMPLETED
                     # After successful execution:
-                    self.mark_step_status(step, StepStatus.COMPLETED)
+                    self.mark_step_status(step, step_result)
                 except Exception as e:
                     print(f"An error occurred while executing {step}: {e}")
                     traceback.print_exc()

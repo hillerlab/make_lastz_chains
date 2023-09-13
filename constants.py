@@ -46,8 +46,12 @@ class Constants:
 
     # TODO: fill the rest of defaults and constants
     DEFAULT_CLEAN_CHAIN_PARAMS = (
-        "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 "
-        "-maxSuspectScore=100000 -minBrokenChainScore=75000"
+        "-LRfoldThreshold=2.5 "
+        "-doPairs "
+        "-LRfoldThresholdPairs=10 "
+        "-maxPairDistance=10000 "
+        "-maxSuspectScore=100000 "
+        "-minBrokenChainScore=75000"
     )
 
     TARGET_LABEL = "target"
@@ -93,3 +97,4 @@ class Constants:
         AXT_CHAIN = "axtChain"
         CHAIN_ANTI_REPEAT = "chainAntiRepeat"
         CHAIN_MERGE_SORT = "chainMergeSort"
+        CHAIN_CLEANER = "chainCleaner"
