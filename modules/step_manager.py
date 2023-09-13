@@ -1,7 +1,9 @@
 """Pipeline step manager."""
 import json
 import os
+import sys
 import traceback
+from modules.make_chains_logging import to_log
 from modules.pipeline_steps import PipelineSteps
 from modules.step_status import StepStatus
 
@@ -59,7 +61,7 @@ class StepManager:
                     # After successful execution:
                     self.mark_step_status(step, step_result)
                 except Exception as e:
-                    print(f"An error occurred while executing {step}: {e}")
+                    to_log(f"An error occurred while executing {step}: {e}")
                     traceback.print_exc()
                     self.mark_step_status(step, StepStatus.FAILED)
-                    break
+                    sys.exit(1)

@@ -14,4 +14,5 @@ def do_chains_fill(params: PipelineParameters,
     # print $fh "for f in $jobsDir/infillChain_*\n";
     # print $fh "do\n";
     # print $fh "\techo $runFillSc
-    print("Not implemented!")
+    raise NotImplementedError
+
