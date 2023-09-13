@@ -57,3 +57,7 @@ def do_chains_clean(params: PipelineParameters,
         # is not a binary in $PATH.Either install it or provide the nets as input.
         # raise RuntimeError(f"Command {chain_cleaner_cmd} crashed")
     to_log(f"Chain clean results saved to: {_output_chain}")
+
+    gzip_cmd = ["gzip", _output_chain]
+    subprocess.call(gzip_cmd)
+    to_log("Chain clean DONE")

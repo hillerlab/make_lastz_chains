@@ -13,7 +13,7 @@ class ProjectPaths:
         self.log_file = self._j_abs(project_dir, "run.log")
 
         self.reference_genome = self._j_abs(project_dir, f"{Constants.TARGET_LABEL}.2bit")
-        self.query_chrom_sizes = self._j_abs(project_dir, f"{Constants.QUERY_LABEL}.2bit")
+        self.query_genome = self._j_abs(project_dir, f"{Constants.QUERY_LABEL}.2bit")
 
         self.reference_partitions = self._j_abs(project_dir, f"{Constants.TARGET_LABEL}_partitions.txt")
         self.query_partitions = self._j_abs(project_dir, f"{Constants.QUERY_LABEL}_partitions.txt")
@@ -65,6 +65,10 @@ class ProjectPaths:
         self.before_cleaning_chain = self._j_abs(self.chain_run_dir, self.before_cleaning_chain_filename)
         self.clean_removed_suspects = self._j_abs(self.chain_run_dir, "removed_suspects.bed")
         self.chain_cleaner_log = self._j_abs(self.chain_run_dir, "chain_cleaner.log")
+
+        self.filled_chain_filename = f"{params.target_name}.{params.query_name}.final.chain.gz"
+        self.final_chain = self._j_abs(self.project_dir, self.filled_chain_filename)
+        # Create necessary directories
         self._create_dirs()
 
     @staticmethod

@@ -12,7 +12,6 @@ class NextflowWrapper:
     """
 
     def __init__(self):
-        super().__init__()
         self._process = None
         self.joblist_path = None
         self.config_file = None
@@ -55,5 +54,8 @@ class NextflowWrapper:
         return self.return_code
 
     def cleanup(self):
+        """Nextflow produces a bunch of files: to be removed."""
         nf_dir = os.path.join(self.execute_dir, ".nextflow")
+        work_dir = os.path.join(self.execute_dir, "work")
         shutil.rmtree(nf_dir)
+        shutil.rmtree(work_dir)

@@ -50,6 +50,7 @@ class PipelineParameters:
         self.chain_clean_memory = args.chain_clean_memory
         self.clean_chain_parameters = args.clean_chain_parameters
 
+        self.keep_temp = args.keep_temp
         # perform sanity checks and quit if something is wrong
         self.__sanity_checks()
 

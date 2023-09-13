@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Make LASTZ chains master script."""
 import argparse
+import shutil
 import sys
 import os
 import subprocess
@@ -55,6 +56,11 @@ def parse_args():
     )
 
     app.add_argument("--cluster_executor", default="local", help="Nextflow executor parameter")
+    app.add_argument("--keep_temp",
+                     "--kt",
+                     dest="keep_temp",
+                     action="store_true",
+                     help="Do not remove temp files")
 
     # Pipeline parameters group
     pipeline_params = app.add_argument_group('Pipeline Parameters')
@@ -138,6 +144,40 @@ def log_version():
     return version
 
 
+def save_final_chain(parameters: PipelineParameters, project_paths: ProjectPaths):
+    # get final result chain
+    if parameters.fill_chain == 1:
+        last_chain_file = project_paths.filled_chain
+    else:
+        last_chain_file = project_paths.merged_chain
+    # save it to the root project dir
+    shutil.move(last_chain_file, project_paths.final_chain)
+
+
+def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
+    """Perform the cleanup."""
+    print("Mock cleanup step")
+    if parameters.keep_temp:
+        return  # cleanup is not necessary
+    dirs_to_del = [
+        project_paths.chain_run_dir,
+        project_paths.cat_out_dirname,
+        project_paths.psl_output_dir,
+        project_paths.lastz_working_dir
+    ]
+    to_log("Cleaning up the following directories")
+    for dirname in dirs_to_del:
+        to_log(f"x {dirname}")
+        shutil.rmtree(dirname)
+
+    os.remove(project_paths.reference_genome)
+    os.remove(project_paths.query_genome)
+    os.remove(project_paths.reference_partitions)
+    os.remove(project_paths.query_partitions)
+    os.remove(project_paths.ref_chrom_sizes)
+    os.remove(project_paths.query_chrom_sizes)
+
+
 def run_pipeline(args):
     # setup project dir, parameters and step manager
     start_time = dt.now()
@@ -169,6 +209,8 @@ def run_pipeline(args):
     step_manager.execute_steps(parameters, step_executables, project_paths)
 
     # check result?
+    save_final_chain(parameters, project_paths)
+    cleanup(parameters, project_paths)
     # TODO: implement sanity checks
     tot_runtime = dt.now() - start_time
     to_log(f"make_lastz_chains completed in {tot_runtime}")
