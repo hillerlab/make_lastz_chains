@@ -91,6 +91,7 @@ class Constants:
         NF_SCRIPT_PATH = os.path.join(NF_DIR, "execute_joblist.nf")
         LASTZ_CONFIG_PATH = os.path.join(NF_DIR, "lastz_step_config.nf")
         CHAIN_CONFIG_PATH = os.path.join(NF_DIR, "chaining_config.nf")
+        CHAIN_FILL_CONFIG_PATH = os.path.join(NF_DIR, "filler_config.nf")
 
     class ToolNames:
         PSL_SORT_ACC = "pslSortAcc"

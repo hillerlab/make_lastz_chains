@@ -1,4 +1,5 @@
 """Fill chains step."""
+import shutil
 import subprocess
 import os
 from constants import Constants
@@ -6,6 +7,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
+from parallelization.nextflow_wrapper import NextflowWrapper
 from steps_implementations.fill_chain_split_into_parts_substep import randomly_split_chains
 
 
@@ -28,7 +30,7 @@ def create_repeat_filler_joblist(params: PipelineParameters,
     f = open(project_paths.repeat_filler_joblist, "w")
     for filename in infill_chain_filenames:
         chainf = os.path.join(project_paths.fill_chain_jobs_dir, filename)
-        chainf_out = os.path.join(project_paths.fill_chain_filled_dir, filename)
+        chainf_out = f"{os.path.join(project_paths.fill_chain_filled_dir, filename)}.chain"
         repeat_filler_command_parts = [
             executables.repeat_filler,
             f"--workdir {project_paths.fill_chain_run_dir}",
@@ -61,16 +63,43 @@ def create_repeat_filler_joblist(params: PipelineParameters,
     to_log(f"Saved {len(infill_chain_filenames)} chain fill jobs to {project_paths.repeat_filler_joblist}")
 
 
+def merge_filled_chains(params: PipelineParameters,
+                        project_paths: ProjectPaths,
+                        executables: StepExecutables):
+    files_to_merge = os.listdir(project_paths.fill_chain_filled_dir)
+    # Create the 'find' command
+    find_cmd = ["find", project_paths.fill_chain_filled_dir, "-type", "f", "-name", "*.chain", "-print"]
+
+    # Create the 'chainMergeSort' command
+    merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin"]
+
+    # Create the 'gzip' command
+    gzip_cmd = ["gzip", "-c"]
+
+    # Execute the 'find' command and capture its output
+    find_process = subprocess.Popen(find_cmd, stdout=subprocess.PIPE)
+
+    # Pipe the output of 'find' to 'chainMergeSort'
+    merge_sort_process = subprocess.Popen(merge_sort_cmd, stdin=find_process.stdout, stdout=subprocess.PIPE)
+
+    # Close the stdout of 'find_process'
+    find_process.stdout.close()
+
+    # Pipe the output of 'chainMergeSort' to 'gzip'
+    with open(project_paths.filled_chain, "wb") as f:
+        gzip_process = subprocess.Popen(gzip_cmd, stdin=merge_sort_process.stdout, stdout=f)
+
+    # Close the stdout of 'merge_sort_process'
+    merge_sort_process.stdout.close()
+
+    # Wait for 'gzip' to finish
+    gzip_process.communicate()
+
+
 def do_chains_fill(params: PipelineParameters,
                    project_paths: ProjectPaths,
                    executables: StepExecutables):
-    # create jobs
-    # print $fh "$splitChain_into_randomParts -c $runDir/all.chain -n $numFillJobs -p $jobsDir/infillChain_\n";
-    # print $fh "for f in $jobsDir/infillChain_*\n";
-    # print $fh "do\n";
-    # print $fh "\techo $runFillSc
-
-    # 1. job preparation script
+    # 1. jobs preparation
     infill_template = f"{project_paths.fill_chain_jobs_dir}/infill_chain_"
 
     # Need to unzip the zipped merged chain first...
@@ -88,5 +117,17 @@ def do_chains_fill(params: PipelineParameters,
 
     # 2. create and execute fill joblist
     create_repeat_filler_joblist(params, project_paths, executables)
-    raise NotImplementedError
+    nextflow_manager = NextflowWrapper()
+    nextflow_manager.execute(project_paths.repeat_filler_joblist,
+                             Constants.NextflowConstants.LASTZ_CONFIG_PATH,
+                             project_paths.fill_chain_run_dir,
+                             wait=True)
+    nextflow_manager.cleanup()
 
+    # 3. merge the filled chains
+    merge_filled_chains(params, project_paths, executables)
+
+    # 4. do cleanup
+    shutil.rmtree(project_paths.fill_chain_jobs_dir)
+    shutil.rmtree(project_paths.fill_chain_filled_dir)
+    os.remove(temp_in_chain)
