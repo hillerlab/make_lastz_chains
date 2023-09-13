@@ -7,6 +7,8 @@
 
 To test:
 `./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f`
+`./make_chains.py target query test_data/humanChrX.fa test_data/mm39ChrX.fa --pd test_out_2 -f`
+`./make_chains.py target query test_data/humanChrX.fa test_data/mm39ChrX.fa --pd test_out_2 --cfs chain_run --kt`
 
 To not forget:
 

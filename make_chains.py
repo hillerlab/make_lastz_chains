@@ -42,6 +42,7 @@ def parse_args():
 
     app.add_argument(
         "--continue_from_step",
+        "--cfs",
         help="Continue pipeline execution from this step",
         choices=PipelineSteps.ORDER,
         default=None,

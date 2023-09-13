@@ -10,7 +10,6 @@ class StepExecutables:
         self.hl_kent_binaries_path = os.path.join(root_dir, Constants.KENT_BINARIES_DIRNAME)
 
         # TODO: organize constants
-        self.partition_script = self.__find_script("partitionSequence.pl")
         self.lastz_wrapper = self.__find_script("run_lastz.py")
         self.repeat_filler = self.__find_script(Constants.ToolNames.REPEAT_FILLER)
         self.chain_extract_id = self.__find_binary("chainExtractID.py")

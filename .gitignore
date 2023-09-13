@@ -14,7 +14,7 @@ temp/*
 venv/*
 __pycache__/*
 modules/__pycache__/*
-
+*/__pycache__/
 
 # Kent binaries
 HL_kent_binaries/pslSortAcc

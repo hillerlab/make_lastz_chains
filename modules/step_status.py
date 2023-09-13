@@ -8,3 +8,7 @@ class StepStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+    @classmethod
+    def from_string(cls, value):
+        return cls(value)

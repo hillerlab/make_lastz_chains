@@ -13,15 +13,17 @@ class StepManager:
         self.project_dir = project_paths.project_dir
         self.steps_file = project_paths.steps_json
         self.steps = {s: StepStatus.NOT_STARTED for s in PipelineSteps.ORDER}
-        self.continue_arg = args.continue_arg if hasattr(args, 'continue_arg') else None
+        self.continue_from_step = args.continue_from_step
         self.load_or_init_steps()
 
     def load_or_init_steps(self):
         if os.path.exists(self.steps_file):
             with open(self.steps_file, "r") as f:
-                self.steps = json.load(f)
-            if self.continue_arg:
-                self.set_continue_from_step(self.continue_arg)
+                with open(self.steps_file, "r") as f:
+                    loaded_steps = json.load(f)
+                self.steps = {k: StepStatus.from_string(v) for k, v in loaded_steps.items()}
+            if self.continue_from_step:
+                self.set_continue_from_step(self.continue_from_step)
         else:
             self.save_steps()
 
@@ -30,9 +32,19 @@ class StepManager:
         with open(self.steps_file, "w") as f:
             json.dump(serializable_steps, f, indent=4)
 
-    def set_continue_from_step(self, step):
-        for s in self.steps.keys():
-            self.steps[s] = StepStatus.NOT_STARTED if s == step else StepStatus.COMPLETED
+    def set_continue_from_step(self, step_to_start_from):
+        to_log(f"### Trying to continue from step: {step_to_start_from}")
+        mark_following = False
+        for step in PipelineSteps.ORDER:
+            if step_to_start_from == step:
+                self.steps[step] = StepStatus.NOT_STARTED
+                mark_following = True
+            elif mark_following:
+                self.steps[step] = StepStatus.NOT_STARTED
+            elif mark_following is False and self.steps[step] == StepStatus.FAILED:
+                raise ValueError(f"Cannot start from {step_to_start_from}: {step} failed")
+            elif mark_following is False and self.steps[step] == StepStatus.NOT_STARTED:
+                raise ValueError(f"Cannot start from {step_to_start_from}: {step} was not done")
         self.save_steps()
 
     def mark_step_status(self, step, status):

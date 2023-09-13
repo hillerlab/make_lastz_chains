@@ -6,10 +6,8 @@ class Constants:
     DESCRIPTION = "Pipeline to create chain-formatted pairwise genome alignments."
 
     # defaults
-    # DEFAULT_SEQ1_CHUNK = 175_000_000
-    # DEFAULT_SEQ2_CHUNK = 50_000_000
-    DEFAULT_SEQ1_CHUNK = 200_000
-    DEFAULT_SEQ2_CHUNK = 80_000
+    DEFAULT_SEQ1_CHUNK = 20_000_000  # 175_000_000
+    DEFAULT_SEQ2_CHUNK = 12_000_000  # 50_000_000
     DEFAULT_SEQ1_LAP = 0
     DEFAULT_SEQ1_LIMIT = 4000  # what is it?
     DEFAULT_SEQ2_LAP = 10_000
@@ -43,7 +41,7 @@ class Constants:
     DEFAULT_CHAIN_CLEAN_MEMORY = 100_000
 
     BUNDLE_PSL_MAX_BASES = 1_000_000
-    DEFAULT_NUM_FILL_JOBS = 1_000
+    DEFAULT_NUM_FILL_JOBS = 1000
 
     # TODO: fill the rest of defaults and constants
     DEFAULT_CLEAN_CHAIN_PARAMS = (
