@@ -6,8 +6,9 @@ from constants import Constants
 
 class ProjectPaths:
     # TODO: implement it, mode all chain_run_dir, chain_out_dir, etc. here
-    def __init__(self, project_dir, params):
+    def __init__(self, project_dir, root_dir, params):
         self.project_dir = project_dir
+        self.root_dir = root_dir
         self.steps_json = self._j_abs(project_dir, "steps.json")
         self.log_file = self._j_abs(project_dir, "run.log")
 
@@ -22,6 +23,9 @@ class ProjectPaths:
 
         self.target_chrom_rename_table = None
         self.query_chrom_rename_table = None
+
+        self.hl_kent_binaries = self._j_abs(root_dir, Constants.KENT_BINARIES_DIRNAME)
+        self.chain_clean_micro_env = self._j_abs(root_dir, Constants.CHAIN_CLEAN_MICRO_ENV)
 
         # LASTZ step
         self.lastz_working_dir = self._j_abs(project_dir, Constants.TEMP_LASTZ_DIRNAME)

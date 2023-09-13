@@ -80,6 +80,7 @@ class Constants:
     LASTZ_JOBLIST_FILENAME = "lastz_joblist.txt"
 
     KENT_BINARIES_DIRNAME = "HL_kent_binaries"
+    CHAIN_CLEAN_MICRO_ENV = "chain_clean_micro_env"
 
     class NextflowConstants:
         SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))

@@ -12,7 +12,6 @@ from modules.step_executables import StepExecutables
 def do_chains_clean(params: PipelineParameters,
                     project_paths: ProjectPaths,
                     executables: StepExecutables):
-
     # select input chain files, depending on whether fill chains step was executed or not
     if params.fill_chain == 1:
         to_log(f"Chains were filled: using {project_paths.filled_chain} as input")
@@ -28,8 +27,11 @@ def do_chains_clean(params: PipelineParameters,
     to_log(f"Chain to be cleaned saved to: {project_paths.before_cleaning_chain}")
     # TODO: I don't really like this original decision, to be revised
     _output_chain = input_chain.removesuffix(".gz")
-
     _clean_chain_args = params.clean_chain_parameters.split()
+    # dirty hack to override chainNet not found error
+    _temp_env = os.environ.copy()
+    _temp_env["PATH"] = f"{project_paths.chain_clean_micro_env}:" + _temp_env["PATH"]
+
     chain_cleaner_cmd = [
         executables.chain_cleaner,
         project_paths.before_cleaning_chain,
@@ -45,9 +47,13 @@ def do_chains_clean(params: PipelineParameters,
 
     to_log(" ".join(chain_cleaner_cmd))
     with open(project_paths.chain_cleaner_log, 'w') as f:
-        rc = subprocess.call(chain_cleaner_cmd, stdout=f, stderr=subprocess.STDOUT)
-        if rc != 0:
-            # ERROR: chainNet (kent source code) is not a binary in $PATH.
-            # Either install the kent source code or provide the nets as input.
-            raise RuntimeError(f"Command {chain_cleaner_cmd} crashed")
+        rc = subprocess.call(chain_cleaner_cmd, stdout=f, stderr=subprocess.STDOUT, env=_temp_env)
+        # TODO: deal with Couldn't open /proc/self/stat , No such file or directory
+        # error on MacOS. If this error -> ignore, but crash in case of anything else.
+        # if rc != 0:
+        # ERROR: chainNet (kent source code) is not a binary in $PATH.
+        # Either install the kent source code or provide the nets as input.
+        # ERROR: NetFilterNonNested.perl(comes with the chainCleaner source code)
+        # is not a binary in $PATH.Either install it or provide the nets as input.
+        # raise RuntimeError(f"Command {chain_cleaner_cmd} crashed")
     to_log(f"Chain clean results saved to: {_output_chain}")

@@ -21,4 +21,5 @@ HL_kent_binaries/pslSortAcc
 HL_kent_binaries/chainAntiRepeat
 HL_kent_binaries/chainMergeSort
 HL_kent_binaries/chainCleaner
+chain_clean_micro_env/chainNet
 # to be continued

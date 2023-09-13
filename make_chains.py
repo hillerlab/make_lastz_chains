@@ -144,7 +144,7 @@ def run_pipeline(args):
     # TODO: class to hold paths within the project
     project_dir = OutputDirectoryManager(args).project_dir
     parameters = PipelineParameters(args)
-    project_paths = ProjectPaths(project_dir, parameters)
+    project_paths = ProjectPaths(project_dir, SCRIPT_LOCATION, parameters)
     step_manager = StepManager(project_paths, args)
 
     setup_logger(project_paths.log_file)
