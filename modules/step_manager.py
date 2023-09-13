@@ -14,9 +14,9 @@ class StepStatus(Enum):
 
 
 class StepManager:
-    def __init__(self, project_dir, args):
-        self.project_dir = project_dir
-        self.steps_file = os.path.join(self.project_dir, "steps.json")
+    def __init__(self, project_paths, args):
+        self.project_dir = project_paths.project_dir
+        self.steps_file = project_paths.steps_json
         self.steps = {s: StepStatus.NOT_STARTED for s in PipelineSteps.ORDER}
         self.continue_arg = args.continue_arg if hasattr(args, 'continue_arg') else None
         self.load_or_init_steps()
@@ -44,7 +44,7 @@ class StepManager:
         self.steps[step] = status
         self.save_steps()
 
-    def execute_steps(self, project_dir, params, step_executables):
+    def execute_steps(self, params, step_executables, project_paths):
         step_to_function = {
             PipelineSteps.PARTITION: PipelineSteps.partition_step,
             PipelineSteps.LASTZ: PipelineSteps.lastz_step,
@@ -61,7 +61,7 @@ class StepManager:
                 self.mark_step_status(step, StepStatus.RUNNING)
                 try:
                     # Execute the actual step function here
-                    step_to_function[step](project_dir, params, step_executables)
+                    step_to_function[step](params, project_paths, step_executables)
                     # After successful execution:
                     self.mark_step_status(step, StepStatus.COMPLETED)
                 except Exception as e:

@@ -1,18 +1,18 @@
 """Chain merge step."""
 import os
 import subprocess
-from modules.parameters import PipelineParameters
+
 from constants import Constants
+from modules.parameters import PipelineParameters
+from modules.project_paths import ProjectPaths
+from modules.step_executables import StepExecutables
 
 
-def do_chains_merge(project_dir, params, executables):
-    chain_run_dir = os.path.join(project_dir, Constants.TEMP_AXT_CHAIN_DIRNAME)
-    chain_out_dir = os.path.join(chain_run_dir, Constants.CHAIN_RUN_OUT_DIRNAME)
-    merged_chain_filename = f"{params.target_name}.{params.query_name}.all.chain.gz"
-    merged_chain_path = os.path.join(chain_run_dir, merged_chain_filename)
-
+def do_chains_merge(params: PipelineParameters,
+                    project_paths: ProjectPaths,
+                    executables: StepExecutables):
     # Define the find command
-    find_cmd = ["find", chain_out_dir, "-name", "*chain"]
+    find_cmd = ["find", project_paths.chain_output_dir, "-name", "*chain"]
 
     # Define the chain_merge_sort command
     merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin"]
@@ -30,7 +30,7 @@ def do_chains_merge(project_dir, params, executables):
     find_process.stdout.close()
 
     # Pipe the output of chain_merge_sort to gzip
-    with open(merged_chain_path, "wb") as f:
+    with open(project_paths.merged_chain, "wb") as f:
         gzip_process = subprocess.Popen(gzip_cmd, stdin=merge_sort_process.stdout, stdout=f)
 
     # Close the stdout of merge_sort_process

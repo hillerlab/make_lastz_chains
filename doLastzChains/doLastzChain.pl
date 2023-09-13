@@ -691,7 +691,6 @@ sub doFillChains {
 	print $fh "tnamechainf=\${chainf##*/in}\n\n";
 	print $fh "#run RepeatFiller\n";
 	print $fh "echo \"..calling RepeatFiller: \"\n";
-#	print $fh "$RepeatFiller --workdir \$tdir --chainExtractID $chainExtractID --lastz $lastz --axtChain $axtChain --chainSort $chainSort -c \$chainf -T2 \$rseq -Q2 \$qseq $param --lastzParameters '$lastzParameters ' | $scoreChain -linearGap=$chainLinearGap $scoreChainParameters stdin \$rseq \$qseq stdout | $chainSort stdin $filledDir/\$tnamechainf.chain\n";
 	print $fh "$RepeatFiller --workdir $runDir --chainExtractID $chainExtractID --lastz $lastz --axtChain $axtChain --chainSort $chainSort -c \$chainf -T2 \$rseq -Q2 \$qseq $param --lastzParameters '$lastzParameters ' | $scoreChain -linearGap=$chainLinearGap $scoreChainParameters stdin \$rseq \$qseq stdout | $chainSort stdin $filledDir/\$tnamechainf.chain\n";
 #	print $fh "echo \"..clean up temp directory: \"\n";
 #	print $fh "rm -rf \$tdir\n";

@@ -1,11 +1,17 @@
 """Partition step implementation."""
 import os
-from constants import Constants
 from modules.make_chains_logging import to_log
+from constants import Constants
 from modules.common_funcs import read_chrom_sizes
+from modules.parameters import PipelineParameters
+from modules.project_paths import ProjectPaths
+from modules.step_executables import StepExecutables
 
 
-def do_partition_for_genome(genome_label, project_dir, params, executables):
+def do_partition_for_genome(genome_label: str,
+                            params: PipelineParameters,
+                            project_paths: ProjectPaths,
+                            executables: StepExecutables):
     print(f"# Partitioning for {genome_label}")
 
     # Determine directories and filenames based on the genome label
@@ -19,12 +25,15 @@ def do_partition_for_genome(genome_label, project_dir, params, executables):
     chrom_sizes = read_chrom_sizes(seq_len_file)
 
     # Create output directories
-    output_dir = os.path.join(project_dir, Constants.TEMP_LASTZ_DIRNAME)
+    output_dir = os.path.join(project_paths.project_dir, Constants.TEMP_LASTZ_DIRNAME)
     os.makedirs(output_dir, exist_ok=True)
 
     # Initialize partition list and small chrom list
     partition_list = []
-    partition_file_path = os.path.join(output_dir, f"{genome_label}_partitions.txt")
+    if genome_label == Constants.TARGET_LABEL:
+        partition_file_path = project_paths.reference_partitions
+    else:
+        partition_file_path = project_paths.query_partitions
 
     for chrom, size in chrom_sizes.items():
         start = 0
@@ -42,6 +51,7 @@ def do_partition_for_genome(genome_label, project_dir, params, executables):
     return partition_list
 
 
+"""
 # Not necessary: just a reference, translated from perl
 def reference_old_do_partition_for_genome(genome_label, project_dir, params, executables):
     print(f"# Partitioning for {genome_label}")
@@ -105,3 +115,4 @@ def reference_old_do_partition_for_genome(genome_label, project_dir, params, exe
                 f.write(partition + '\n')
 
     return partition_list
+"""

@@ -5,6 +5,10 @@ import subprocess
 from twobitreader import TwoBitFile
 from twobitreader import TwoBitFileError
 from modules.make_chains_logging import to_log
+from constants import Constants
+from modules.parameters import PipelineParameters
+from modules.project_paths import ProjectPaths
+from modules.step_executables import StepExecutables
 
 
 def check_if_twobit(genome_seq_file):
@@ -107,7 +111,11 @@ def rename_chrom_names_fasta(genome_seq_file, tmp_dir, genome_id, invalid_chrom_
     return renamed_fasta_path, rename_table
 
 
-def setup_genome_sequences(genome_seq_file, genome_id, label, project_dir, executables):
+def setup_genome_sequences(genome_seq_file: str,
+                           genome_id: str,
+                           label: str,
+                           project_paths: ProjectPaths,
+                           executables: StepExecutables):
     """Setup genome sequence input.
 
     DoBlastzChainNet procedure requires the 2bit-formatted sequence
@@ -136,14 +144,14 @@ def setup_genome_sequences(genome_seq_file, genome_id, label, project_dir, execu
         if len(invalid_chrom_names) > 0:
             # there are invalid chrom names, that need to be renamed
             # (1) create intermediate fasta and rename chromosomes there
-            fasta_dump_path = os.path.join(project_dir, f"TEMP_{genome_id}_genome_dump.fa")
+            fasta_dump_path = os.path.join(project_paths.project_dir, f"TEMP_{genome_id}_genome_dump.fa")
             two_bit_to_fa_cmd = f"{executables.two_bit_to_fa} {genome_seq_file} {fasta_dump_path}"
             call_two_bit_to_fa_subprocess(two_bit_to_fa_cmd, genome_seq_file)
             genome_seq_file, chrom_rename_table_path = rename_chrom_names_fasta(
-                fasta_dump_path, project_dir, genome_id, invalid_chrom_names
+                fasta_dump_path, project_paths.project_dir, genome_id, invalid_chrom_names
             )
             genome_seq_path = os.path.abspath(
-                os.path.join(project_dir, f"{label}.2bit")
+                os.path.join(project_paths.project_dir, f"{label}.2bit")
             )
             os.remove(fasta_dump_path)
             # (2) create 2bit with renamed sequences
@@ -161,16 +169,16 @@ def setup_genome_sequences(genome_seq_file, genome_id, label, project_dir, execu
             # create rename table -> to track chrom name changes
             # update genomes seq file then -> use it as src to create twobit
             genome_seq_file, chrom_rename_table_path = rename_chrom_names_fasta(
-                genome_seq_file, project_dir, genome_id, invalid_chrom_names
+                genome_seq_file, project_paths.project_dir, genome_id, invalid_chrom_names
             )
 
-        genome_seq_path = os.path.abspath(os.path.join(project_dir, f"{label}.2bit"))
+        genome_seq_path = os.path.abspath(os.path.join(project_paths.project_dir, f"{label}.2bit"))
         cmd = f"{executables.fa_to_two_bit} {genome_seq_file} {genome_seq_path}"
         call_two_bit_to_fa_subprocess(cmd, genome_seq_file)
 
     # now need to create chrom.sizes file
     chrom_sizes_filename = f"{label}.chrom.sizes"
-    chrom_sizes_path = os.path.join(project_dir, chrom_sizes_filename)
+    chrom_sizes_path = os.path.join(project_paths.project_dir, chrom_sizes_filename)
 
     # must be without errors now
     two_bit_reader = TwoBitFile(genome_seq_path)
@@ -187,7 +195,11 @@ def setup_genome_sequences(genome_seq_file, genome_id, label, project_dir, execu
         to_log(f"Warning! Genome sequence file {genome_seq_file}")
         to_log(f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline")
         to_log(f"were renamed in the intermediate files according to {chrom_rename_table_path}")
-    return chrom_rename_table_path
+    # return chrom_rename_table_path
+    if label == Constants.TARGET_LABEL:
+        project_paths.set_target_chrom_rename_table(chrom_rename_table_path)
+    else:
+        project_paths.set_query_chrom_rename_table(chrom_rename_table_path)
 
 
 if __name__ == "__main__":

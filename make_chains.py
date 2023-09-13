@@ -7,6 +7,7 @@ import subprocess
 from datetime import datetime as dt
 from constants import Constants
 from modules.step_executables import StepExecutables
+from modules.project_paths import ProjectPaths
 from modules.project_directory import OutputDirectoryManager
 from modules.step_manager import StepManager
 from modules.parameters import PipelineParameters
@@ -142,10 +143,11 @@ def run_pipeline(args):
     start_time = dt.now()
     # TODO: class to hold paths within the project
     project_dir = OutputDirectoryManager(args).project_dir
-    step_manager = StepManager(project_dir, args)
     parameters = PipelineParameters(args)
-    log_file = os.path.join(project_dir, "run.log")
-    setup_logger(log_file)
+    project_paths = ProjectPaths(project_dir, parameters)
+    step_manager = StepManager(project_paths, args)
+
+    setup_logger(project_paths.log_file)
     log_version()
     to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
     to_log(f"Pipeline started at {start_time}")
@@ -153,18 +155,18 @@ def run_pipeline(args):
     parameters.dump_to_json(project_dir)
     step_executables = StepExecutables(SCRIPT_LOCATION)
     # initiate input files
-    target_chrom_rename_table = setup_genome_sequences(args.target_genome,
-                                                       args.target_name,
-                                                       Constants.TARGET_LABEL,
-                                                       project_dir,
-                                                       step_executables)
-    query_chrom_rename_table = setup_genome_sequences(args.query_genome,
-                                                      args.query_name,
-                                                      Constants.QUERY_LABEL,
-                                                      project_dir,
-                                                      step_executables)
+    setup_genome_sequences(args.target_genome,
+                           args.target_name,
+                           Constants.TARGET_LABEL,
+                           project_paths,
+                           step_executables)
+    setup_genome_sequences(args.query_genome,
+                           args.query_name,
+                           Constants.QUERY_LABEL,
+                           project_paths,
+                           step_executables)
     # now execute steps
-    step_manager.execute_steps(project_dir, parameters, step_executables)
+    step_manager.execute_steps(parameters, step_executables, project_paths)
 
     # check result?
     # TODO: implement sanity checks
