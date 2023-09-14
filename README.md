@@ -5,12 +5,6 @@
 ![version](https://img.shields.io/badge/version-2.0.0%20alpha-blue)
 [![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
 
-To test:
-`./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f`
-`./make_chains.py target query test_data/humanChrX.fa test_data/mm39ChrX.fa --pd test_out_2 -f`
-`./make_chains.py target query test_data/humanChrX.fa test_data/mm39ChrX.fa --pd test_out_2 --cfs chain_run --kt`
-
-
 Portable Hillerlab solution for generating pairwise genome alignment chains.
 These chains can be used as input for [TOGA](https://github.com/hillerlab/TOGA) or for generating multiz alignments.
 
@@ -30,7 +24,8 @@ https://genome.ucsc.edu/goldenPath/help/chain.html
 
 Install nextflow:
 https://www.nextflow.io/docs/latest/getstarted.html
-Nextflow requires a java runtime
+
+Please note that Nextflow requires a java runtime.
 
 Then do the following:
 
@@ -45,59 +40,66 @@ pip3 install -r requirements.txt
 
 ### Usage
 
-The script to be called is *make_chains.py*
+The script to be called is `make_chains.py`.
 
-```
-
-### Minimal example
 ```bash
+### Minimal example
 ./make_chains__OLD.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
  ```
 
+A quick test sample:
+
+```bash
+./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f
+```
+
 ### Output
 
-The pipeline saves the resulting chain file into the `${project_dir}/${target_genome_id}.${query_genome_id}.final.chain.gz` file.
+The pipeline saves the resulting chain file into the
+`${project_dir}/${target_genome_id}.${query_genome_id}.final.chain.gz` file.
 
 #### Target and query genome IDs
 
-Those are simply strings that differentiate between target and query genome names.
+These are simply strings that differentiate between the target and query genome names.
 For example, hg38 and mm10 will work.
-Can also be human and mouse, even h and m fits.
+They could also be human and mouse, or even h and m.
 Technically, any reasonable sequence of letters and numbers should work.
 
 #### Genome sequences
 
-Genome sequences can be provided as *fasta* or *twobit* formatted files.
-Please find 2bit file format specification [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format7).
+Genome sequences can be provided in either `fasta` or `twobit` formats.
+Please find the 2bit file format specification [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format7).
 
 ⚠️ **Warning**
-If your scaffold names are numbered, such as NC_00000.1 please consider removing scaffold numbers
-(rename NC_00000.1 to NC_00000 or NC_00000__1, for example).
-Some tools (especially those included in the make_chains workflow) are not able to correctlyhandle such identifiers.
-The pipeline will try to trim scaffold numbers automatically to process the data properly. 
 
-The chain format does not allow spaces in scaffold names because space is the delimiter character for chain headers. 
-If the pipeline detects spaces in the chain headers: it will crash.
+If your scaffold names are numbered, such as NC_00000.1, consider removing the scaffold numbers
+(rename NC_00000.1 to NC_00000 or NC_00000__1, for example). Some tools, especially those included
+in the make_chains workflow, may not handle such identifiers correctly.
+The pipeline will attempt to trim scaffold numbers automatically for proper data processing.
 
-If you wish to rename reference and query chromosomes or scaffolds back, please use the
-`standalone_scripts/rename_chromosomes_back.py` script.
+The chain format does not allow spaces in scaffold names,
+as spaces are the delimiter characters for chain headers.
+If the pipeline detects spaces in the chain headers, it will crash.
+
+If you wish to rename reference and query chromosomes or scaffolds back to their original names,
+please use the standalone_scripts/rename_chromosomes_back.py script.
 
 #### Project directory
 
-Directory where all steps are to be executed (not mandatory argument)
-By default pipeline saves all intermediate files in the directory where the pipeline was called.
-So, it's strongly recommended to specify the project directory.
+This is the directory where all steps will be executed (not a mandatory argument).
+By default, the pipeline saves all intermediate files in the directory where the pipeline was initiated.
+Therefore, it's strongly recommended to specify the project directory.
 
 #### Executor / available clusters
 
-Executor controls which cluster management system to use.
-By default, the `local` executor is used - the pipeline utilizes only the machine's CPU.
-To run it on a slurm cluster add `--executor slurm` option.
-Please see [nextflow documentation](https://www.nextflow.io/docs/latest/executor.html) to find a list of supported executors.
+The executor controls which cluster management system to use.
+By default, the `local` executor is used, meaning the pipeline utilizes only the machine's CPU.
+To run it on a Slurm cluster, add the `--executor` slurm option.
+Please see the Nextflow documentation for a list of supported executors.
 
 #### Output
-The pipeline saves the resulting chains file to the project directory specified by the respective parameter.
-The output file is named as follows: `${target_ID}.${query_ID}.final.chain.gz`
+The pipeline saves the resulting chain file in the project directory specified by the respective parameter.
+The output file is named as follows:  `${target_ID}.${query_ID}.final.chain.gz`
 
 ## Citation
 
