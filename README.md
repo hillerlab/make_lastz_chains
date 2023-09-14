@@ -25,6 +25,8 @@ https://genome.ucsc.edu/goldenPath/help/chain.html
 
 ## Usage
 
+⚠️Although the pipeline works on macOS, it is strongly recommended to run it on a Linux-based machine.
+
 ### Installation:
 
 Install nextflow:
@@ -35,8 +37,8 @@ Then do the following:
 
 ```bash
 git clone git@github.com:hillerlab/make_lastz_chains.git
-cd chains_builder
-# install python packages (just two)
+cd make_lastz_chains
+# install python packages (just one actually)
 pip3 install -r requirements.txt
 # download/build all necessary binaries: 
 ./install_dependencies__OLD.py

@@ -99,6 +99,7 @@ def do_chain_run(params: PipelineParameters,
     # Part 3: execute cluster jobs
     with open(project_paths.chain_joblist_path, "w") as f:
         f.write("\n".join(chain_jobs))
+        f.write("\n")
 
     nextflow_manager = NextflowWrapper()
     nextflow_manager.execute(project_paths.chain_joblist_path,
