@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 from parallelization.nextflow_wrapper import NextflowWrapper
+from parallelization.nextflow_wrapper import NextflowConfig
 from steps_implementations.chain_run_bundle_substep import bundle_chrom_split_psl_files
 from modules.make_chains_logging import to_log
 
@@ -97,11 +98,17 @@ def do_chain_run(params: PipelineParameters,
         f.write("\n".join(chain_jobs))
         f.write("\n")
 
+    nextflow_config = NextflowConfig(params.cluster_executor,
+                                     Constants.NextflowConstants.JOB_MEMORY_REQ,
+                                     Constants.NextflowConstants.JOB_TIME_REQ,
+                                     Constants.NextflowConstants.CHAIN_RUN_LABEL,
+                                     config_dir=project_paths.chain_run_dir,
+                                     queue=params.cluster_queue)
     nextflow_manager = NextflowWrapper()
     nextflow_manager.execute(project_paths.chain_joblist_path,
-                             Constants.NextflowConstants.LASTZ_CONFIG_PATH,
+                             nextflow_config,
                              project_paths.chain_run_dir,
                              wait=True,
-                             label="chain_run")
+                             label=Constants.NextflowConstants.CHAIN_RUN_LABEL)
     nextflow_manager.check_failed()
     nextflow_manager.cleanup()

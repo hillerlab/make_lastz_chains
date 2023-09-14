@@ -57,6 +57,9 @@ def parse_args():
     )
 
     app.add_argument("--cluster_executor", default="local", help="Nextflow executor parameter")
+    app.add_argument("--cluster_queue",
+                     default="batch",
+                     help="Queue/Partition label to run cluster jobs")
     app.add_argument("--keep_temp",
                      "--kt",
                      dest="keep_temp",

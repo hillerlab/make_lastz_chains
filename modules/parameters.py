@@ -10,6 +10,8 @@ class PipelineParameters:
         self.query_name = args.query_name
         self.project_dir = args.project_dir
         self.continue_from_step = args.continue_from_step
+        self.cluster_executor = args.cluster_executor
+        self.cluster_queue = args.cluster_queue
 
         self.seq_1_dir = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_SEQ_FILENAME))
         self.seq_1_len = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_CHROM_SIZES_FILENAME))

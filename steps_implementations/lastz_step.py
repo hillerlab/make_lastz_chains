@@ -8,7 +8,7 @@ from itertools import product
 from modules.common_funcs import read_list_txt_file
 from modules.make_chains_logging import to_log
 from parallelization.nextflow_wrapper import NextflowWrapper
-
+from parallelization.nextflow_wrapper import NextflowConfig
 from constants import Constants
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
@@ -56,12 +56,19 @@ def do_lastz(params: PipelineParameters,
              project_paths: ProjectPaths,
              executables: StepExecutables):
     create_lastz_jobs(project_paths, executables)
+
+    nextflow_config = NextflowConfig(params.cluster_executor,
+                                     Constants.NextflowConstants.JOB_MEMORY_REQ,
+                                     Constants.NextflowConstants.JOB_TIME_REQ,
+                                     Constants.NextflowConstants.LASTZ_STEP_LABEL,
+                                     config_dir=project_paths.lastz_working_dir,
+                                     queue=params.cluster_queue)
     nextflow_manager = NextflowWrapper()
     nextflow_manager.execute(project_paths.lastz_joblist,
-                             Constants.NextflowConstants.LASTZ_CONFIG_PATH,
+                             nextflow_config,
                              project_paths.lastz_working_dir,
                              wait=True,
-                             label="lastz")
+                             label=Constants.NextflowConstants.LASTZ_STEP_LABEL)
     nextflow_manager.check_failed()
     nextflow_manager.cleanup()
     check_results_completeness(project_paths)
