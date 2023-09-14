@@ -86,9 +86,6 @@ class Constants:
         LASTZ_STEP_LABEL = "lastz"
         FILL_CHAIN_LABEL = "fill_chain"
         CHAIN_RUN_LABEL = "chain_run"
-        # LASTZ_CONFIG_PATH = os.path.join(NF_DIR, "lastz_step_config.nf")
-        # CHAIN_CONFIG_PATH = os.path.join(NF_DIR, "chaining_config.nf")
-        # CHAIN_FILL_CONFIG_PATH = os.path.join(NF_DIR, "filler_config.nf")
 
         JOB_MEMORY_REQ = '16G'
         JOB_TIME_REQ = '24h'

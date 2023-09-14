@@ -11,7 +11,7 @@ nextflow.enable.dsl=2
 params.joblist = 'NONE'  // file containing jobs
 
 // if still default -> nothing assigned: show usage message and quit
-if (params.joblist == "NONE"){
+if (params.joblist == "NONE") {
     println("Usage: nextflow execute_joblist.nf  --joblist [joblist file] -c [config file]")
     System.exit(2);
 }
