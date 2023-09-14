@@ -9,12 +9,10 @@ class StepExecutables:
         self.root_dir = root_dir
         self.hl_kent_binaries_path = os.path.join(root_dir, Constants.KENT_BINARIES_DIRNAME)
 
-        # TODO: organize constants
-        self.lastz_wrapper = self.__find_script("run_lastz.py")
-        self.repeat_filler = self.__find_script(Constants.ToolNames.REPEAT_FILLER)
-        self.chain_extract_id = self.__find_binary("chainExtractID.py")
-        self.chain_index_id = self.__find_binary("chainIndexID.py")
-        # self.bundle_script = self.__find_script("bundle_chrom_split_psl_files.perl")
+        self.lastz_wrapper = self.__find_script(Constants.ScriptNames.RUN_LASTZ)
+        self.repeat_filler = self.__find_script(Constants.ScriptNames.REPEAT_FILLER)
+        self.chain_extract_id = self.__find_binary(Constants.ScriptNames.CHAIN_EXTRACT_ID)  # TODO: rm dependency
+        # self.chain_index_id = self.__find_binary("chainIndexID.py")
 
         self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
         self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
@@ -23,9 +21,9 @@ class StepExecutables:
         self.chain_anti_repeat = self.__find_binary(Constants.ToolNames.CHAIN_ANTI_REPEAT)
         self.chain_merge_sort = self.__find_binary(Constants.ToolNames.CHAIN_MERGE_SORT)
         self.chain_cleaner = self.__find_binary(Constants.ToolNames.CHAIN_CLEANER)
-        self.lastz = self.__find_binary("lastz")
-        self.chain_sort = self.__find_binary("chainSort")
-        self.chain_score = self.__find_binary("chainScore")
+        self.chain_sort = self.__find_binary(Constants.ToolNames.CHAIN_SORT)
+        self.chain_score = self.__find_binary(Constants.ToolNames.CHAIN_SCORE)
+        self.lastz = self.__find_binary(Constants.ToolNames.LASTZ)
 
     def __find_script(self, script_name):
         rel_path = os.path.join(self.root_dir, "standalone_scripts", script_name)
@@ -37,7 +35,7 @@ class StepExecutables:
     def __find_binary(self, binary_name):
         binary_path = shutil.which(binary_name)
 
-        if binary_path is None:
+        if binary_path is None:  # not in $PATH
             # Try to find it in the HL_kent_binaries directory
             binary_path = os.path.join(self.hl_kent_binaries_path, binary_name)
 

@@ -8,8 +8,9 @@
 - Double check the pipeline default parameters
 - Fix the install dependencies script
 - Get rig of all magic numbers and strings
+- Logging messages
+- Documentation
 
 ## Nice to do
 
-- Refactor chain gap filler
-- 
+- Refactor chain gap filler: get rid of chainExtractID dependency -> not needed

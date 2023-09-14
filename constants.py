@@ -68,7 +68,6 @@ class Constants:
     CHAIN_JOBLIST_FILENAME = "chains_joblist"
 
     TEMP_AXT_CHAIN_DIRNAME = "TEMP_axtChain"
-    # chain run dir content - TEMP_AXT_CHAIN_DIRNAME/*
     SORTED_PSL_DIRNAME = "sorted_psl"
     SPLIT_PSL_DIRNAME = "split_psl"
     CHAIN_RUN_OUT_DIRNAME = "chain"
@@ -92,6 +91,7 @@ class Constants:
         CHAIN_FILL_CONFIG_PATH = os.path.join(NF_DIR, "filler_config.nf")
 
     class ToolNames:
+        # Kent tools
         PSL_SORT_ACC = "pslSortAcc"
         TWO_BIT_TO_FA = "twoBitToFa"
         FA_TO_TWO_BIT = "faToTwoBit"
@@ -99,4 +99,14 @@ class Constants:
         CHAIN_ANTI_REPEAT = "chainAntiRepeat"
         CHAIN_MERGE_SORT = "chainMergeSort"
         CHAIN_CLEANER = "chainCleaner"
+        CHAIN_SORT = "chainSort"
+        CHAIN_SCORE = "chainScore"
+
+        # only one non-Kent binary
+        LASTZ = "lastz"
+
+    class ScriptNames:
         REPEAT_FILLER = "chain_gap_filler.py"
+        RUN_LASTZ = "run_lastz.py"
+        CHAIN_EXTRACT_ID = "chainExtractID.py"  # TODO: rm dependency
+        # CHAIN_INDEX_ID = "chainIndexID.py"

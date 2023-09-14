@@ -2,7 +2,7 @@
 # THIS VERSION IS UNDER DEVELOPMENT
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![version](https://img.shields.io/badge/version-0.0.1-blue)
+![version](https://img.shields.io/badge/version-2.0.0%20alpha-blue)
 [![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
 
 To test:
@@ -10,12 +10,11 @@ To test:
 `./make_chains.py target query test_data/humanChrX.fa test_data/mm39ChrX.fa --pd test_out_2 -f`
 `./make_chains.py target query test_data/humanChrX.fa test_data/mm39ChrX.fa --pd test_out_2 --cfs chain_run --kt`
 
-To not forget:
-
-- gcc command to build chain_bst_lib.so
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
 These chains can be used as input for [TOGA](https://github.com/hillerlab/TOGA) or for generating multiz alignments.
+
+![Abstract Chains](readme_images/abstract_chains.png)
 
 Chains explained:
 http://genomewiki.ucsc.edu/index.php/Chains_Nets
@@ -25,7 +24,7 @@ https://genome.ucsc.edu/goldenPath/help/chain.html
 
 ## Usage
 
-⚠️Although the pipeline works on macOS, it is strongly recommended to run it on a Linux-based machine.
+⚠️ Although the pipeline works on macOS, it is strongly recommended to run it on a Linux-based machine.
 
 ### Installation:
 
@@ -57,7 +56,7 @@ The script to be called is *make_chains.py*
 
 ### Output
 
-The pipeline saves the resulting chain file into the "${project_dir}/${target_genome_id}.${query_genome_id}.allfilled.chain.gz" file.
+The pipeline saves the resulting chain file into the `${project_dir}/${target_genome_id}.${query_genome_id}.final.chain.gz` file.
 
 #### Target and query genome IDs
 
@@ -88,13 +87,13 @@ So, it's strongly recommended to specify the project directory.
 #### Executor / available clusters
 
 Executor controls which cluster management system to use.
-By default, the "local" executor is used - the pipeline utilizes only the machine's CPU.
-To run it on a slurm cluster add --executor slurm option.
+By default, the `local` executor is used - the pipeline utilizes only the machine's CPU.
+To run it on a slurm cluster add `--executor slurm` option.
 Please see [nextflow documentation](https://www.nextflow.io/docs/latest/executor.html) to find a list of supported executors.
 
 #### Output
 The pipeline saves the resulting chains file to the project directory specified by the respective parameter.
-The output file is named as follows: ${target_ID}.${query_ID}.allfilled.chain.gz
+The output file is named as follows: `${target_ID}.${query_ID}.final.chain.gz`
 
 ## Citation
 
