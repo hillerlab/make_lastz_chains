@@ -171,15 +171,8 @@ def get_chain_string(args):
 
     get chains; either iterate over batches of chains or extract single chain string
     """
-    try:
-        with open(args.chain, "r") as content_file:
-            current_chain_string = content_file.read()
-    except IOError as e:
-        logging.error(
-            f"Cannot read chain file {e.errno} {e.strerror}"
-        )
-        sys.exit(1)
-    return current_chain_string
+    with open(args.chain, "r") as content_file:
+        return content_file.read()
 
 
 def make_shell_list(input_chain, out_file, args):
@@ -188,11 +181,7 @@ def make_shell_list(input_chain, out_file, args):
     inChain: string containing all chains
     out_file: path to output file; shell commands will be written into this file
     """
-    try:
-        out_file_handler = open(out_file, "w")
-    except IOError as e:
-        logging.error(f"Cannot write to shell script: {e.errno} {e.strerror}")
-        sys.exit(1)
+    out_file_handler = open(out_file, "w")
 
     # write a header for the shell script
     out_file_handler.write("#!/usr/bin/env bash\n")
@@ -374,16 +363,10 @@ def make_shell_jobs(args, current_chain_string):
         sys.exit(1)
 
     # create temp file
-    try:
-        temp = tempfile.NamedTemporaryFile(
-            prefix="tempCGFjobList", dir=args.workdir, delete=False
-        )
-        temp.close()
-    except PermissionError as e:
-        logging.error(
-            f"ERROR! Failed to create temporary file inside '{args.workdir}'. {e.errno} {e.strerror}"
-        )
-        sys.exit(1)
+    temp = tempfile.NamedTemporaryFile(
+        prefix="tempCGFjobList", dir=args.workdir, delete=False
+    )
+    temp.close()
 
     # Find gaps and write corresponding jobs to a shell script
     make_shell_list(current_chain_string, temp.name, args)
@@ -395,7 +378,6 @@ def run_all_shell(shell_file):
     all_shell_command = f"bash {shell_file}"
     try:
         all_mini_chains = subprocess.check_output(all_shell_command, shell=True)
-
         """
         # for debugging write all mini chains to a file
         with open("allminifile", 'w') as f:
@@ -404,7 +386,6 @@ def run_all_shell(shell_file):
                 f.write(el)
                 f.write('\n')
         """
-
     except subprocess.CalledProcessError as shell_run:
         logging.error("shell command failed", shell_run.returncode, shell_run.output)
         sys.exit(1)
@@ -573,11 +554,7 @@ def fill_gaps_from_mini_chains(
 ):
     """Processes initial chain and fills gaps with mini chains; writes to output file if provided."""
     if args.output:
-        try:
-            ouf = open(args.output, "w")
-        except IOError as e:
-            logging.error("Cannot write to output file", e.errno, e.strerror)
-            sys.exit(1)
+        ouf = open(args.output, "w")
     else:  # Bogdan: ouf not defined if not args.output
         ouf = sys.stdout
 

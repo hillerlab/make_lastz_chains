@@ -45,7 +45,9 @@ def do_chains_clean(params: PipelineParameters,
         *_clean_chain_args,
     ]
 
+    to_log("Executing the following chain cleaner command:")
     to_log(" ".join(chain_cleaner_cmd))
+
     with open(project_paths.chain_cleaner_log, 'w') as f:
         rc = subprocess.call(chain_cleaner_cmd, stdout=f, stderr=subprocess.STDOUT, env=_temp_env)
         # TODO: deal with Couldn't open /proc/self/stat , No such file or directory

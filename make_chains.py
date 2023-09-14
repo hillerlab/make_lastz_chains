@@ -216,7 +216,7 @@ def run_pipeline(args):
 
     # now execute steps
     step_manager.execute_steps(parameters, step_executables, project_paths)
-
+    to_log("All core pipeline steps done.")
     # check result?
     save_final_chain(parameters, project_paths)
     cleanup(parameters, project_paths)

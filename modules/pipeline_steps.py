@@ -50,26 +50,31 @@ class PipelineSteps:
         to_log(f"Num. target partitions: {len(target_partitions_list)}")
         to_log(f"Num. query partitions: {len(query_partitions_list)}")
         to_log(f"Num. lastz jobs: {len(target_partitions_list) * len(query_partitions_list)}")
+        return StepStatus.COMPLETED
 
     @staticmethod
     def lastz_step(params, project_paths, executables):
         to_log("\n### Lastz Alignment Step ###\n")
         do_lastz(params, project_paths,  executables)
+        return StepStatus.COMPLETED
 
     @staticmethod
     def cat_step(params, project_paths, executables):
         to_log("\n### Concatenating Lastz Results (Cat) Step ###\n")
         do_cat(params, project_paths, executables)
+        return StepStatus.COMPLETED
 
     @staticmethod
     def chain_run_step(params, project_paths, executables):
         to_log("\n### Build Chains Step ###\n")
         do_chain_run(params, project_paths, executables)
+        return StepStatus.COMPLETED
 
     @staticmethod
     def chain_merge_step(params, project_paths, executables):
         to_log("\n### Merge Chains Step ###\n")
         do_chains_merge(params, project_paths, executables)
+        return StepStatus.COMPLETED
 
     @staticmethod
     def fill_chains_step(params, project_paths, executables):
@@ -79,6 +84,7 @@ class PipelineSteps:
             return StepStatus.SKIPPED
         to_log("\n### Fill Chains Step ###\n")
         do_chains_fill(params, project_paths, executables)
+        return StepStatus.COMPLETED
 
     @staticmethod
     def clean_chains_step(params, project_paths, executables):
@@ -88,3 +94,4 @@ class PipelineSteps:
             return StepStatus.SKIPPED
         to_log("\n### Clean Chains Step ###\n")
         do_chains_clean(params, project_paths, executables)
+        return StepStatus.COMPLETED

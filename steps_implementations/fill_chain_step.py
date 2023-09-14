@@ -14,7 +14,9 @@ from steps_implementations.fill_chain_split_into_parts_substep import randomly_s
 def create_repeat_filler_joblist(params: PipelineParameters,
                                  project_paths: ProjectPaths,
                                  executables: StepExecutables):
+    to_log("Creating repeat filler jobs list")
     infill_chain_filenames = os.listdir(project_paths.fill_chain_jobs_dir)
+    to_log(f"fGot {len(infill_chain_filenames)} chain files to fill")
     lastz_parameters = f"\"K={params.fill_lastz_k} L={params.fill_lastz_l}\""
     repeat_filler_params = [
         f"--chainMinScore {params.chain_min_score}",
@@ -25,6 +27,7 @@ def create_repeat_filler_joblist(params: PipelineParameters,
         f"--gapMinSizeQ {params.fill_gap_min_size_q}"
     ]
     if params.fill_unmask:
+        to_log("Adding --unmask flag")
         repeat_filler_params.append("--unmask")
 
     f = open(project_paths.repeat_filler_joblist, "w")
@@ -66,7 +69,8 @@ def create_repeat_filler_joblist(params: PipelineParameters,
 def merge_filled_chains(params: PipelineParameters,
                         project_paths: ProjectPaths,
                         executables: StepExecutables):
-    files_to_merge = os.listdir(project_paths.fill_chain_filled_dir)
+    # files_to_merge = os.listdir(project_paths.fill_chain_filled_dir)
+    to_log("Merging filled chains")
     # Create the 'find' command
     find_cmd = ["find", project_paths.fill_chain_filled_dir, "-type", "f", "-name", "*.chain", "-print"]
 
@@ -76,6 +80,10 @@ def merge_filled_chains(params: PipelineParameters,
     # Create the 'gzip' command
     gzip_cmd = ["gzip", "-c"]
 
+    to_log("Executing the following sequence of commands in a pipe:")
+    to_log(find_cmd)
+    to_log(merge_sort_cmd)
+    to_log(gzip_cmd)
     # Execute the 'find' command and capture its output
     find_process = subprocess.Popen(find_cmd, stdout=subprocess.PIPE)
 
@@ -94,6 +102,7 @@ def merge_filled_chains(params: PipelineParameters,
 
     # Wait for 'gzip' to finish
     gzip_process.communicate()
+    to_log("Merging filled chains done")
 
 
 def do_chains_fill(params: PipelineParameters,
@@ -101,6 +110,7 @@ def do_chains_fill(params: PipelineParameters,
                    executables: StepExecutables):
     # 1. jobs preparation
     infill_template = f"{project_paths.fill_chain_jobs_dir}/infill_chain_"
+    to_log("Preparing fill jobs")
 
     # Need to unzip the zipped merged chain first...
     temp_in_chain = os.path.join(project_paths.fill_chain_run_dir, "all.chain")  # TODO: add to paths
@@ -131,3 +141,4 @@ def do_chains_fill(params: PipelineParameters,
     shutil.rmtree(project_paths.fill_chain_jobs_dir)
     shutil.rmtree(project_paths.fill_chain_filled_dir)
     os.remove(temp_in_chain)
+    to_log("Fill chains step complete")
