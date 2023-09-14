@@ -13,7 +13,7 @@ def do_chains_clean(params: PipelineParameters,
                     project_paths: ProjectPaths,
                     executables: StepExecutables):
     # select input chain files, depending on whether fill chains step was executed or not
-    if params.fill_chain == 1:
+    if params.fill_chain is True:
         to_log(f"Chains were filled: using {project_paths.filled_chain} as input")
         input_chain = project_paths.filled_chain
     else:

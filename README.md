@@ -70,13 +70,17 @@ Technically, any reasonable sequence of letters and numbers should work.
 Genome sequences can be provided as *fasta* or *twobit* formatted files.
 Please find 2bit file format specification [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format7).
 
-> **Warning**
-> If your scaffold names are numbered, such as NC_00000.1 please consider removing scaffold numbers (rename NC_00000.1 to NC_00000 or NC_00000__1, for example). Some tools (especially those included in the make_chains workflow) are not able to correctly handle such identifiers.
-> The pipeline will try to trim scaffold numbers automatically to process the data properly.
-> Afterwards, it will rename the scaffolds back.
->
-> The chain format does not allow spaces in scaffold names because space is the delimiter character for chain headers.
-> If the pipeline detects spaces in headers: it will crash.
+⚠️ **Warning**
+If your scaffold names are numbered, such as NC_00000.1 please consider removing scaffold numbers
+(rename NC_00000.1 to NC_00000 or NC_00000__1, for example).
+Some tools (especially those included in the make_chains workflow) are not able to correctlyhandle such identifiers.
+The pipeline will try to trim scaffold numbers automatically to process the data properly. 
+
+The chain format does not allow spaces in scaffold names because space is the delimiter character for chain headers. 
+If the pipeline detects spaces in the chain headers: it will crash.
+
+If you wish to rename reference and query chromosomes or scaffolds back, please use the
+`standalone_scripts/rename_chromosomes_back.py` script.
 
 #### Project directory
 

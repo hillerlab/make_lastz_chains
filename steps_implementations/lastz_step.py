@@ -40,6 +40,19 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
     to_log(f"LASTZ: saved {len(jobs)} jobs to {project_paths.lastz_joblist}")
 
 
+def check_results_completeness(project_paths: ProjectPaths):
+    lastz_output_filenames = os.listdir(project_paths.lastz_output_dir)
+    lastz_output_files = [os.path.join(project_paths.lastz_output_dir, x) for x in lastz_output_filenames]
+    results_num = len(lastz_output_filenames)
+    to_log(f"Found {results_num} output files from the LASTZ step")
+    to_log("Please note that lastz_step.py does not produce output in case LASTZ could not find any alignment")
+
+    if results_num == 0:
+        err_msg = "Error! Lastz results are absent."
+        raise ValueError(err_msg)
+    # other more sophisticated checks?
+
+
 def do_lastz(params: PipelineParameters,
              project_paths: ProjectPaths,
              executables: StepExecutables):
@@ -50,3 +63,4 @@ def do_lastz(params: PipelineParameters,
                              project_paths.lastz_working_dir,
                              wait=True)
     nextflow_manager.cleanup()
+    check_results_completeness(project_paths)

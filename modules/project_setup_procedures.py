@@ -6,9 +6,9 @@ from twobitreader import TwoBitFile
 from twobitreader import TwoBitFileError
 from modules.make_chains_logging import to_log
 from constants import Constants
-from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.make_chains_logging import to_log
 
 
 def check_if_twobit(genome_seq_file):
@@ -28,9 +28,9 @@ def check_and_fix_chrom_names(chrom_names, path):
     for chrom_name in chrom_names:
         if " " in chrom_name or "\t" in chrom_name:
             # error, spaces and tabs are not allowed in chromosome names
-            print(f"Error! File: {path} - detected space-or-tab-containing sequence:")
-            print(f"{chrom_name}")
-            print("Please exclude or fix sequences with spaces and tabs.\nAbort")
+            to_log(f"Error! File: {path} - detected space-or-tab-containing sequence:")
+            to_log(f"{chrom_name}")
+            to_log("Please exclude or fix sequences with spaces and tabs.\nAbort")
             sys.exit(1)
         dots_in_header = "." in chrom_name
         # spaces_in_header = " " in chrom_name
@@ -74,7 +74,7 @@ def call_two_bit_to_fa_subprocess(cmd, genome_seq_file):
             f"a valid fasta or 2bit file.\n"
             f"Also, make sure twoBitToFa is callable.\n"
         )
-        sys.stderr.write(err_msg)
+        to_log(err_msg)
         sys.exit(1)
 
 
@@ -195,7 +195,7 @@ def setup_genome_sequences(genome_seq_file: str,
         to_log(f"Warning! Genome sequence file {genome_seq_file}")
         to_log(f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline")
         to_log(f"were renamed in the intermediate files according to {chrom_rename_table_path}")
-    # return chrom_rename_table_path
+
     if label == Constants.TARGET_LABEL:
         project_paths.set_target_chrom_rename_table(chrom_rename_table_path)
     else:

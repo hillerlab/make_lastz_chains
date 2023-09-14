@@ -6,6 +6,7 @@ from constants import Constants
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.make_chains_logging import to_log
 
 
 def do_chains_merge(params: PipelineParameters,
@@ -19,6 +20,11 @@ def do_chains_merge(params: PipelineParameters,
 
     # Define the gzip command
     gzip_cmd = ["gzip", "-c"]
+
+    to_log("Executing to following sequence of piped commands:")
+    to_log(find_cmd)
+    to_log(merge_sort_cmd)
+    to_log(gzip_cmd)
 
     # Execute the find command and capture its output
     find_process = subprocess.Popen(find_cmd, stdout=subprocess.PIPE)
@@ -38,3 +44,4 @@ def do_chains_merge(params: PipelineParameters,
 
     # Wait for gzip to finish
     gzip_process.communicate()
+    to_log(f"Saved merged results to: {project_paths.merged_chain}")

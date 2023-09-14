@@ -18,8 +18,8 @@ from modules.make_chains_logging import to_log
 from modules.project_setup_procedures import setup_genome_sequences
 from version import __version__
 
-__author__ = "Bogdan Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova"
-__maintainer__ = "Bogdan Kirilenko"
+__author__ = "Bogdan M. Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova"
+__maintainer__ = "Bogdan M. Kirilenko"
 
 SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
 
@@ -65,6 +65,10 @@ def parse_args():
 
     # Pipeline parameters group
     pipeline_params = app.add_argument_group('Pipeline Parameters')
+    pipeline_params.add_argument("--skip_fill_chain", dest="skip_fill_chains", action="store_true")
+    pipeline_params.add_argument("--skip_fill_unmask", dest="skip_fill_unmask", action="store_true")
+    pipeline_params.add_argument("--skip_clean_chain", dest="skip_clean_chain", action="store_true")
+
     pipeline_params.add_argument("--lastz_y", default=Constants.DEFAULT_LASTZ_Y, type=int)
     pipeline_params.add_argument("--lastz_h", default=Constants.DEFAULT_LASTZ_H, type=int)
     pipeline_params.add_argument("--lastz_l", default=Constants.DEFAULT_LASTZ_L, type=int)
@@ -81,9 +85,8 @@ def parse_args():
     # TODO: add "choices" -> must be loose, medium, or smth else
     pipeline_params.add_argument("--chain_linear_gap",
                                  default=Constants.DEFAULT_CHAIN_LINEAR_GAP,
+                                 choices=["loose, medium"],
                                  type=str)
-    pipeline_params.add_argument("--fill_chain", default=Constants.DEFAULT_FILL_CHAIN_ARG, type=int)
-    pipeline_params.add_argument("--fill_unmask", default=Constants.DEFAULT_FILL_UNMASK_ARG, type=int)
     pipeline_params.add_argument("--num_fill_jobs", default=Constants.DEFAULT_NUM_FILL_JOBS, type=int)
     pipeline_params.add_argument("--fill_chain_min_score",
                                  default=Constants.DEFAULT_FILL_CHAIN_MIN_SCORE,
@@ -109,9 +112,7 @@ def parse_args():
     pipeline_params.add_argument("--fill_prepare_memory",
                                  default=Constants.DEFAULT_FILL_PREPARE_MEMORY,
                                  type=int)
-    # pipeline_params.add_argument("--chaining_queue", default="medium")
     pipeline_params.add_argument("--chaining_memory", default=Constants.DEFAULT_CHAINING_MEMORY, type=int)
-    pipeline_params.add_argument("--clean_chain", default=Constants.DEFAULT_CLEAN_CHAIN_ARG, type=int)
     pipeline_params.add_argument("--chain_clean_memory",
                                  default=Constants.DEFAULT_CHAIN_CLEAN_MEMORY,
                                  type=int)
@@ -148,12 +149,15 @@ def log_version():
 
 def save_final_chain(parameters: PipelineParameters, project_paths: ProjectPaths):
     # get final result chain
-    if parameters.fill_chain == 1:
+    if parameters.fill_chain is True:
         last_chain_file = project_paths.filled_chain
+        to_log(f"Chains were filled, using {last_chain_file} as the last output file.")
     else:
         last_chain_file = project_paths.merged_chain
+        to_log(f"Chains were NOT filled, using {last_chain_file} as the last output file.")
     # save it to the root project dir
     shutil.move(last_chain_file, project_paths.final_chain)
+    to_log(f"Saved final chains file to {project_paths.final_chain}")
 
 
 def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
@@ -172,6 +176,7 @@ def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
         to_log(f"x {dirname}")
         shutil.rmtree(dirname)
 
+    # remove individual temp files
     os.remove(project_paths.reference_genome)
     os.remove(project_paths.query_genome)
     os.remove(project_paths.reference_partitions)
@@ -196,6 +201,7 @@ def run_pipeline(args):
     to_log(f"Pipeline started at {start_time}")
 
     parameters.dump_to_json(project_dir)
+
     # initiate input files
     setup_genome_sequences(args.target_genome,
                            args.target_name,
@@ -207,6 +213,7 @@ def run_pipeline(args):
                            Constants.QUERY_LABEL,
                            project_paths,
                            step_executables)
+
     # now execute steps
     step_manager.execute_steps(parameters, step_executables, project_paths)
 
@@ -215,7 +222,7 @@ def run_pipeline(args):
     cleanup(parameters, project_paths)
     # TODO: implement sanity checks
     tot_runtime = dt.now() - start_time
-    to_log(f"make_lastz_chains completed in {tot_runtime}")
+    to_log(f"make_lastz_chains run done in {tot_runtime}")
 
 
 def main():

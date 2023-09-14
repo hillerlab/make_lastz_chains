@@ -5,7 +5,6 @@ from constants import Constants
 
 
 class ProjectPaths:
-    # TODO: implement it, mode all chain_run_dir, chain_out_dir, etc. here
     def __init__(self, project_dir, root_dir, params):
         self.project_dir = project_dir
         self.root_dir = root_dir
@@ -41,7 +40,7 @@ class ProjectPaths:
         self.chain_run_dir = self._j_abs(project_dir, Constants.TEMP_AXT_CHAIN_DIRNAME)
         self.chain_joblist_path = self._j_abs(self.chain_run_dir, Constants.CHAIN_JOBLIST_FILENAME)
         self.chain_output_dir = self._j_abs(self.chain_run_dir, Constants.CHAIN_RUN_OUT_DIRNAME)
-        self.psl_sort_temp_dir = self._j_abs(self.chain_run_dir, Constants.PSL_SORT_TEMP_DIRNAME)
+        self.temp_dir_for_psl_sort = self._j_abs(self.chain_run_dir, Constants.PSL_SORT_TEMP_DIRNAME)
         self.sorted_psl_dir = self._j_abs(self.chain_run_dir, Constants.SORTED_PSL_DIRNAME)
         self.split_psl_dir = self._j_abs(self.chain_run_dir, Constants.SPLIT_PSL_DIRNAME)
 
@@ -84,7 +83,7 @@ class ProjectPaths:
             self.psl_output_dir,
             self.cat_out_dirname,
             self.chain_run_dir,
-            self.psl_sort_temp_dir,
+            self.temp_dir_for_psl_sort,
             self.sorted_psl_dir,
             self.split_psl_dir,
             self.chain_output_dir,
@@ -94,7 +93,7 @@ class ProjectPaths:
         ]
 
         for directory in directories_to_create:
-            print(f"making: {directory}")
+            # print(f"making: {directory}")
             os.makedirs(directory, exist_ok=True)
 
     def set_target_chrom_rename_table(self, table_path):

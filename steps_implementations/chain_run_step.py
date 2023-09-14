@@ -12,22 +12,6 @@ from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 
 
-# def call_perl_bundle(executables, split_psl, seq_1_len, output_dir):
-#     # $call = "$bundleChromSplitPslFiles $splitPSL $defVars{'SEQ1_LEN'} $outputDir -maxBases $maxBases";
-#     cmd = [
-#         executables.bundle_script,
-#         split_psl,
-#         seq_1_len,
-#         output_dir,
-#         "-maxBases",
-#         str(50_000_000)
-#     ]
-#     print(" ".join(cmd))
-#     rc = subprocess.call(cmd)
-#     if rc != 0:
-#         raise ValueError("COMMAND CRASHED")
-
-
 def psl_bundle(cat_out_dirname, project_paths, executables, params):
     # 1.1 -> sort
     # TODO: potentially danger part here: can exceed the bash limit for number of arguments
@@ -37,18 +21,20 @@ def psl_bundle(cat_out_dirname, project_paths, executables, params):
     sort_cmd = [executables.psl_sort_acc,
                 "nohead",
                 project_paths.sorted_psl_dir,
-                project_paths.psl_sort_temp_dir,
+                project_paths.temp_dir_for_psl_sort,
                 file_list_arg]
+    to_log(f"Sorting PSL files, saving the results to {project_paths.sorted_psl_dir}")
     to_log(" ".join(sort_cmd))
     subprocess.call(sort_cmd)
-    shutil.rmtree(project_paths.psl_sort_temp_dir)
+    shutil.rmtree(project_paths.temp_dir_for_psl_sort)
+
     # 1.2 -> bundle chrom split files
+
     bundle_chrom_split_psl_files(project_paths.sorted_psl_dir,
                                  params.seq_1_len,
                                  project_paths.split_psl_dir,
                                  Constants.BUNDLE_PSL_MAX_BASES)
-    # TODO: try original perl script, maybe here is a problem
-    # call_perl_bundle(executables, project_paths.sorted_psl_dir, params.seq_1_len, project_paths.split_psl_dir)
+    to_log(f"PSL bundle substep done")
 
 
 def make_chains_joblist(project_paths: ProjectPaths,
@@ -63,6 +49,7 @@ def make_chains_joblist(project_paths: ProjectPaths,
     min_score = params.chain_min_score
     linear_gap = params.chain_linear_gap
     bundle_filenames = os.listdir(project_paths.split_psl_dir)
+    to_log(f"Building LASTZ joblist for {len(bundle_filenames)} bundled psl files")
 
     cluster_jobs = []
     for bundle_filename in bundle_filenames:
@@ -97,6 +84,7 @@ def do_chain_run(params: PipelineParameters,
     chain_jobs = make_chains_joblist(project_paths, params, executables)
 
     # Part 3: execute cluster jobs
+    to_log(f"Saving {len(chain_jobs)} LASTZ jobs to {project_paths.chain_joblist_path}")
     with open(project_paths.chain_joblist_path, "w") as f:
         f.write("\n".join(chain_jobs))
         f.write("\n")

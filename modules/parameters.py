@@ -31,8 +31,8 @@ class PipelineParameters:
         self.chain_min_score = args.min_chain_score
         self.chain_linear_gap = args.chain_linear_gap
 
-        self.fill_chain = args.fill_chain
-        self.fill_unmask = args.fill_unmask
+        self.fill_chain = not args.skip_fill_chains
+        self.fill_unmask = not args.skip_fill_unmask
         self.fill_chain_min_score = args.fill_chain_min_score
         self.fill_insert_chain_min_score = args.fill_insert_chain_min_score
 
@@ -50,7 +50,7 @@ class PipelineParameters:
 
         # self.chaining_queue = args.chaining_queue
         self.chaining_memory = args.chaining_memory
-        self.clean_chain = args.clean_chain
+        self.clean_chain = not args.skip_clean_chain
         self.chain_clean_memory = args.chain_clean_memory
         self.clean_chain_parameters = args.clean_chain_parameters
 

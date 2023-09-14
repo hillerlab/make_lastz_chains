@@ -6,6 +6,7 @@ from constants import Constants
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.make_chains_logging import to_log
 
 
 def do_cat(params: PipelineParameters,
@@ -13,10 +14,11 @@ def do_cat(params: PipelineParameters,
            executables: StepExecutables):
     # 1. List PSL Files
     psl_files = [f for f in os.listdir(project_paths.psl_output_dir) if f.endswith('.psl')]
-    print(psl_files)
+    num_psl_files = len(psl_files)
+    to_log(f"Concatenating {num_psl_files} psl files")
 
     # 2. Concatenate Files
-    print("!! TODO: don't forget to make smarter files organisation")
+    to_log("!! TODO: don't forget to make smarter files organisation")
     # TODO: don't forget to make smarter files organisation
     output_file_path = os.path.join(project_paths.cat_out_dirname, "concatenated.psl.gz")
     with gzip.open(output_file_path, 'wt') as out_f:
@@ -25,3 +27,4 @@ def do_cat(params: PipelineParameters,
                 for line in in_f:
                     if "#" not in line:
                         out_f.write(line)
+    to_log(f"Concatenated PSL file saved to: {output_file_path}")

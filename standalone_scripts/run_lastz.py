@@ -146,7 +146,7 @@ def parse_file_spec(filename):
     Such as sequence name (chrom), start and end.
     """
     if len(filename.split(":")) == 1:
-        # if no filespecs?
+        # if no files specs?
         # this is a collapsed fasta, for instance
         return filename, None, None, None
     base = os.path.basename(filename)

@@ -19,8 +19,7 @@ class StepManager:
     def load_or_init_steps(self):
         if os.path.exists(self.steps_file):
             with open(self.steps_file, "r") as f:
-                with open(self.steps_file, "r") as f:
-                    loaded_steps = json.load(f)
+                loaded_steps = json.load(f)
                 self.steps = {k: StepStatus.from_string(v) for k, v in loaded_steps.items()}
             if self.continue_from_step:
                 self.set_continue_from_step(self.continue_from_step)

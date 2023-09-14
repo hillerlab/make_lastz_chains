@@ -4,10 +4,13 @@ import os
 import sys
 import argparse
 from modules.common_funcs import read_chrom_sizes
+from modules.make_chains_logging import to_log
 
 
 def get_input_files(input_dir):
-    return {file: 0 for file in os.listdir(input_dir) if file.endswith('.psl')}
+    input_files = {file: 0 for file in os.listdir(input_dir) if file.endswith('.psl')}
+    to_log(f"Bundling {len(input_files)} psl files in total")
+    return input_files
 
 
 def bundle_files(args, chrom_size, input_files):
@@ -19,11 +22,11 @@ def bundle_files(args, chrom_size, input_files):
 
     for chrom in sorted(chrom_size, key=chrom_size.get, reverse=True):
         if args["verbose"]:
-            print(f"\nConsider {chrom} {chrom_size[chrom]}")
+            to_log(f"\nConsider {chrom} {chrom_size[chrom]}")
 
         if f"{chrom}.psl" not in input_files:
-            if args["verbose"]:
-                print(f"\t--> file {chrom}.psl does not exist. Next")
+            # TODO: consider this when fixing cat step
+            to_log(f"\t--> file {chrom}.psl does not exist. Next")
             continue
 
         cur_bases += chrom_size[chrom]
@@ -32,7 +35,7 @@ def bundle_files(args, chrom_size, input_files):
         input_files[f"{chrom}.psl"] = 1
 
         if args["verbose"]:
-            print(f"curBases: {cur_bases}  num files: {bundle_psl_file_count} {bundle_psl_file_list}")
+            to_log(f"curBases: {cur_bases}  num files: {bundle_psl_file_count} {bundle_psl_file_list}")
 
         if cur_bases >= args["max_bases"] or bundle_psl_file_count > 1000:
             execute_bundle(args, bundle_psl_file_list, cur_bundle_count)
@@ -42,6 +45,7 @@ def bundle_files(args, chrom_size, input_files):
             bundle_psl_file_count = 0
 
     execute_bundle(args, bundle_psl_file_list, cur_bundle_count) if cur_bases > 0 else None
+    cur_bundle_count += 1
     return cur_bundle_count
 
 
@@ -52,7 +56,7 @@ def execute_bundle(args, bundle_psl_file_list, cur_bundle_count):
         for file_path in bundle_psl_file_list:
             with open(file_path, 'r') as infile:
                 outfile.write(infile.read())
-    print(f"Written to {output_file_path}")
+    to_log(f"Written to {output_file_path}")
 
 
 def check_unbundled_files(args, input_files):
@@ -61,11 +65,11 @@ def check_unbundled_files(args, input_files):
             input_dir = args["input_dir"]
             chrom_sizes = args["chrom_sizes"]
             message = (
-                f"file {input_dir}/{chrom} was not bundled as the "
+                f"Warning! File {input_dir}/{chrom} was not bundled as the "
                 f"chrom could not be found in {chrom_sizes}"
             )
             if args["warning_only"]:
-                print(f"WARNING: {message}", file=sys.stderr)
+                to_log(f"WARNING: {message}")
             else:
                 sys.exit(f"ERROR: {message}")
 
@@ -96,12 +100,16 @@ def bundle_chrom_split_psl_files(input_dir: str,
         "verbose": verbose
     }
     os.makedirs(output_dir, exist_ok=True)
+    to_log(f"Bundling psl files with the followign arguments:")
+    for k, v in args.items():
+        to_log(f"* {k}: {v}")
+    to_log(f"Saving results to: {output_dir}")
+
     chrom_size = read_chrom_sizes(chrom_sizes)
     input_files = get_input_files(input_dir)
-    bundle_files(args, chrom_size, input_files)
     cur_bundle_count = bundle_files(args, chrom_size, input_files)
     check_unbundled_files(args, input_files)
-    print(f"DONE. Produced {cur_bundle_count + 1} files")
+    print(f"DONE. Produced {cur_bundle_count} files")
 
 
 if __name__ == "__main__":
