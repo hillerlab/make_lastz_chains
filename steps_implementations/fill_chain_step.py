@@ -37,7 +37,6 @@ def create_repeat_filler_joblist(params: PipelineParameters,
         repeat_filler_command_parts = [
             executables.repeat_filler,
             f"--workdir {project_paths.fill_chain_run_dir}",
-            f"--chainExtractID {executables.chain_extract_id}",
             f"--lastz {executables.lastz}",
             f"--axtChain {executables.axt_chain}",
             f"--chainSort {executables.chain_sort}",

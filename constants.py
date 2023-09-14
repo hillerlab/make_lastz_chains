@@ -105,5 +105,3 @@ class Constants:
     class ScriptNames:
         REPEAT_FILLER = "chain_gap_filler.py"
         RUN_LASTZ = "run_lastz.py"
-        CHAIN_EXTRACT_ID = "chainExtractID.py"  # TODO: rm dependency
-        # CHAIN_INDEX_ID = "chainIndexID.py"

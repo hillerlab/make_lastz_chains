@@ -11,8 +11,6 @@ class StepExecutables:
 
         self.lastz_wrapper = self.__find_script(Constants.ScriptNames.RUN_LASTZ)
         self.repeat_filler = self.__find_script(Constants.ScriptNames.REPEAT_FILLER)
-        self.chain_extract_id = self.__find_binary(Constants.ScriptNames.CHAIN_EXTRACT_ID)  # TODO: rm dependency
-        # self.chain_index_id = self.__find_binary("chainIndexID.py")
 
         self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
         self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)

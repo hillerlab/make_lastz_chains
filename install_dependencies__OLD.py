@@ -406,24 +406,6 @@ def acquire_chainnet(conda_available):
     return TO_ADD if is_downloaded else FAILED
 # >>>>> Downloading kent utils
 
-def build_chain_extract_id():
-    """Build chain extract ID shared library"""
-    print("\n### Building chain extract ID ###")
-    slib_src = os.path.join(HL_EXEC_DIR, "chain_bst_lib.c")
-    slib_dest = os.path.join(HL_EXEC_DIR, "chain_bst_lib.so")
-    if os.path.isfile(slib_dest):
-        print(f"{slib_dest} is already built")
-        return SUCCESS
-    cmd = f"gcc {CFLAGS} -fPIC -shared -o {slib_dest} {slib_src}"
-    rc = subprocess.call(cmd, shell=True)
-    if rc == 0:
-        print("Success!")
-        return SUCCESS
-    else:
-        print(f"Build command crashed!\n{cmd}")
-        return FAILED
-
-
 def parse_args():
     app = argparse.ArgumentParser()
     app.add_argument(
@@ -497,8 +479,6 @@ def main():
     chainmergesort_status = acquire_chainmergesort(conda_available)
     pslsortacca_status = acquire_pslsortacc()
     chaincleaner_status = acquire_chaincleaner()
-
-    chain_bst_status = build_chain_extract_id()
 
     installation_stats = {
         Required.AXTCHAIN: axtchain_status,
