@@ -9,6 +9,7 @@ http://genomewiki.ucsc.edu/index.php/Chains_Nets
 Chain format specification:
 https://genome.ucsc.edu/goldenPath/help/chain.html
 
+# An updated and improved version of this pipeline is in the works and will be released soon. Stay tuned!
 
 ## Usage
 
