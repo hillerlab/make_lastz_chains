@@ -61,6 +61,8 @@ def do_lastz(params: PipelineParameters,
     nextflow_manager.execute(project_paths.lastz_joblist,
                              Constants.NextflowConstants.LASTZ_CONFIG_PATH,
                              project_paths.lastz_working_dir,
-                             wait=True)
+                             wait=True,
+                             label="lastz")
+    nextflow_manager.check_failed()
     nextflow_manager.cleanup()
     check_results_completeness(project_paths)

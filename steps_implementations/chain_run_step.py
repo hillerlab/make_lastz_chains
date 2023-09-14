@@ -93,5 +93,7 @@ def do_chain_run(params: PipelineParameters,
     nextflow_manager.execute(project_paths.chain_joblist_path,
                              Constants.NextflowConstants.LASTZ_CONFIG_PATH,
                              project_paths.chain_run_dir,
-                             wait=True)
+                             wait=True,
+                             label="chain_run")
+    nextflow_manager.check_failed()
     nextflow_manager.cleanup()

@@ -130,7 +130,9 @@ def do_chains_fill(params: PipelineParameters,
     nextflow_manager.execute(project_paths.repeat_filler_joblist,
                              Constants.NextflowConstants.LASTZ_CONFIG_PATH,
                              project_paths.fill_chain_run_dir,
-                             wait=True)
+                             wait=True,
+                             label="fill_chain")
+    nextflow_manager.check_failed()
     nextflow_manager.cleanup()
 
     # 3. merge the filled chains

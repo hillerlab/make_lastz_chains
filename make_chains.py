@@ -155,6 +155,11 @@ def save_final_chain(parameters: PipelineParameters, project_paths: ProjectPaths
     else:
         last_chain_file = project_paths.merged_chain
         to_log(f"Chains were NOT filled, using {last_chain_file} as the last output file.")
+    if not os.path.isfile(last_chain_file):
+        raise ValueError(
+            f"Critical! Output chain file {last_chain_file} is absent!"
+            f"Please check the logs, probably one of the pipeline steps failed."
+        )
     # save it to the root project dir
     shutil.move(last_chain_file, project_paths.final_chain)
     to_log(f"Saved final chains file to {project_paths.final_chain}")

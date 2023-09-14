@@ -17,6 +17,7 @@ class NextflowWrapper:
         self.config_file = None
         self.return_code = None
         self.execute_dir = None
+        self.label = None
         self.nf_master_script = Constants.NextflowConstants.NF_SCRIPT_PATH
 
     def execute(self, joblist_path, config_file, execute_dir, wait=False, **kwargs):
@@ -25,8 +26,9 @@ class NextflowWrapper:
         self.joblist_path = joblist_path
         self.config_file = config_file
         self.execute_dir = execute_dir
-        # create the nextflow process
+        self.label = kwargs.get("label", "")
 
+        # create the nextflow process
         cmd = f"nextflow {self.nf_master_script} --joblist {joblist_path}"
         if self.config_file:
             cmd += f" -c {self.config_file}"
@@ -43,15 +45,33 @@ class NextflowWrapper:
         if wait:
             self._process.wait()
 
+    def _acquire_return_code(self):
+        running = self._process.poll() is None
+        if running:
+            return
+        self.return_code = self._process.returncode
+
     def check_status(self):
         """Check if nextflow jobs are done."""
         if self.return_code:
             return self.return_code
-        running = self._process.poll() is None
-        if running:
-            return None
-        self.return_code = self._process.returncode
+        self._acquire_return_code()
         return self.return_code
+
+    def check_failed(self, dont_clean_logs=False):
+        self._acquire_return_code()
+        if self.return_code is None:
+            return
+        if self.return_code == 0:
+            to_log(f"\n### Nextflow process {self.label} finished successfully")
+            return
+
+        to_log(f"\n### Error! The nextflow process {self.label} crashed!")
+        if dont_clean_logs is False:
+            to_log(f"Please look at the logs in the {self.execute_dir}")
+        else:
+            self.cleanup()
+        raise ValueError(f"Nextflow jobs for {self.label} died")
 
     def cleanup(self):
         """Nextflow produces a bunch of files: to be removed."""
