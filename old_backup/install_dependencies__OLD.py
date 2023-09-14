@@ -44,7 +44,7 @@ LASTZ_DOWNLOADABLE = "lastz-1.04.00"
 
 # output directories
 BINARIES_DIR = "kent_binaries"
-HL_EXEC_DIR = "HL_kent_binaries"
+HL_EXEC_DIR = "../HL_kent_binaries"
 GENOMEALIGNMENTTOOLS = "GenomeAlignmentTools"
 
 # channels related

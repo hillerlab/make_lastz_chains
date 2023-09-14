@@ -4,3 +4,4 @@ x chainNet
 x NetFilterNonNested.perl
 
 Please make sure you placed chainNet binary in this directory.
+Yes, it is just a workaround to make chainCleaner work.

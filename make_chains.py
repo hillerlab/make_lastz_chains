@@ -115,7 +115,9 @@ def parse_args():
     pipeline_params.add_argument("--fill_prepare_memory",
                                  default=Constants.DEFAULT_FILL_PREPARE_MEMORY,
                                  type=int)
-    pipeline_params.add_argument("--chaining_memory", default=Constants.DEFAULT_CHAINING_MEMORY, type=int)
+    pipeline_params.add_argument("--chaining_memory",
+                                 default=Constants.DEFAULT_CHAINING_MEMORY,
+                                 type=int)
     pipeline_params.add_argument("--chain_clean_memory",
                                  default=Constants.DEFAULT_CHAIN_CLEAN_MEMORY,
                                  type=int)
