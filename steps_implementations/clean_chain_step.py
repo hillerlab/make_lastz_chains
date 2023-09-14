@@ -1,12 +1,13 @@
 """Clean chains step."""
-import os.path
+import os
 import shutil
 import subprocess
+import platform
 from modules.make_chains_logging import to_log
-from constants import Constants
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.error_classes import PipelineSubprocessError
 
 
 def do_chains_clean(params: PipelineParameters,
@@ -49,17 +50,38 @@ def do_chains_clean(params: PipelineParameters,
     to_log(" ".join(chain_cleaner_cmd))
 
     with open(project_paths.chain_cleaner_log, 'w') as f:
-        rc = subprocess.call(chain_cleaner_cmd, stdout=f, stderr=subprocess.STDOUT, env=_temp_env)
-        # TODO: deal with Couldn't open /proc/self/stat , No such file or directory
-        # error on MacOS. If this error -> ignore, but crash in case of anything else.
-        # if rc != 0:
-        # ERROR: chainNet (kent source code) is not a binary in $PATH.
-        # Either install the kent source code or provide the nets as input.
-        # ERROR: NetFilterNonNested.perl(comes with the chainCleaner source code)
-        # is not a binary in $PATH.Either install it or provide the nets as input.
-        # raise RuntimeError(f"Command {chain_cleaner_cmd} crashed")
+        process = subprocess.Popen(chain_cleaner_cmd,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   env=_temp_env,
+                                   text=True)
+        stdout, stderr = process.communicate()
+
+        # Write stdout to log file and also capture it in a variable
+        f.write(stdout)
+        # Couldn't open /proc/self/stat , No such file or directory
+        # error on macOS. If this error -> ignore, but crash in case of anything else.
+        if process.returncode != 0:  # handle error
+            is_macos = platform.system() == "Darwin"
+            if is_macos:
+                # on macOS, it always crashes...
+                to_log(
+                    "Chain cleaner returned non-zero error code."
+                    "However, you run macOS, where it always return non-zero code."
+                    "It is impossible to differentiate whether it's a true error or now."
+                )
+                pass
+            else:
+                # here, proper handling
+                error_message = f"chain cleaner process died with the following error message: {stderr}"
+                raise PipelineSubprocessError(error_message)
+
     to_log(f"Chain clean results saved to: {_output_chain}")
 
     gzip_cmd = ["gzip", _output_chain]
-    subprocess.call(gzip_cmd)
+    try:
+        subprocess.check_call(gzip_cmd)
+    except subprocess.CalledProcessError:
+        raise PipelineSubprocessError("gzip command at clean chain step failed")
+
     to_log("Chain clean DONE")

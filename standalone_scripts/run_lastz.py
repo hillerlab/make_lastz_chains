@@ -14,7 +14,6 @@ import random
 import json
 from twobitreader import TwoBitFile
 
-
 __author__ = "Bogdan M. Kirilenko"
 
 
@@ -45,6 +44,11 @@ Just need to call this and that's all, no need for temp input files I guess
 Bogdan: probably it makes sense to also add
 --allocate=800M
 """
+
+
+class LastzProcessError(Exception):
+    """Must be standalone and run in the nextflow env: easier to define it here."""
+    pass
 
 
 def _gen_random_string(n):
@@ -158,12 +162,7 @@ def parse_file_spec(filename):
     return path_bare, seq_id, start, end
 
 
-def call_process(cmd):
-    subprocess.call(cmd, shell=True)
-
-
 def build_lastz_command(t_specs, q_specs, blastz_options):
-    # print(t_specs, q_specs, blastz_options)
     t_path, t_chrom, t_start, t_end = t_specs
     q_path, q_chrom, q_start, q_end = q_specs
     """http://www.bx.psu.edu/miller_lab/dist/README.lastz-1.02.00/
@@ -190,8 +189,14 @@ def build_lastz_command(t_specs, q_specs, blastz_options):
 
 
 def call_lastz(cmd):
-    lastz_out = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    return lastz_out
+    try:
+        lastz_out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE).decode("utf-8")
+        return lastz_out
+    except subprocess.CalledProcessError as e:
+        error_message = e.stderr.decode("utf-8")
+        raise LastzProcessError(
+            f"Lastz command failed with exit code {e.returncode}. Error message: {error_message}"
+        )
 
 
 def make_psl_if_needed(raw_out, out_format, s1p, s2p, v):
@@ -210,10 +215,7 @@ def make_psl_if_needed(raw_out, out_format, s1p, s2p, v):
     stderr = stderr_.decode("utf-8")
     rc = p.returncode
     if rc != 0:
-        print("AXTTOPSL COMMAND CRASHED")
-        print(stderr)
-        # p.terminate()  # also not needed?
-        sys.exit(2)
+        raise LastzProcessError(f"AXTTOPSL COMMAND CRASHED WITH {stderr}")
     return stdout
 
 

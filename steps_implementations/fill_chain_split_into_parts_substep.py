@@ -1,5 +1,6 @@
 """Split chain into random parts module."""
 import random
+from modules.make_chains_logging import to_log
 
 
 def get_chain_ids(chain_file):
@@ -29,7 +30,7 @@ def split_chain_file(chain_file, id_to_fh, fhs):
 
 def randomly_split_chains(chain, nsplit, prefix):
     chain_ids = get_chain_ids(chain)
-    print(f"Found {len(chain_ids)} chain IDs")
+    to_log(f"Found {len(chain_ids)} chain IDs")
 
     id_to_fh = assign_ids_to_files(chain_ids, nsplit)
     max_num_filex = max(id_to_fh.values()) + 1
@@ -40,7 +41,7 @@ def randomly_split_chains(chain, nsplit, prefix):
     for fh in fhs:
         fh.close()
 
-    print(f"Wrote output to {max_num_filex} files starting with '{prefix}'.")
+    to_log(f"Wrote output to {max_num_filex} files starting with '{prefix}'.")
 
 
 if __name__ == "__main__":

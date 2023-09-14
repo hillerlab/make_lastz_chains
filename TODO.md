@@ -10,6 +10,8 @@
 - Get rig of all magic numbers and strings
 - Logging messages
 - Documentation
+- For all subprocesses -> error handling
+- Check for absent expected files
 
 ## Nice to do
 

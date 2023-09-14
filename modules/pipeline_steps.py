@@ -1,11 +1,5 @@
 """Class to manage pipeline steps."""
-import os
-import subprocess
-import json
 from constants import Constants
-from modules.parameters import PipelineParameters
-from modules.project_paths import ProjectPaths
-from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
 from modules.step_status import StepStatus
 from steps_implementations.partition import do_partition_for_genome

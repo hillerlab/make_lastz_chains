@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from constants import Constants
 from modules.make_chains_logging import to_log
+from modules.error_classes import NextflowProcessError
 
 
 class NextflowWrapper:
@@ -71,7 +72,7 @@ class NextflowWrapper:
             to_log(f"Please look at the logs in the {self.execute_dir}")
         else:
             self.cleanup()
-        raise ValueError(f"Nextflow jobs for {self.label} died")
+        raise NextflowProcessError(f"Jobs for {self.label} at {self.joblist_path} died")
 
     def cleanup(self):
         """Nextflow produces a bunch of files: to be removed."""

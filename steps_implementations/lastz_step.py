@@ -4,7 +4,6 @@ Creates a lastz joblist for NxK chunks created at the partitioning step.
 Executes these lastz alignment jobs in parallel.
 """
 import os
-import subprocess
 from itertools import product
 from modules.common_funcs import read_list_txt_file
 from modules.make_chains_logging import to_log

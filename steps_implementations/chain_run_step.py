@@ -10,6 +10,7 @@ from constants import Constants
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.error_classes import PipelineSubprocessError
 
 
 def psl_bundle(cat_out_dirname, project_paths, executables, params):
@@ -25,7 +26,14 @@ def psl_bundle(cat_out_dirname, project_paths, executables, params):
                 file_list_arg]
     to_log(f"Sorting PSL files, saving the results to {project_paths.sorted_psl_dir}")
     to_log(" ".join(sort_cmd))
-    subprocess.call(sort_cmd)
+
+    sort_process_result = subprocess.run(sort_cmd, stderr=subprocess.PIPE)
+    if sort_process_result.returncode != 0:
+        raise PipelineSubprocessError(
+            f"The sort command failed with exit code {sort_process_result.returncode}."
+            f"Error message: {sort_process_result.stderr.decode('utf-8')}"
+        )
+
     shutil.rmtree(project_paths.temp_dir_for_psl_sort)
 
     # 1.2 -> bundle chrom split files

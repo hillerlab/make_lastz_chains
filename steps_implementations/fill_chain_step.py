@@ -7,6 +7,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
+from modules.error_classes import PipelineSubprocessError
 from parallelization.nextflow_wrapper import NextflowWrapper
 from steps_implementations.fill_chain_split_into_parts_substep import randomly_split_chains
 
@@ -99,6 +100,19 @@ def merge_filled_chains(params: PipelineParameters,
     # Close the stdout of 'merge_sort_process'
     merge_sort_process.stdout.close()
 
+    # Wait for processes to complete and check for errors
+    find_exit_code = find_process.wait()
+    if find_exit_code != 0:
+        raise PipelineSubprocessError(f"find_process failed with exit code {find_exit_code}")
+
+    merge_sort_exit_code = merge_sort_process.wait()
+    if merge_sort_exit_code != 0:
+        raise PipelineSubprocessError(f"merge_sort_process failed with exit code {merge_sort_exit_code}")
+
+    gzip_exit_code = gzip_process.wait()
+    if gzip_exit_code != 0:
+        raise PipelineSubprocessError(f"gzip_process failed with exit code {gzip_exit_code}")
+
     # Wait for 'gzip' to finish
     gzip_process.communicate()
     to_log("Merging filled chains done")
@@ -119,8 +133,11 @@ def do_chains_fill(params: PipelineParameters,
         project_paths.merged_chain
     ]
     to_log(f"gunzip -c {project_paths.merged_chain} > {temp_in_chain}")
-    with open(temp_in_chain, "wb") as f:
-        subprocess.run(gunzip_cmd, stdout=f)
+    try:
+        with open(temp_in_chain, "wb") as f:
+            subprocess.run(gunzip_cmd, stdout=f, check=True)
+    except subprocess.CalledProcessError:
+        raise PipelineSubprocessError("gunzip command at do_chains_fill failed")
 
     randomly_split_chains(temp_in_chain, params.num_fill_jobs, infill_template)
 

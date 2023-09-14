@@ -1,4 +1,7 @@
 """Common functions that can be potentially necessary for all modules."""
+import os.path
+from modules.make_chains_logging import to_log
+from modules.error_classes import PipelineFileNotFound
 
 
 def read_chrom_sizes(chrom_sizes_path):
@@ -18,3 +21,13 @@ def read_list_txt_file(txt_file):
     """Just read a txt file as a list of strings."""
     with open(txt_file, "r") as f:
         return [x.rstrip() for x in f]
+
+
+def check_expected_file(path, label):
+    if os.path.isfile(path):
+        return
+    err_msg = (
+        f"Error! An expected file {path} was not found. "
+        f"The failed operation label is: {label}"
+    )
+    raise PipelineFileNotFound(err_msg)

@@ -93,7 +93,6 @@ class ProjectPaths:
         ]
 
         for directory in directories_to_create:
-            # print(f"making: {directory}")
             os.makedirs(directory, exist_ok=True)
 
     def set_target_chrom_rename_table(self, table_path):

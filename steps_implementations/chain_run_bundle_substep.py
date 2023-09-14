@@ -2,7 +2,6 @@
 """Direct translation from bundleChromSplitPSLfiles.perl to Python."""
 import os
 import sys
-import argparse
 from modules.common_funcs import read_chrom_sizes
 from modules.make_chains_logging import to_log
 
@@ -109,7 +108,7 @@ def bundle_chrom_split_psl_files(input_dir: str,
     input_files = get_input_files(input_dir)
     cur_bundle_count = bundle_files(args, chrom_size, input_files)
     check_unbundled_files(args, input_files)
-    print(f"DONE. Produced {cur_bundle_count} files")
+    to_log(f"DONE. Produced {cur_bundle_count} files")
 
 
 if __name__ == "__main__":

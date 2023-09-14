@@ -76,3 +76,4 @@ class StepManager:
                     traceback.print_exc()
                     self.mark_step_status(step, StepStatus.FAILED)
                     sys.exit(1)
+        to_log("\n### All core pipeline steps done ###\n")
