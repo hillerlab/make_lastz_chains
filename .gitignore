@@ -24,6 +24,7 @@ HL_kent_binaries/chainCleaner
 HL_kent_binaries/chainSort
 HL_kent_binaries/chainScore
 chain_clean_micro_env/chainNet
+/HL_kent_binaries/chainFilter
 # to be continued
 
 # test data

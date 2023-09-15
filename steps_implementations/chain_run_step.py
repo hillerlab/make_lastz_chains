@@ -93,13 +93,13 @@ def do_chain_run(params: PipelineParameters,
     chain_jobs = make_chains_joblist(project_paths, params, executables)
 
     # Part 3: execute cluster jobs
-    to_log(f"Saving {len(chain_jobs)} LASTZ jobs to {project_paths.chain_joblist_path}")
+    to_log(f"Saving {len(chain_jobs)} axtChain jobs to {project_paths.chain_joblist_path}")
     with open(project_paths.chain_joblist_path, "w") as f:
         f.write("\n".join(chain_jobs))
         f.write("\n")
 
     nextflow_config = NextflowConfig(params.cluster_executor,
-                                     Constants.NextflowConstants.JOB_MEMORY_REQ,
+                                     params.chaining_memory,
                                      Constants.NextflowConstants.JOB_TIME_REQ,
                                      Constants.NextflowConstants.CHAIN_RUN_LABEL,
                                      config_dir=project_paths.chain_run_dir,

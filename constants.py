@@ -59,12 +59,12 @@ class Constants:
 
     # file and directory names
     LASTZ_OUT_BUCKET_PREFIX = "bucket_ref_"
-    TEMP_LASTZ_DIRNAME = "TEMP_run.lastz"
-    TEMP_PSL_DIRNAME = "TEMP_psl"
-    TEMP_CAT_DIRNAME = "TEMP_run.cat"
+    TEMP_LASTZ_DIRNAME = "temp_lastz_run"
+    TEMP_PSL_DIRNAME = "temp_lastz_psl_output"
+    TEMP_CAT_DIRNAME = "temp_concat_lastz_output"
     CHAIN_JOBLIST_FILENAME = "chains_joblist"
 
-    TEMP_AXT_CHAIN_DIRNAME = "TEMP_axtChain"
+    TEMP_AXT_CHAIN_DIRNAME = "temp_chain_run"
     SORTED_PSL_DIRNAME = "sorted_psl"
     SPLIT_PSL_DIRNAME = "split_psl"
     CHAIN_RUN_OUT_DIRNAME = "chain"
@@ -72,9 +72,9 @@ class Constants:
 
     REMOVED_SUSPECTS_BED_FNAME = "removed_suspects.bed"
 
-    FILL_CHAIN_DIRNAME = "TEMP_run.fillChain"
-    FILLED_CHAINS_DIRNAME = "filledChain"
-    FILLED_CHAINS_JOBS_DIRNAME = "jobs"
+    FILL_CHAIN_DIRNAME = "temp_fill_chain"
+    FILLED_CHAINS_DIRNAME = "filled_chain_files"
+    FILLED_CHAINS_JOBS_DIRNAME = "fill_chain_chunks"
 
     FILL_PREPARE_JOBLIST_NAME = "jobList_prepare.txt"
     REPEAT_FILLER_JOBLIST_NAME = "repeat_filler_joblist.txt"
@@ -119,7 +119,7 @@ class Constants:
         CHAIN_SCORE = "chainScore"
         CHAIN_NET = "chainNet"  # only to run chainCleaner
         AXT_TO_PSL = "axtToPsl"  # has to be in the $PATH!
-
+        CHAIN_FILTER = "chainFilter"
         # only one non-Kent binary
         LASTZ = "lastz"
 

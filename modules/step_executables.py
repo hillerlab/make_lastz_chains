@@ -26,6 +26,9 @@ class StepExecutables:
         self.chain_sort = self.__find_binary(Constants.ToolNames.CHAIN_SORT)
         self.chain_score = self.__find_binary(Constants.ToolNames.CHAIN_SCORE)
         self.lastz = self.__find_binary(Constants.ToolNames.LASTZ)
+        self.chain_filter = self.__find_binary(Constants.ToolNames.CHAIN_FILTER)
+
+        # ChainNet is special for now
         self.chain_net = self.__locate_chain_net(Constants.ToolNames.CHAIN_NET)
 
         self.__check_completeness()

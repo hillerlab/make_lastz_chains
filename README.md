@@ -1,5 +1,4 @@
 # Make Lastz Chains
-# THIS VERSION IS UNDER DEVELOPMENT
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 ![version](https://img.shields.io/badge/version-2.0.0%20alpha-blue)
@@ -26,21 +25,20 @@ Install nextflow:
 https://www.nextflow.io/docs/latest/getstarted.html
 
 Please note that Nextflow requires a java runtime.
+Please also acquire `lastz` and add a binary to your `$PATH`.
 
 Then do the following:
 
 ```bash
 git clone git@github.com:hillerlab/make_lastz_chains.git
 cd make_lastz_chains
-# install python packages (just one actually)
+# install python packages (just one actually for now)
 pip3 install -r requirements.txt
 # The pipeline requires many UCSC Kent binaries,
 # they can be downloaded using this script,
 # unless they are already in the $PATH:
 ./install_dependencies.py
 ```
-
-Please also acquire `lastz` and add a binary to your `$PATH`.
 
 ### Running the pipeline
 

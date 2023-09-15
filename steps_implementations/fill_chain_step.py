@@ -79,6 +79,9 @@ def merge_filled_chains(params: PipelineParameters,
     # Create the 'chainMergeSort' command
     merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin"]
 
+    # chainFilter -> remove chains with very low score
+    filter_cmd = [executables.chain_filter, "stdin", f"-minScore={params.chain_min_score}"]
+
     # Create the 'gzip' command
     gzip_cmd = ["gzip", "-c"]
 
@@ -92,15 +95,21 @@ def merge_filled_chains(params: PipelineParameters,
     # Pipe the output of 'find' to 'chainMergeSort'
     merge_sort_process = subprocess.Popen(merge_sort_cmd, stdin=find_process.stdout, stdout=subprocess.PIPE)
 
+    # Pipe the output of 'chainMergeSort' to 'chainFilter'
+    filter_process = subprocess.Popen(filter_cmd, stdin=merge_sort_process.stdout, stdout=subprocess.PIPE)
+
     # Close the stdout of 'find_process'
     find_process.stdout.close()
 
     # Pipe the output of 'chainMergeSort' to 'gzip'
     with open(project_paths.filled_chain, "wb") as f:
-        gzip_process = subprocess.Popen(gzip_cmd, stdin=merge_sort_process.stdout, stdout=f)
+        gzip_process = subprocess.Popen(gzip_cmd, stdin=filter_process.stdout, stdout=f)
 
     # Close the stdout of 'merge_sort_process'
     merge_sort_process.stdout.close()
+
+    # Close the stdout of 'filter_process'
+    filter_process.stdout.close()
 
     # Wait for processes to complete and check for errors
     find_exit_code = find_process.wait()
@@ -110,6 +119,10 @@ def merge_filled_chains(params: PipelineParameters,
     merge_sort_exit_code = merge_sort_process.wait()
     if merge_sort_exit_code != 0:
         raise PipelineSubprocessError(f"merge_sort_process failed with exit code {merge_sort_exit_code}")
+
+    filter_process_exit_code = filter_process.wait()
+    if filter_process_exit_code != 0:
+        raise PipelineSubprocessError(f"chainFilter failed with exit code {filter_process_exit_code}")
 
     gzip_exit_code = gzip_process.wait()
     if gzip_exit_code != 0:

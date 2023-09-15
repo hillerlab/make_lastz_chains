@@ -4,6 +4,7 @@
 
 - Documentation
 - Full scale test
+- Figure out where the negatively-scored chains come from, ~~get rid of them~~
 - ~~Organise cat step better~~
 - ~~Get rid of all magic numbers and strings~~
 - ~~Check for output presence after each step~~
@@ -16,7 +17,7 @@
 
 ## Nice to do
 
-- Refactor chain gap filler: get rid of chainExtractID dependency -> not needed
 - Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?
 - QC module or something - detailed statistics per each step
+- ~~Refactor chain gap filler: get rid of chainExtractID dependency -> not needed~~
 - ~~read parameters from config file~~

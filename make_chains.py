@@ -87,7 +87,6 @@ def parse_args():
     pipeline_params.add_argument("--min_chain_score",
                                  default=Constants.DEFAULT_MIN_CHAIN_SCORE,
                                  type=int)
-    # TODO: add "choices" -> must be loose, medium, or smth else
     pipeline_params.add_argument("--chain_linear_gap",
                                  default=Constants.DEFAULT_CHAIN_LINEAR_GAP,
                                  choices=["loose, medium"],
@@ -232,6 +231,7 @@ def run_pipeline(args):
     save_final_chain(parameters, project_paths)
     cleanup(parameters, project_paths)
     tot_runtime = dt.now() - start_time
+    # TODO: skip chains with negative scores or < min_score
     to_log(f"make_lastz_chains run done in {tot_runtime}")
 
 
