@@ -7,6 +7,8 @@
 Portable Hillerlab solution for generating pairwise genome alignment chains.
 These chains can be used as input for [TOGA](https://github.com/hillerlab/TOGA) or for generating multiz alignments.
 
+Perl-based pipeline is still available in the [first_version_backup branch](https://github.com/hillerlab/make_lastz_chains/tree/first_version_backup).
+
 ![Abstract Chains](readme_images/abstract_chains.png)
 
 Chains explained:
@@ -17,7 +19,7 @@ https://genome.ucsc.edu/goldenPath/help/chain.html
 
 ## Usage
 
-⚠️ Although the pipeline works on macOS, it is strongly recommended to run it on a Linux-based machine.
+⚠️ Although the pipeline runs on macOS, it is strongly recommended to use it on a Linux-based machine.
 
 ### Installation:
 
