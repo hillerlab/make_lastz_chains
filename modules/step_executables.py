@@ -39,6 +39,7 @@ class StepExecutables:
         if not os.path.isfile(abs_path):
             self.not_found.append(script_name)
             return None
+        to_log(f"* found {script_name} at {abs_path}")
         return abs_path
 
     def __find_binary(self, binary_name):
@@ -50,12 +51,16 @@ class StepExecutables:
 
             if not os.path.exists(binary_path):
                 self.not_found.append(binary_name)
+                return
+        to_log(f"* found {binary_name} at {binary_path}")
         return binary_path
 
     def __locate_chain_net(self, chain_net):
         if shutil.which(chain_net):
+            to_log(f"found {chain_net} in $PATH")
             return True
         elif os.path.isfile(os.path.join(self.chain_clean_env_dir, chain_net)):
+            to_log(f"found {chain_net} in {self.chain_clean_env_dir}")
             return True
         self.not_found.append(chain_net)
         return None

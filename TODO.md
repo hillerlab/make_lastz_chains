@@ -19,7 +19,7 @@
 
 - Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?
 - QC module or something - detailed statistics per each step
-- explanation for each pipeline parameter
+- Explanation for each pipeline parameter in the parse_args
 - ~~Refactor chain gap filler: get rid of chainExtractID dependency -> not needed~~
 - ~~read parameters from config file~~
 - Document masking, etc. - nuances that affect the pipeline performance.

@@ -42,6 +42,9 @@ pip3 install -r requirements.txt
 ./install_dependencies.py
 ```
 
+If you wish to run the old pipeline version, please do `git checkout first_version_backup` in
+the make_lastz_chains directory.
+
 ### Running the pipeline
 
 The script to be called is `make_chains.py`.
