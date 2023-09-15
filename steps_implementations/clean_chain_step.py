@@ -8,7 +8,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.error_classes import PipelineSubprocessError
-from modules.common_funcs import check_expected_file
+from modules.common import check_expected_file
 
 
 def do_chains_clean(params: PipelineParameters,

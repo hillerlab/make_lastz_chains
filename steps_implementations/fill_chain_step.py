@@ -11,7 +11,7 @@ from modules.error_classes import PipelineSubprocessError
 from parallelization.nextflow_wrapper import NextflowWrapper
 from parallelization.nextflow_wrapper import NextflowConfig
 from steps_implementations.fill_chain_split_into_parts_substep import randomly_split_chains
-from modules.common_funcs import check_expected_file
+from modules.common import check_expected_file
 
 
 def create_repeat_filler_joblist(params: PipelineParameters,

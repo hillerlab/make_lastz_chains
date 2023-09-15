@@ -179,8 +179,9 @@ def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
     dirs_to_del = [
         project_paths.chain_run_dir,
         project_paths.cat_out_dirname,
-        project_paths.psl_output_dir,
-        project_paths.lastz_working_dir
+        project_paths.lastz_output_dir,
+        project_paths.lastz_working_dir,
+        project_paths.fill_chain_run_dir
     ]
     to_log("Cleaning up the following directories")
     for dirname in dirs_to_del:

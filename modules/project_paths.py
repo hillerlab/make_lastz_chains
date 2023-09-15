@@ -33,7 +33,6 @@ class ProjectPaths:
         self.lastz_joblist = self._j_abs(self.lastz_working_dir, Constants.LASTZ_JOBLIST_FILENAME)
 
         # CAT step
-        self.psl_output_dir = self._j_abs(project_dir, Constants.TEMP_PSL_DIRNAME)
         self.cat_out_dirname = self._j_abs(project_dir, Constants.TEMP_CAT_DIRNAME)
 
         # CHAIN step
@@ -89,7 +88,7 @@ class ProjectPaths:
         directories_to_create = [
             self.lastz_working_dir,
             self.lastz_output_dir,
-            self.psl_output_dir,
+            # self.psl_output_dir,
             self.cat_out_dirname,
             self.chain_run_dir,
             self.temp_dir_for_psl_sort,

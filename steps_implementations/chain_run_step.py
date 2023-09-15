@@ -12,7 +12,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.error_classes import PipelineSubprocessError
-from modules.common_funcs import has_non_empty_file
+from modules.common import has_non_empty_file
 
 
 def psl_bundle(cat_out_dirname, project_paths, executables, params):

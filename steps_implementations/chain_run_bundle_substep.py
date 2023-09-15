@@ -2,7 +2,7 @@
 """Direct translation from bundleChromSplitPSLfiles.perl to Python."""
 import os
 import sys
-from modules.common_funcs import read_chrom_sizes
+from modules.common import read_chrom_sizes
 from modules.make_chains_logging import to_log
 
 

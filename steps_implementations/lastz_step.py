@@ -5,7 +5,7 @@ Executes these lastz alignment jobs in parallel.
 """
 import os
 from itertools import product
-from modules.common_funcs import read_list_txt_file
+from modules.common import read_list_txt_file
 from modules.make_chains_logging import to_log
 from parallelization.nextflow_wrapper import NextflowWrapper
 from parallelization.nextflow_wrapper import NextflowConfig
@@ -13,6 +13,16 @@ from constants import Constants
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.common import GenomicRegion
+
+
+def locate_target_bucket(target_partition):
+    """Extract the respective bucket for a given target partition."""
+    interval_str = target_partition.split(":")
+    chrom = interval_str[1]
+    start, end = map(int, interval_str[2].split("-"))
+    interval = GenomicRegion(chrom, start, end)
+    return interval.to_bucket_dirname()
 
 
 def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables):
@@ -23,8 +33,10 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
 
     for num, (target, query) in enumerate(product(target_partitions, query_partitions), 1):
         output_filename = f"{target.split(':')[-2]}_{query.split(':')[-2]}__{num}.psl"
+        output_bucket = locate_target_bucket(target)
         output_file = os.path.join(
             project_paths.lastz_output_dir,
+            output_bucket,
             output_filename
         )
         lastz_exec = os.path.abspath(executables.lastz_wrapper)

@@ -58,6 +58,7 @@ class Constants:
     QUERY_CHROM_SIZES_FILENAME = f"{QUERY_LABEL}.chrom.sizes"
 
     # file and directory names
+    LASTZ_OUT_BUCKET_PREFIX = "bucket_ref_"
     TEMP_LASTZ_DIRNAME = "TEMP_run.lastz"
     TEMP_PSL_DIRNAME = "TEMP_psl"
     TEMP_CAT_DIRNAME = "TEMP_run.cat"

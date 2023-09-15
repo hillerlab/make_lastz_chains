@@ -2,9 +2,9 @@
 
 ## Mandatory
 
-- Organise cat step better
 - Documentation
 - Full scale test
+- ~~Organise cat step better~~
 - ~~Get rid of all magic numbers and strings~~
 - ~~Check for output presence after each step~~
 - ~~Nextflow manager class~~ -> dedicated class for NF config
