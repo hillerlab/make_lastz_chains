@@ -12,4 +12,25 @@ temp/*
 .DS_Store
 .idea/*
 venv/*
-.idea/*
+__pycache__/*
+modules/__pycache__/*
+*/__pycache__/
+
+# Kent binaries
+HL_kent_binaries/pslSortAcc
+HL_kent_binaries/chainAntiRepeat
+HL_kent_binaries/chainMergeSort
+HL_kent_binaries/chainCleaner
+HL_kent_binaries/chainSort
+HL_kent_binaries/chainScore
+chain_clean_micro_env/chainNet
+/HL_kent_binaries/chainFilter
+# to be continued
+
+# test data
+test_out/
+test_out_2/
+test_data/humanChrX.fa
+test_data/mm39ChrX.fa
+test_out_new/
+test_out_old/

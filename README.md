@@ -1,7 +1,15 @@
 # Make Lastz Chains
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+![version](https://img.shields.io/badge/version-2.0.0%20alpha-blue)
+[![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
+
 Portable Hillerlab solution for generating pairwise genome alignment chains.
 These chains can be used as input for [TOGA](https://github.com/hillerlab/TOGA) or for generating multiz alignments.
+
+Perl-based pipeline is still available in the [first_version_backup branch](https://github.com/hillerlab/make_lastz_chains/tree/first_version_backup).
+
+![Abstract Chains](readme_images/abstract_chains.png)
 
 Chains explained:
 http://genomewiki.ucsc.edu/index.php/Chains_Nets
@@ -9,47 +17,54 @@ http://genomewiki.ucsc.edu/index.php/Chains_Nets
 Chain format specification:
 https://genome.ucsc.edu/goldenPath/help/chain.html
 
-# An updated and improved version of this pipeline is in the works and will be released soon. Stay tuned!
-
 ## Usage
+
+⚠️ Although the pipeline runs on macOS, it is strongly recommended to use it on a Linux-based machine.
 
 ### Installation:
 
 Install nextflow:
 https://www.nextflow.io/docs/latest/getstarted.html
-Nextflow requires a java runtime
+
+Please note that Nextflow requires a java runtime.
+Please also acquire `lastz` and add a binary to your `$PATH`.
 
 Then do the following:
 
 ```bash
 git clone git@github.com:hillerlab/make_lastz_chains.git
-cd chains_builder
-# install python packages (just two)
+cd make_lastz_chains
+# install python packages (just one actually for now)
 pip3 install -r requirements.txt
-# download/build all necessary binaries: 
+# The pipeline requires many UCSC Kent binaries,
+# they can be downloaded using this script,
+# unless they are already in the $PATH:
 ./install_dependencies.py
 ```
 
-### Usage
+If you wish to run the old pipeline version, please do `git checkout first_version_backup` in
+the make_lastz_chains directory.
 
-The script to be called is *make_chains.py*
+### Running the pipeline
 
-```txt
-usage: make_chains.py [-h] [--project_dir PROJECT_DIR] [--DEF DEF] [--force_def]
-                      [--continue_arg CONTINUE_ARG] [--executor EXECUTOR]
-                      [--executor_queuesize EXECUTOR_QUEUESIZE]
-                      [--executor_partition EXECUTOR_PARTITION]
-                      [--cluster_parameters CLUSTER_PARAMETERS] [--lastz LASTZ]
-                      [--seq1_chunk SEQ1_CHUNK] [--seq2_chunk SEQ2_CHUNK]
-                      [--blastz_h BLASTZ_H] [--blastz_y BLASTZ_Y]
-                      [--blastz_l BLASTZ_L] [--blastz_k BLASTZ_K]
-                      [--fill_prepare_memory FILL_PREPARE_MEMORY]
-                      [--chaining_memory CHAINING_MEMORY]
-                      [--chain_clean_memory CHAIN_CLEAN_MEMORY]
-                      target_name query_name target_genome query_genome
+The script to be called is `make_chains.py`.
 
-Build chains for a given pair of target and query genomes.
+```bash
+### Minimal example
+./make_chains__OLD.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
+ ```
 
+A quick test sample:
+
+```bash
+./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f
+```
+
+### Full list of the pipeline CLI parameters
+
+Detailed explanation for some of these parameters is provided below.
+
+```text
 positional arguments:
   target_name           Target genome identifier, e.g. hg38, human, etc.
   query_name            Query genome identifier, e.g. mm10, mm39, mouse, etc.
@@ -60,139 +75,102 @@ optional arguments:
   -h, --help            show this help message and exit
   --project_dir PROJECT_DIR, --pd PROJECT_DIR
                         Project directory. By default: pwd
-  --DEF DEF             DEF formatted configuration file, please read README.md
-                        for details.
-  --force_def           Start the pipeline even if a DEF file already exists
-                        (overwrite the project)
-  --continue_arg CONTINUE_ARG
-                        Continue execution in the already existing project
-                        starting with the specified step. Available steps are:
-                        {'lastz', 'chainMerge', 'cleanChains', 'cat', 'chainRun',
-                        'fillChains', 'partition'}Please specify existing
-                        --project_dir to use this option
+  --continue_from_step {partition,lastz,cat,chain_run,chain_merge,fill_chains,clean_chains}, --cfs {partition,lastz,cat,chain_run,chain_merge,fill_chains,clean_chains}
+                        Continue pipeline execution from this step
+  --force, -f           Overwrite output directory if exists
+  --cluster_executor CLUSTER_EXECUTOR
+                        Nextflow executor parameter
+  --cluster_queue CLUSTER_QUEUE
+                        Queue/Partition label to run cluster jobs
+  --keep_temp, --kt     Do not remove temp files
+  --params_from_file PARAMS_FROM_FILE
+                        Read parameters from a specified config file
 
-cluster_params:
-  --executor EXECUTOR   Cluster jobs executor. Please see README.md to get a list
-                        of all available systems. Default local
-  --executor_queuesize EXECUTOR_QUEUESIZE
-                        Controls NextFlow queueSize parameter: maximal number of
-                        jobs in the queue (default 2000)
-  --executor_partition EXECUTOR_PARTITION
-                        Set cluster queue/partition (default batch)
-  --cluster_parameters CLUSTER_PARAMETERS
-                        Additional cluster parameters, regulates NextFlow
-                        clusterOptions (default None)
-
-def_params:
-  --lastz LASTZ         Path to specific lastz binary (if needed)
+Pipeline Parameters:
+  --skip_fill_chain
+  --skip_fill_unmask
+  --skip_clean_chain
+  --lastz_y LASTZ_Y
+  --lastz_h LASTZ_H
+  --lastz_l LASTZ_L
+  --lastz_k LASTZ_K
   --seq1_chunk SEQ1_CHUNK
-                        Chunk size for target sequence (default 175000000)
+  --seq1_lap SEQ1_LAP
+  --seq1_limit SEQ1_LIMIT
   --seq2_chunk SEQ2_CHUNK
-                        Chunk size for query sequence (default 50000000)
-  --blastz_h BLASTZ_H   BLASTZ_H parameter, (default 2000)
-  --blastz_y BLASTZ_Y   BLASTZ_Y parameter, (default 9400)
-  --blastz_l BLASTZ_L   BLASTZ_L parameter, (default 3000)
-  --blastz_k BLASTZ_K   BLASTZ_K parameter, (default 2400)
+  --seq2_lap SEQ2_LAP
+  --seq2_limit SEQ2_LIMIT
+  --min_chain_score MIN_CHAIN_SCORE
+  --chain_linear_gap {loose, medium}
+  --num_fill_jobs NUM_FILL_JOBS
+  --fill_chain_min_score FILL_CHAIN_MIN_SCORE
+  --fill_insert_chain_min_score FILL_INSERT_CHAIN_MIN_SCORE
+  --fill_gap_max_size_t FILL_GAP_MAX_SIZE_T
+  --fill_gap_max_size_q FILL_GAP_MAX_SIZE_Q
+  --fill_gap_min_size_t FILL_GAP_MIN_SIZE_T
+  --fill_gap_min_size_q FILL_GAP_MIN_SIZE_Q
+  --fill_lastz_k FILL_LASTZ_K
+  --fill_lastz_l FILL_LASTZ_L
+  --fill_memory FILL_MEMORY
   --fill_prepare_memory FILL_PREPARE_MEMORY
-                        FILL_PREPARE_MEMORY parameter (default 50000)
   --chaining_memory CHAINING_MEMORY
-                        CHAININGMEMORY parameter, (default 50000)
   --chain_clean_memory CHAIN_CLEAN_MEMORY
-                        CHAINCLEANMEMORY parameter, (default 100000)
+  --clean_chain_parameters CLEAN_CHAIN_PARAMETERS
 ```
-
-### Minimal example
-```bash
-./make_chains.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
- ```
-
-### Output
-
-The pipeline saves the resulting chain file into the "${project_dir}/${target_genome_id}.${query_genome_id}.allfilled.chain.gz" file.
 
 #### Target and query genome IDs
 
-Those are simply strings that differentiate between target and query genome names.
+These are simply strings that differentiate between the target and query genome names.
 For example, hg38 and mm10 will work.
-Can also be human and mouse, even h and m fits.
+They could also be human and mouse, or even h and m.
 Technically, any reasonable sequence of letters and numbers should work.
 
 #### Genome sequences
 
-Genome sequences can be provided as *fasta* or *twobit* formatted files.
-Please find 2bit file format specification [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format7).
+Genome sequences can be provided in either `fasta` or `twobit` formats.
+Please find the 2bit file format specification [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format7).
 
-> **Warning**
-> If your scaffold names are numbered, such as NC_00000.1 please consider removing scaffold numbers (rename NC_00000.1 to NC_00000 or NC_00000__1, for example). Some tools (especially those included in the make_chains workflow) are not able to correctly handle such identifiers.
-> The pipeline will try to trim scaffold numbers automatically to process the data properly.
-> Afterwards, it will rename the scaffolds back.
->
-> The chain format does not allow spaces in scaffold names because space is the delimiter character for chain headers.
-> If the pipeline detects spaces in headers: it will crash.
+⚠️ **Warning**
 
+If your scaffold names are numbered, such as NC_00000.1, consider removing the scaffold numbers
+(rename NC_00000.1 to NC_00000 or NC_00000__1, for example). Some tools, especially those included
+in the make_chains workflow, may not handle such identifiers correctly.
+The pipeline will attempt to trim scaffold numbers automatically for proper data processing.
 
+The chain format does not allow spaces in scaffold names,
+as spaces are the delimiter characters for chain headers.
+If the pipeline detects spaces in the chain headers, it will crash.
+
+If you wish to rename reference and query chromosomes or scaffolds back to their original names,
+please use the `standalone_scripts/rename_chromosomes_back.py` script.
 
 #### Project directory
 
-Directory where all steps are to be executed (not mandatory argument)
-By default pipeline saves all intermediate files in the directory where the pipeline was called.
-So, it's strongly recommended to specify the project directory.
+This is the directory where all steps will be executed (not a mandatory argument).
+By default, the pipeline saves all intermediate files in the directory where the pipeline was initiated.
+Therefore, it's strongly recommended to specify the project directory.
 
 #### Executor / available clusters
 
-Executor controls which cluster management system to use.
-By default the "local" executor is used - the pipeline utilizes only the machine's CPU.
-To run it on a slurm cluster add --executor slurm option.
-Please see [nextflow documentation](https://www.nextflow.io/docs/latest/executor.html) to find a list of supported executors.
+The executor option determines the cluster management system to use.
+By default, the pipeline uses the `local` executor, which means it only utilizes the CPU
+of the machine where it's running. However, genome alignment is a computationally intensive task,
+so it's advisable to run the pipeline on either a powerful machine with multiple CPUs or a cluster.
+To run the pipeline on a Slurm cluster, for instance, add the `--executor slurm` option.
+Refer to the [Nextflow documentation](https://www.nextflow.io/docs/latest/executor.html) for a list of supported executors.
 
-#### Output
-The pipeline saves the resulting chains file to the project directory specified by the respective parameter. The output file is named as follows: ${target_ID}.${query_ID}.allfilled.chain.gz
+#### Reading pipeline parameters from JSON file
 
-#### Cleanup
-To clean the output up:
-```
-cd project_dir
-./cleanUp.csh
-```
+The pipeline saves its parameters in a `pipeline_parameters.json` file.
+This file can be used to easily replicate the pipeline's settings for another run.
+To do so, use the `--params_from_file {params_json}` option when launching the pipeline.
+This ensures that the pipeline will run with the same parameters as specified in the JSON file,
+streamlining the process for multiple runs.  If you wish to make adjustments, the JSON file
+is easily editable, allowing you to tweak parameters as needed before running the pipeline again.
 
-## DEF format specification
-
-Pipeline parameters can be also specified in a configuration file.
-For backwards compatibility we call it a DEF file.
-This file has the following structure:
-
-```txt
-KEY=VALUE
-```
-
-Available keys are:
-
-- FILL_CHAIN: controls whether pipeline executes the fill_chain step or not, possible values are 0 and 1, default 1
-- CLEANCHAIN: whether or not execute chain cleaning step, 0/1, default 1.
-- CHAINCLEANMEMORY: amount of memory (in Mb) allocated for chain cleaning cluster job, default 100000
-- CHAININGMEMORY: amount of memory (in Mb) allocated for chaining job, 50000 is default.
-...
-
-Lastz parameters can also be tuned in the DEF file:
-- BLASTZ=lastz
-- BLASTZ_H=2000
-- BLASTZ_Y=9400
-- BLASTZ_L=3000
-- BLASTZ_K=2400
-
-
-To read from a DEF file, plase use the --DEF command line argument.
-
-## Parameters priority
-
-The pipeline collects the parameters from 3 different sources: (1) defaults, (2) command line arguments, (3) DEF file. The same parameter may be tuned in both command line and DEF file, therefore the pipeline uses the following order of precedence:
-Defaults < DEF file < Command line arguments
-
-For example, if DEF file says 
-SEQ1_CHUNK = 100_000_000
-and cmd arg --seq1_chunk equals to 80_000_000
-then the final SEQ1_CHUNK value will be 80_000_000
-because command line arguments have a higher priority.
+### Output
+The pipeline saves the resulting chain file in the project directory specified by the respective parameter.
+The output file is named as follows: `${target_ID}.${query_ID}.final.chain.gz`
 
 ## Citation
 
