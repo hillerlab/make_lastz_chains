@@ -1,7 +1,7 @@
 # Make Lastz Chains
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![version](https://img.shields.io/badge/version-2.0.0%20alpha-blue)
+![version](https://img.shields.io/badge/version-2.0.0-blue)
 [![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
