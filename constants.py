@@ -103,7 +103,7 @@ class Constants:
         FILL_CHAIN_LABEL = "fill_chain"
         CHAIN_RUN_LABEL = "chain_run"
 
-        JOB_MEMORY_REQ = '16G'
+        JOB_MEMORY_REQ = 16_000
         JOB_TIME_REQ = '24h'
 
     class ToolNames:
