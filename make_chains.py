@@ -228,7 +228,6 @@ def run_pipeline(args):
     # check result?
     save_final_chain(parameters, project_paths)
     cleanup(parameters, project_paths)
-    # TODO: implement sanity checks
     tot_runtime = dt.now() - start_time
     to_log(f"make_lastz_chains run done in {tot_runtime}")
 

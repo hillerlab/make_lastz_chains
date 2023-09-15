@@ -8,6 +8,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.error_classes import PipelineSubprocessError
+from modules.common_funcs import check_expected_file
 
 
 def do_chains_clean(params: PipelineParameters,
@@ -84,4 +85,6 @@ def do_chains_clean(params: PipelineParameters,
     except subprocess.CalledProcessError:
         raise PipelineSubprocessError("gzip command at clean chain step failed")
 
+    _output_chain_gz = f"{_output_chain}.gz"
+    check_expected_file(_output_chain_gz, "clean_chain")
     to_log("Chain clean DONE")

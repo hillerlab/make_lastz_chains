@@ -1,7 +1,7 @@
 """Common functions that can be potentially necessary for all modules."""
 import os.path
 from modules.make_chains_logging import to_log
-from modules.error_classes import PipelineFileNotFound
+from modules.error_classes import PipelineFileNotFoundError
 
 
 def read_chrom_sizes(chrom_sizes_path):
@@ -23,6 +23,18 @@ def read_list_txt_file(txt_file):
         return [x.rstrip() for x in f]
 
 
+def has_non_empty_file(directory, label):
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath) and os.path.getsize(filepath) > 0:
+            return
+    err_msg = (
+        f"Error! No non-empty files found at {directory}. "
+        f"The failed operation label is: {label}"
+    )
+    raise PipelineFileNotFoundError(err_msg)
+
+
 def check_expected_file(path, label):
     if os.path.isfile(path):
         return
@@ -30,4 +42,4 @@ def check_expected_file(path, label):
         f"Error! An expected file {path} was not found. "
         f"The failed operation label is: {label}"
     )
-    raise PipelineFileNotFound(err_msg)
+    raise PipelineFileNotFoundError(err_msg)

@@ -9,5 +9,9 @@ class NextflowProcessError(Exception):
     pass
 
 
-class PipelineFileNotFound(Exception):
+class PipelineFileNotFoundError(Exception):
+    pass
+
+
+class ExecutableNotFoundError(Exception):
     pass

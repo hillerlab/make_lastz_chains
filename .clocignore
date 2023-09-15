@@ -1,0 +1,11 @@
+# cloc --exclude-list-file=.clocignore .
+.vscode
+.DS_Store
+.idea
+venv
+test_out
+test_data
+old_backup
+HL_kent_binaries
+chainAxtIssue
+chain_clean_micro_env

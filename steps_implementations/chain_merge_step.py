@@ -7,6 +7,7 @@ from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
 from modules.error_classes import PipelineSubprocessError
+from modules.common_funcs import check_expected_file
 
 
 def do_chains_merge(params: PipelineParameters,
@@ -55,4 +56,5 @@ def do_chains_merge(params: PipelineParameters,
     if gzip_exit_code != 0:
         raise PipelineSubprocessError(f"gzip_process failed with exit code {gzip_exit_code}")
 
+    check_expected_file(project_paths.merged_chain, "merge_chain")
     to_log(f"Saved merged results to: {project_paths.merged_chain}")

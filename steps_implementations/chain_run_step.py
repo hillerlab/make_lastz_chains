@@ -12,6 +12,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.error_classes import PipelineSubprocessError
+from modules.common_funcs import has_non_empty_file
 
 
 def psl_bundle(cat_out_dirname, project_paths, executables, params):
@@ -112,3 +113,5 @@ def do_chain_run(params: PipelineParameters,
                              label=Constants.NextflowConstants.CHAIN_RUN_LABEL)
     nextflow_manager.check_failed()
     nextflow_manager.cleanup()
+    has_non_empty_file(project_paths.chain_output_dir, "chain_run")
+    to_log(f"Chain run output files saved to {project_paths.chain_output_dir}")

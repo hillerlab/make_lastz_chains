@@ -6,8 +6,8 @@ class Constants:
     DESCRIPTION = "Pipeline to create chain-formatted pairwise genome alignments."
 
     # defaults
-    DEFAULT_SEQ1_CHUNK = 20_000_000  # 175_000_000
-    DEFAULT_SEQ2_CHUNK = 12_000_000  # 50_000_000
+    DEFAULT_SEQ1_CHUNK = 175_000_000
+    DEFAULT_SEQ2_CHUNK = 50_000_000
     DEFAULT_SEQ1_LAP = 0
     DEFAULT_SEQ1_LIMIT = 4000  # what is it?
     DEFAULT_SEQ2_LAP = 10_000
@@ -92,16 +92,17 @@ class Constants:
 
     class ToolNames:
         # Kent tools
-        PSL_SORT_ACC = "pslSortAcc"
         TWO_BIT_TO_FA = "twoBitToFa"
         FA_TO_TWO_BIT = "faToTwoBit"
+        PSL_SORT_ACC = "pslSortAcc"
         AXT_CHAIN = "axtChain"
         CHAIN_ANTI_REPEAT = "chainAntiRepeat"
         CHAIN_MERGE_SORT = "chainMergeSort"
         CHAIN_CLEANER = "chainCleaner"
         CHAIN_SORT = "chainSort"
         CHAIN_SCORE = "chainScore"
-        CHAIN_NET = "chainNet"
+        CHAIN_NET = "chainNet"  # only to run chainCleaner
+        AXT_TO_PSL = "axtToPsl"  # has to be in the $PATH!
 
         # only one non-Kent binary
         LASTZ = "lastz"

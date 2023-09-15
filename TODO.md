@@ -2,17 +2,20 @@
 
 ## Mandatory
 
-- Quality control after each step
-- Nextflow manager class -> allow tuning the executor OR ask users to specify executor in the config files
 - Organise cat step better
-- Double check the pipeline default parameters
-- Fix the install dependencies script
 - Get rig of all magic numbers and strings
-- Logging messages
 - Documentation
-- For all subprocesses -> error handling
-- Check for absent expected files
+- Full scale test
+- ~~Check for output presence after each step~~
+- ~~Nextflow manager class~~ -> dedicated class for NF config
+- ~~Double check the pipeline default parameters~~
+- ~~Fix the install dependencies script~~
+- ~~Logging messages~~
+- ~~For all subprocesses -> error handling~~
+- ~~Check for absent expected files~~
 
 ## Nice to do
 
 - Refactor chain gap filler: get rid of chainExtractID dependency -> not needed
+- Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?
+- QC module or something - detailed statistics per each step

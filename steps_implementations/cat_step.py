@@ -7,6 +7,8 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
+from modules.common_funcs import has_non_empty_file
+from modules.error_classes import PipelineFileNotFoundError
 
 
 def do_cat(params: PipelineParameters,
@@ -27,4 +29,5 @@ def do_cat(params: PipelineParameters,
                 for line in in_f:
                     if "#" not in line:
                         out_f.write(line)
+    has_non_empty_file(project_paths.cat_out_dirname, "cat_step")
     to_log(f"Concatenated PSL file saved to: {output_file_path}")

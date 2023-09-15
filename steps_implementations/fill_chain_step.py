@@ -11,6 +11,7 @@ from modules.error_classes import PipelineSubprocessError
 from parallelization.nextflow_wrapper import NextflowWrapper
 from parallelization.nextflow_wrapper import NextflowConfig
 from steps_implementations.fill_chain_split_into_parts_substep import randomly_split_chains
+from modules.common_funcs import check_expected_file
 
 
 def create_repeat_filler_joblist(params: PipelineParameters,
@@ -167,4 +168,5 @@ def do_chains_fill(params: PipelineParameters,
     shutil.rmtree(project_paths.fill_chain_jobs_dir)
     shutil.rmtree(project_paths.fill_chain_filled_dir)
     os.remove(temp_in_chain)
+    check_expected_file(project_paths.filled_chain, "fill_chain")
     to_log("Fill chains step complete")

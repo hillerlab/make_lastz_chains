@@ -6,6 +6,7 @@ from modules.common_funcs import read_chrom_sizes
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
+from modules.error_classes import PipelineFileNotFoundError
 
 
 def do_partition_for_genome(genome_label: str,
@@ -43,6 +44,8 @@ def do_partition_for_genome(genome_label: str,
             partition_list.append(partition)
             start += chunk_size - overlap  # Move the start point for the next chunk
 
+    if len(partition_list) == 0:
+        raise PipelineFileNotFoundError(f"Could not make any partition for {genome_label}")
     # Save the partition list to a file
     with open(partition_file_path, 'w') as f:
         for part in partition_list:

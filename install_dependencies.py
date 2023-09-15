@@ -10,9 +10,9 @@ from constants import Constants
 __author__ = "Bogdan M. Kirilenko"
 
 SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
-DEST_DIR = os.path.join(SCRIPT_LOCATION, "HL_kent_binaries")
+DESTINATION_DIR = os.path.join(SCRIPT_LOCATION, "HL_kent_binaries")
 CHAIN_NET_DIR = os.path.join(SCRIPT_LOCATION, "chain_clean_micro_env")
-HGDOWNLOAD_LINK = "https://hgdownload.cse.ucsc.edu/admin/exe/"
+HG_DOWNLOAD_LINK = "https://hgdownload.cse.ucsc.edu/admin/exe/"
 
 # OS related
 OS_NAME = platform.system()
@@ -22,10 +22,10 @@ WINDOWS = "Windows"  # not really supported
 
 
 if OS_NAME == LINUX:
-    HGDOWNLOAD_DIRNAME = "linux.x86_64"
+    HG_DOWNLOAD_DIRNAME = "linux.x86_64"
 elif OS_NAME == MAC:
     print("Warning! Not recommended to run on macOS.")
-    HGDOWNLOAD_DIRNAME = "macOSX.x86_64"
+    HG_DOWNLOAD_DIRNAME = "macOSX.x86_64"
 elif OS_NAME == WINDOWS:
     sys.exit("Error! Windows operating system is not supported")
 else:
@@ -49,12 +49,12 @@ def process_tool(tool_name):
         print(f"{tool_name} is already included in $PATH at: {binary_path}")
         return
     # not found, need to acquire
-    download_link = f"{HGDOWNLOAD_LINK}/{HGDOWNLOAD_DIRNAME}/{tool_name}"
+    download_link = f"{HG_DOWNLOAD_LINK}/{HG_DOWNLOAD_DIRNAME}/{tool_name}"
     # destination dir for all binaries necessary to run the pipeline is HL_kent_binaries
     # chainNet is only necessary for chainCleaner, and is saved to chain_clean_micro_env
     # a directory that serves as temporary extension of the $PATH
     # only to run chainCleaner
-    destination_dir = DEST_DIR if tool_name != "chainNet" else CHAIN_NET_DIR
+    destination_dir = DESTINATION_DIR if tool_name != "chainNet" else CHAIN_NET_DIR
     destination = os.path.join(destination_dir, tool_name)
 
     if os.path.isfile(destination):
@@ -64,13 +64,18 @@ def process_tool(tool_name):
 
     # trigger wget to download the tool
     load_cmd = ["wget", "-O", destination, download_link]
-    subprocess.call(load_cmd)
-    if os.path.isfile(destination):
-        # check if downloaded?
+    cmd_result = subprocess.run(load_cmd, capture_output=True, text=True)
+
+    # If wget was unable to download the tool, it will create and empty file
+    # at destination (sometimes?).
+    if cmd_result.returncode == 0 and os.path.isfile(destination) and os.path.getsize(destination) > 0:
         make_executable(destination)
         print(f"Successfully downloaded {tool_name}")
     else:
-        print(f"Error! Could not download {tool_name}")
+        if os.path.exists(destination):
+            os.remove(destination)  # remove the empty file if it exists
+        print(f"Error! Could not download {tool_name}.")
+        print(f"Error details: {cmd_result.stderr}")
 
 
 def check_lastz():
