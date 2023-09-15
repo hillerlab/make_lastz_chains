@@ -60,6 +60,64 @@ A quick test sample:
 ./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f
 ```
 
+### Full list of the pipeline CLI parameters
+
+Detailed explanation for some of these parameters is provided below.
+
+```text
+positional arguments:
+  target_name           Target genome identifier, e.g. hg38, human, etc.
+  query_name            Query genome identifier, e.g. mm10, mm39, mouse, etc.
+  target_genome         Target genome. Accepted formats are: fasta and 2bit.
+  query_genome          Query genome. Accepted formats are: fasta and 2bit.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --project_dir PROJECT_DIR, --pd PROJECT_DIR
+                        Project directory. By default: pwd
+  --continue_from_step {partition,lastz,cat,chain_run,chain_merge,fill_chains,clean_chains}, --cfs {partition,lastz,cat,chain_run,chain_merge,fill_chains,clean_chains}
+                        Continue pipeline execution from this step
+  --force, -f           Overwrite output directory if exists
+  --cluster_executor CLUSTER_EXECUTOR
+                        Nextflow executor parameter
+  --cluster_queue CLUSTER_QUEUE
+                        Queue/Partition label to run cluster jobs
+  --keep_temp, --kt     Do not remove temp files
+  --params_from_file PARAMS_FROM_FILE
+                        Read parameters from a specified config file
+
+Pipeline Parameters:
+  --skip_fill_chain
+  --skip_fill_unmask
+  --skip_clean_chain
+  --lastz_y LASTZ_Y
+  --lastz_h LASTZ_H
+  --lastz_l LASTZ_L
+  --lastz_k LASTZ_K
+  --seq1_chunk SEQ1_CHUNK
+  --seq1_lap SEQ1_LAP
+  --seq1_limit SEQ1_LIMIT
+  --seq2_chunk SEQ2_CHUNK
+  --seq2_lap SEQ2_LAP
+  --seq2_limit SEQ2_LIMIT
+  --min_chain_score MIN_CHAIN_SCORE
+  --chain_linear_gap {loose, medium}
+  --num_fill_jobs NUM_FILL_JOBS
+  --fill_chain_min_score FILL_CHAIN_MIN_SCORE
+  --fill_insert_chain_min_score FILL_INSERT_CHAIN_MIN_SCORE
+  --fill_gap_max_size_t FILL_GAP_MAX_SIZE_T
+  --fill_gap_max_size_q FILL_GAP_MAX_SIZE_Q
+  --fill_gap_min_size_t FILL_GAP_MIN_SIZE_T
+  --fill_gap_min_size_q FILL_GAP_MIN_SIZE_Q
+  --fill_lastz_k FILL_LASTZ_K
+  --fill_lastz_l FILL_LASTZ_L
+  --fill_memory FILL_MEMORY
+  --fill_prepare_memory FILL_PREPARE_MEMORY
+  --chaining_memory CHAINING_MEMORY
+  --chain_clean_memory CHAIN_CLEAN_MEMORY
+  --clean_chain_parameters CLEAN_CHAIN_PARAMETERS
+```
+
 #### Target and query genome IDs
 
 These are simply strings that differentiate between the target and query genome names.
@@ -84,7 +142,7 @@ as spaces are the delimiter characters for chain headers.
 If the pipeline detects spaces in the chain headers, it will crash.
 
 If you wish to rename reference and query chromosomes or scaffolds back to their original names,
-please use the standalone_scripts/rename_chromosomes_back.py script.
+please use the `standalone_scripts/rename_chromosomes_back.py` script.
 
 #### Project directory
 
@@ -94,19 +152,25 @@ Therefore, it's strongly recommended to specify the project directory.
 
 #### Executor / available clusters
 
-The executor controls which cluster management system to use.
-By default, the `local` executor is used, meaning the pipeline utilizes only the machine's CPU.
-To run it on a Slurm cluster, add the `--executor` slurm option.
-Please see the Nextflow documentation for a list of supported executors.
+The executor option determines the cluster management system to use.
+By default, the pipeline uses the `local` executor, which means it only utilizes the CPU
+of the machine where it's running. However, genome alignment is a computationally intensive task,
+so it's advisable to run the pipeline on either a powerful machine with multiple CPUs or a cluster.
+To run the pipeline on a Slurm cluster, for instance, add the `--executor slurm` option.
+Refer to the [Nextflow documentation](https://www.nextflow.io/docs/latest/executor.html) for a list of supported executors.
 
 #### Reading pipeline parameters from JSON file
 
-`TO BE FILLED`
-`--params_from_file {params_json}`
+The pipeline saves its parameters in a `pipeline_parameters.json` file.
+This file can be used to easily replicate the pipeline's settings for another run.
+To do so, use the `--params_from_file {params_json}` option when launching the pipeline.
+This ensures that the pipeline will run with the same parameters as specified in the JSON file,
+streamlining the process for multiple runs.  If you wish to make adjustments, the JSON file
+is easily editable, allowing you to tweak parameters as needed before running the pipeline again.
 
 ### Output
 The pipeline saves the resulting chain file in the project directory specified by the respective parameter.
-The output file is named as follows:  `${target_ID}.${query_ID}.final.chain.gz`
+The output file is named as follows: `${target_ID}.${query_ID}.final.chain.gz`
 
 ## Citation
 

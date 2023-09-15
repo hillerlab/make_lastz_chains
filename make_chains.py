@@ -56,7 +56,10 @@ def parse_args():
         help="Overwrite output directory if exists"
     )
 
-    app.add_argument("--cluster_executor", default="local", help="Nextflow executor parameter")
+    app.add_argument("--cluster_executor",
+                     "--executor",
+                     default="local",
+                     help="Nextflow executor parameter")
     app.add_argument("--cluster_queue",
                      default="batch",
                      help="Queue/Partition label to run cluster jobs")
