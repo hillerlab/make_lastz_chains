@@ -29,7 +29,9 @@ def do_chains_clean(params: PipelineParameters,
     to_log(f"Chain to be cleaned saved to: {project_paths.before_cleaning_chain}")
     # TODO: I don't really like this original decision, to be revised
     _output_chain = input_chain.removesuffix(".gz")
+    _intermediate_chain = f"{_output_chain}__temp"
     _clean_chain_args = params.clean_chain_parameters.split()
+
     # dirty hack to override chainNet not found error
     _temp_env = os.environ.copy()
     _temp_env["PATH"] = f"{project_paths.chain_clean_micro_env}:" + _temp_env["PATH"]
@@ -39,7 +41,7 @@ def do_chains_clean(params: PipelineParameters,
         project_paths.before_cleaning_chain,
         params.seq_1_dir,
         params.seq_2_dir,
-        _output_chain,
+        _intermediate_chain,
         project_paths.clean_removed_suspects,
         f"-linearGap={params.chain_linear_gap}",
         f"-tSizes={params.seq_1_len}",
@@ -51,18 +53,18 @@ def do_chains_clean(params: PipelineParameters,
     to_log(" ".join(chain_cleaner_cmd))
 
     with open(project_paths.chain_cleaner_log, 'w') as f:
-        process = subprocess.Popen(chain_cleaner_cmd,
+        clean_process = subprocess.Popen(chain_cleaner_cmd,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
                                    env=_temp_env,
                                    text=True)
-        stdout, stderr = process.communicate()
+        stdout, stderr = clean_process.communicate()
 
         # Write stdout to log file and also capture it in a variable
         f.write(stdout)
         # Couldn't open /proc/self/stat , No such file or directory
         # error on macOS. If this error -> ignore, but crash in case of anything else.
-        if process.returncode != 0:  # handle error
+        if clean_process.returncode != 0:  # handle error
             is_macos = platform.system() == "Darwin"
             if is_macos:
                 # on macOS, it always crashes...
@@ -77,6 +79,19 @@ def do_chains_clean(params: PipelineParameters,
                 error_message = f"chain cleaner process died with the following error message: {stderr}"
                 raise PipelineSubprocessError(error_message)
 
+    to_log(f"Not filtered by score chains temporary saved to {_intermediate_chain}")
+    filter_cmd = [executables.chain_filter, f"-minScore={params.chain_min_score}", _intermediate_chain]
+    with open(_output_chain, "w") as f:
+        filter_process = subprocess.Popen(filter_cmd,
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE,
+                                          text=True)
+        stdout, stderr = filter_process.communicate()
+        f.write(stdout)
+        if filter_process.returncode != 0:
+            raise PipelineSubprocessError(f"Failed the filter command: {filter_cmd}")
+
+    os.remove(_intermediate_chain)
     to_log(f"Chain clean results saved to: {_output_chain}")
 
     gzip_cmd = ["gzip", _output_chain]

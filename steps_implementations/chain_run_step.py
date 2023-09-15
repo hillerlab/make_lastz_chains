@@ -43,7 +43,7 @@ def psl_bundle(cat_out_dirname, project_paths, executables, params):
                                  params.seq_1_len,
                                  project_paths.split_psl_dir,
                                  Constants.BUNDLE_PSL_MAX_BASES)
-    to_log(f"PSL bundle substep done")
+    to_log(f"PSL bundle sub-step done")
 
 
 def make_chains_joblist(project_paths: ProjectPaths,
@@ -58,7 +58,7 @@ def make_chains_joblist(project_paths: ProjectPaths,
     min_score = params.chain_min_score
     linear_gap = params.chain_linear_gap
     bundle_filenames = os.listdir(project_paths.split_psl_dir)
-    to_log(f"Building LASTZ joblist for {len(bundle_filenames)} bundled psl files")
+    to_log(f"Building axtChain joblist for {len(bundle_filenames)} bundled psl files")
 
     cluster_jobs = []
     for bundle_filename in bundle_filenames:

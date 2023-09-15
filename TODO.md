@@ -4,7 +4,7 @@
 
 - Documentation
 - Full scale test
-- Figure out where the negatively-scored chains come from, ~~get rid of them~~
+- ~~get rid of negatively scored chains~~
 - ~~Organise cat step better~~
 - ~~Get rid of all magic numbers and strings~~
 - ~~Check for output presence after each step~~
@@ -19,5 +19,8 @@
 
 - Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?
 - QC module or something - detailed statistics per each step
+- explanation for each pipeline parameter
 - ~~Refactor chain gap filler: get rid of chainExtractID dependency -> not needed~~
 - ~~read parameters from config file~~
+- Document masking, etc. - nuances that affect the pipeline performance.
+- https://github.com/hillerlab/make_lastz_chains/issues/20 - temp files location
