@@ -52,7 +52,6 @@ def make_chains_joblist(project_paths: ProjectPaths,
     # Prepare parameters
     seq1_dir = params.seq_1_dir
     seq2_dir = params.seq_2_dir
-    # TODO: figure out what is this lastz_q parameter stands for
     # matrix = params.lastz_q if params.lastz_q else ""
     # matrix = ""
     min_score = params.chain_min_score

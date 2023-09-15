@@ -24,3 +24,8 @@
 - ~~read parameters from config file~~
 - Document masking, etc. - nuances that affect the pipeline performance.
 - https://github.com/hillerlab/make_lastz_chains/issues/20 - temp files location
+
+## Minor things
+
+- lastz_q parameter - figure out what stands for and whether it is needed
+- 

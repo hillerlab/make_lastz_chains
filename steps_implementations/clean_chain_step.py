@@ -27,7 +27,7 @@ def do_chains_clean(params: PipelineParameters,
 
     shutil.move(input_chain, project_paths.before_cleaning_chain)
     to_log(f"Chain to be cleaned saved to: {project_paths.before_cleaning_chain}")
-    # TODO: I don't really like this original decision, to be revised
+    # TODO: revise how the filenames are handled
     _output_chain = input_chain.removesuffix(".gz")
     _intermediate_chain = f"{_output_chain}__temp"
     _clean_chain_args = params.clean_chain_parameters.split()

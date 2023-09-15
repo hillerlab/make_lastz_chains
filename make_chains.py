@@ -199,7 +199,7 @@ def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
 def run_pipeline(args):
     # setup project dir, parameters and step manager
     start_time = dt.now()
-    # TODO: class to hold paths within the project
+
     step_executables = StepExecutables(SCRIPT_LOCATION)
     project_dir = OutputDirectoryManager(args).project_dir
     parameters = PipelineParameters(args)
@@ -227,11 +227,10 @@ def run_pipeline(args):
 
     # now execute steps
     step_manager.execute_steps(parameters, step_executables, project_paths)
-    # check result?
+    # finalise the run
     save_final_chain(parameters, project_paths)
     cleanup(parameters, project_paths)
     tot_runtime = dt.now() - start_time
-    # TODO: skip chains with negative scores or < min_score
     to_log(f"make_lastz_chains run done in {tot_runtime}")
 
 

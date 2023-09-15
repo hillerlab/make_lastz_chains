@@ -24,7 +24,6 @@ def bundle_files(args, chrom_size, input_files):
             to_log(f"\nConsider {chrom} {chrom_size[chrom]}")
 
         if f"{chrom}.psl" not in input_files:
-            # TODO: consider this when fixing cat step
             to_log(f"\t--> file {chrom}.psl does not exist. Next")
             continue
 
