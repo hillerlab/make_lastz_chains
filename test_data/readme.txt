@@ -1,1 +1,1 @@
-TODO: find a better example for test
+Data for a quick pipeline test.

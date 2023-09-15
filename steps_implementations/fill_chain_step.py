@@ -128,20 +128,19 @@ def do_chains_fill(params: PipelineParameters,
     to_log("Preparing fill jobs")
 
     # Need to unzip the zipped merged chain first...
-    temp_in_chain = os.path.join(project_paths.fill_chain_run_dir, "all.chain")  # TODO: add to paths
     gunzip_cmd = [
         "gunzip",
         "-c",
         project_paths.merged_chain
     ]
-    to_log(f"gunzip -c {project_paths.merged_chain} > {temp_in_chain}")
+    to_log(f"gunzip -c {project_paths.merged_chain} > {project_paths.fill_chain_temp_input}")
     try:
-        with open(temp_in_chain, "wb") as f:
+        with open(project_paths.fill_chain_temp_input, "wb") as f:
             subprocess.run(gunzip_cmd, stdout=f, check=True)
     except subprocess.CalledProcessError:
         raise PipelineSubprocessError("gunzip command at do_chains_fill failed")
 
-    randomly_split_chains(temp_in_chain, params.num_fill_jobs, infill_template)
+    randomly_split_chains(project_paths.fill_chain_temp_input, params.num_fill_jobs, infill_template)
 
     # 2. create and execute fill joblist
     create_repeat_filler_joblist(params, project_paths, executables)
@@ -167,6 +166,6 @@ def do_chains_fill(params: PipelineParameters,
     # 4. do cleanup
     shutil.rmtree(project_paths.fill_chain_jobs_dir)
     shutil.rmtree(project_paths.fill_chain_filled_dir)
-    os.remove(temp_in_chain)
+    os.remove(project_paths.fill_chain_temp_input)
     check_expected_file(project_paths.filled_chain, "fill_chain")
     to_log("Fill chains step complete")

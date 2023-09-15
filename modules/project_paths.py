@@ -45,28 +45,37 @@ class ProjectPaths:
         self.split_psl_dir = self._j_abs(self.chain_run_dir, Constants.SPLIT_PSL_DIRNAME)
 
         # MERGE CHAIN
-        self.merged_chain_filename = f"{params.target_name}.{params.query_name}.all.chain.gz"
+        self.merged_chain_filename = f"{params.target_name}.{params.query_name}.{Constants.MERGED_CHAIN_POSTFIX}.gz"
         self.merged_chain = os.path.join(self.chain_run_dir, self.merged_chain_filename)
 
         # FILL CHAIN
-        self.filled_chain_filename = f"{params.target_name}.{params.query_name}.filled.chain.gz"
+        self.filled_chain_filename = f"{params.target_name}.{params.query_name}.{Constants.FILLED_CHAIN_POSTFIX}.gz"
         self.filled_chain = self._j_abs(self.chain_run_dir, self.filled_chain_filename)
 
-        self.fill_chain_run_dir = self._j_abs(self.project_dir, "TEMP_run.fillChain")  # TODO: constant
-        self.fill_chain_filled_dir = self._j_abs(self.fill_chain_run_dir, "filledChain")  # TODO: constant
-        self.fill_chain_jobs_dir = self._j_abs(self.fill_chain_run_dir, "jobs")
+        self.fill_chain_run_dir = self._j_abs(self.project_dir, Constants.FILL_CHAIN_DIRNAME)
+        self.fill_chain_filled_dir = self._j_abs(self.fill_chain_run_dir, Constants.FILLED_CHAINS_DIRNAME)
+        self.fill_chain_jobs_dir = self._j_abs(self.fill_chain_run_dir, Constants.FILLED_CHAINS_JOBS_DIRNAME)
+        self.fill_chain_temp_input = self._j_abs(self.fill_chain_run_dir, "temp.all.chain")
 
-        self.fill_chain_joblist_prepare = self._j_abs(self.fill_chain_run_dir, "jobList_prepare.txt")
-        self.repeat_filler_joblist = self._j_abs(self.fill_chain_run_dir, "repeat_filler_joblist.txt")
-        self.fill_chain_joblist_merge = self._j_abs(self.fill_chain_run_dir, "fill_merge.txt")
+        self.fill_chain_joblist_prepare = self._j_abs(
+            self.fill_chain_run_dir, Constants.FILL_PREPARE_JOBLIST_NAME
+        )
+        self.repeat_filler_joblist = self._j_abs(
+            self.fill_chain_run_dir, Constants.REPEAT_FILLER_JOBLIST_NAME
+        )
+        self.fill_chain_joblist_merge = self._j_abs(
+            self.fill_chain_run_dir, Constants.FILL_CHAIN_MERGE_JOBLIST_NAME
+        )
 
         # CLEAN CHAIN
-        self.before_cleaning_chain_filename = f"{params.target_name}.{params.query_name}.before_cleaning.chain.gz"
+        self.before_cleaning_chain_filename = (
+            f"{params.target_name}.{params.query_name}.{Constants.BEFORE_CLEAN_POSTFIX}.gz"
+        )
         self.before_cleaning_chain = self._j_abs(self.chain_run_dir, self.before_cleaning_chain_filename)
-        self.clean_removed_suspects = self._j_abs(self.chain_run_dir, "removed_suspects.bed")
-        self.chain_cleaner_log = self._j_abs(self.chain_run_dir, "chain_cleaner.log")
+        self.clean_removed_suspects = self._j_abs(self.chain_run_dir, Constants.REMOVED_SUSPECTS_BED_FNAME)
+        self.chain_cleaner_log = self._j_abs(self.chain_run_dir, Constants.CHAIN_CLEAN_LOG_NAME)
 
-        self.filled_chain_filename = f"{params.target_name}.{params.query_name}.final.chain.gz"
+        self.filled_chain_filename = f"{params.target_name}.{params.query_name}.{Constants.FINAL_CHAIN_POSTFIX}.gz"
         self.final_chain = self._j_abs(self.project_dir, self.filled_chain_filename)
         # Create necessary directories
         self._create_dirs()

@@ -3,9 +3,9 @@
 ## Mandatory
 
 - Organise cat step better
-- Get rig of all magic numbers and strings
 - Documentation
 - Full scale test
+- ~~Get rid of all magic numbers and strings~~
 - ~~Check for output presence after each step~~
 - ~~Nextflow manager class~~ -> dedicated class for NF config
 - ~~Double check the pipeline default parameters~~

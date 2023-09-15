@@ -65,7 +65,6 @@ my $cluster_partition = "batch";  # cluster partition
 my $clusterOptions = "None";  # cluster options
 
 my $keep_temp = 0;   # keep temporary files
-# TODO: thing about other executor params?
 
 # Specify the steps supported with -continue / -stop:
 my $stepper = new HgStepManager(

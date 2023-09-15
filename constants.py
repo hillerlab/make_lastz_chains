@@ -40,7 +40,6 @@ class Constants:
     BUNDLE_PSL_MAX_BASES = 1_000_000
     DEFAULT_NUM_FILL_JOBS = 1000
 
-    # TODO: fill the rest of defaults and constants
     DEFAULT_CLEAN_CHAIN_PARAMS = (
         "-LRfoldThreshold=2.5 "
         "-doPairs "
@@ -69,6 +68,22 @@ class Constants:
     SPLIT_PSL_DIRNAME = "split_psl"
     CHAIN_RUN_OUT_DIRNAME = "chain"
     PSL_SORT_TEMP_DIRNAME = "psl_sort_temp_dir"
+
+    REMOVED_SUSPECTS_BED_FNAME = "removed_suspects.bed"
+
+    FILL_CHAIN_DIRNAME = "TEMP_run.fillChain"
+    FILLED_CHAINS_DIRNAME = "filledChain"
+    FILLED_CHAINS_JOBS_DIRNAME = "jobs"
+
+    FILL_PREPARE_JOBLIST_NAME = "jobList_prepare.txt"
+    REPEAT_FILLER_JOBLIST_NAME = "repeat_filler_joblist.txt"
+    FILL_CHAIN_MERGE_JOBLIST_NAME = "fill_merge.txt"
+
+    CHAIN_CLEAN_LOG_NAME = "chain_cleaner.log"
+    MERGED_CHAIN_POSTFIX = "all.chain"
+    FILLED_CHAIN_POSTFIX = "filled.chain"
+    FINAL_CHAIN_POSTFIX = "final.chain"
+    BEFORE_CLEAN_POSTFIX = "before_cleaning.chain"
     # >>>> chain run dir
 
     PARAMS_JSON_FILENAME = "pipeline_parameters.json"

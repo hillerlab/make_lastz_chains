@@ -17,15 +17,14 @@ from modules.common_funcs import has_non_empty_file
 
 def psl_bundle(cat_out_dirname, project_paths, executables, params):
     # 1.1 -> sort
-    # TODO: potentially danger part here: can exceed the bash limit for number of arguments
     concatenated_files = [os.path.join(cat_out_dirname, x) for x in os.listdir(cat_out_dirname)]
-    file_list_arg = " ".join(concatenated_files)
-
+    # seems danger, but on modern systems ARG_MAX is quite large
+    # and the number of concatenated files unlikely exceeds a few thousands
     sort_cmd = [executables.psl_sort_acc,
                 "nohead",
                 project_paths.sorted_psl_dir,
                 project_paths.temp_dir_for_psl_sort,
-                file_list_arg]
+                *concatenated_files]
     to_log(f"Sorting PSL files, saving the results to {project_paths.sorted_psl_dir}")
     to_log(" ".join(sort_cmd))
 
@@ -53,7 +52,7 @@ def make_chains_joblist(project_paths: ProjectPaths,
     # Prepare parameters
     seq1_dir = params.seq_1_dir
     seq2_dir = params.seq_2_dir
-    # TODO: deal with matrix
+    # TODO: figure out what is this lastz_q parameter stands for
     # matrix = params.lastz_q if params.lastz_q else ""
     # matrix = ""
     min_score = params.chain_min_score

@@ -73,7 +73,6 @@ class PipelineSteps:
     @staticmethod
     def fill_chains_step(params, project_paths, executables):
         if params.fill_chain is False:
-            # TODO: consider bool here
             to_log("### !Skipping Fill Chains ###")
             return StepStatus.SKIPPED
         to_log("\n### Fill Chains Step ###\n")
@@ -83,7 +82,6 @@ class PipelineSteps:
     @staticmethod
     def clean_chains_step(params, project_paths, executables):
         if params.clean_chain is False:
-            # TODO: consider bool here
             to_log("### !Skipping Clean Chains ###")
             return StepStatus.SKIPPED
         to_log("\n### Clean Chains Step ###\n")
