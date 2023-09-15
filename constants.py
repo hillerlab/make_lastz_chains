@@ -101,6 +101,7 @@ class Constants:
         CHAIN_CLEANER = "chainCleaner"
         CHAIN_SORT = "chainSort"
         CHAIN_SCORE = "chainScore"
+        CHAIN_NET = "chainNet"
 
         # only one non-Kent binary
         LASTZ = "lastz"

@@ -34,11 +34,15 @@ git clone git@github.com:hillerlab/make_lastz_chains.git
 cd make_lastz_chains
 # install python packages (just one actually)
 pip3 install -r requirements.txt
-# download/build all necessary binaries: 
-./install_dependencies__OLD.py
+# The pipeline requires many UCSC Kent binaries,
+# they can be downloaded using this script,
+# unless they are already in the $PATH:
+./install_dependencies.py
 ```
 
-### Usage
+Please also acquire `lastz` and add a binary to your `$PATH`.
+
+### Running the pipeline
 
 The script to be called is `make_chains.py`.
 
@@ -52,11 +56,6 @@ A quick test sample:
 ```bash
 ./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f
 ```
-
-### Output
-
-The pipeline saves the resulting chain file into the
-`${project_dir}/${target_genome_id}.${query_genome_id}.final.chain.gz` file.
 
 #### Target and query genome IDs
 
@@ -97,7 +96,7 @@ By default, the `local` executor is used, meaning the pipeline utilizes only the
 To run it on a Slurm cluster, add the `--executor` slurm option.
 Please see the Nextflow documentation for a list of supported executors.
 
-#### Output
+### Output
 The pipeline saves the resulting chain file in the project directory specified by the respective parameter.
 The output file is named as follows:  `${target_ID}.${query_ID}.final.chain.gz`
 
