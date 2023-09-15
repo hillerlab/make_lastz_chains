@@ -19,3 +19,4 @@
 - Refactor chain gap filler: get rid of chainExtractID dependency -> not needed
 - Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?
 - QC module or something - detailed statistics per each step
+- ~~read parameters from config file~~

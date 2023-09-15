@@ -2,6 +2,7 @@
 import os
 import json
 from constants import Constants as Const
+from modules.make_chains_logging import to_log
 
 
 class PipelineParameters:
@@ -12,6 +13,7 @@ class PipelineParameters:
         self.continue_from_step = args.continue_from_step
         self.cluster_executor = args.cluster_executor
         self.cluster_queue = args.cluster_queue
+        self.params_from_file = args.params_from_file
 
         self.seq_1_dir = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_SEQ_FILENAME))
         self.seq_1_len = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_CHROM_SIZES_FILENAME))
@@ -51,18 +53,44 @@ class PipelineParameters:
         self.num_fill_jobs = args.num_fill_jobs
 
         # self.chaining_queue = args.chaining_queue
-        self.chaining_memory = args.chaining_memory
         self.clean_chain = not args.skip_clean_chain
+        self.chaining_memory = args.chaining_memory
         self.chain_clean_memory = args.chain_clean_memory
         self.clean_chain_parameters = args.clean_chain_parameters
 
         self.keep_temp = args.keep_temp
+
+        # if params file specified: parse the information from it:
+        if self.params_from_file:
+            self.__parse_params_file()
         # perform sanity checks and quit if something is wrong
         self.__sanity_checks()
 
     def __sanity_checks(self):
         # TODO: implement this method
         pass
+
+    def __parse_params_file(self):
+        """Read params file."""
+        ignored_params = {
+            "target_name",
+            "query_name",
+            "project_dir",
+            "continue_from_step",
+            "seq_1_dir",
+            "seq_1_len",
+            "seq_2_dir",
+            "seq_2_len",
+        }
+        to_log(f"Reading params from {self.params_from_file}")
+        with open(self.params_from_file, "r") as f:
+            attributes = json.load(f)
+
+        for key, value in attributes.items():
+            if key in ignored_params:
+                continue
+            setattr(self, key, value)
+            to_log(f"* parameter {key}, assigned value: {value}")
 
     def dump_to_json(self, directory):
         json_file_path = os.path.join(directory, Const.PARAMS_JSON_FILENAME)

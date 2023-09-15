@@ -65,7 +65,9 @@ def parse_args():
                      dest="keep_temp",
                      action="store_true",
                      help="Do not remove temp files")
-
+    app.add_argument("--params_from_file",
+                     default=None,
+                     help="Read parameters from a specified config file")
     # Pipeline parameters group
     pipeline_params = app.add_argument_group('Pipeline Parameters')
     pipeline_params.add_argument("--skip_fill_chain", dest="skip_fill_chains", action="store_true")

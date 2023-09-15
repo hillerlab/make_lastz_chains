@@ -96,6 +96,11 @@ By default, the `local` executor is used, meaning the pipeline utilizes only the
 To run it on a Slurm cluster, add the `--executor` slurm option.
 Please see the Nextflow documentation for a list of supported executors.
 
+#### Reading pipeline parameters from JSON file
+
+`TO BE FILLED`
+`--params_from_file {params_json}`
+
 ### Output
 The pipeline saves the resulting chain file in the project directory specified by the respective parameter.
 The output file is named as follows:  `${target_ID}.${query_ID}.final.chain.gz`
