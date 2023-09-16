@@ -18,11 +18,24 @@ from modules.common import GenomicRegion
 
 def locate_target_bucket(target_partition):
     """Extract the respective bucket for a given target partition."""
+    if target_partition.startswith(Constants.PART_BULK_FILENAME_PREFIX):
+        # many bulked chromosomes together
+        bulk_part = target_partition.split(":")[0]
+        bulk_num_str = bulk_part.split("_")[1]
+        bulk_dirname = f"{Constants.LASTZ_OUT_BULK_PREFIX}_{bulk_num_str}"
+        return bulk_dirname
     interval_str = target_partition.split(":")
     chrom = interval_str[1]
     start, end = map(int, interval_str[2].split("-"))
     interval = GenomicRegion(chrom, start, end)
     return interval.to_bucket_dirname()
+
+
+def _get_lastz_out_fname_part(partition):
+    if partition.startswith("BULK"):  # TODO: constants
+        return partition.split(":")[0]
+    else:
+        return partition.split(':')[-2]
 
 
 def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables):
@@ -32,7 +45,10 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
     jobs = []
 
     for num, (target, query) in enumerate(product(target_partitions, query_partitions), 1):
-        output_filename = f"{target.split(':')[-2]}_{query.split(':')[-2]}__{num}.psl"
+        target_out_name_part = _get_lastz_out_fname_part(target)
+        query_out_name_part = _get_lastz_out_fname_part(query)
+
+        output_filename = f"{target_out_name_part}_{query_out_name_part}__{num}.psl"
         output_bucket = locate_target_bucket(target)
         output_file = os.path.join(
             project_paths.lastz_output_dir,
@@ -42,11 +58,13 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
         lastz_exec = os.path.abspath(executables.lastz_wrapper)
         # standalone_scripts/run_lastz.py
         args_list = [
-            lastz_exec,
+            # lastz_exec,
+            executables.lastz_layer,
             target,
             query,
             project_paths.project_params_dump,
             output_file,
+            executables.lastz_wrapper,
             "--output_format",
             "psl",
             "--axt_to_psl",
