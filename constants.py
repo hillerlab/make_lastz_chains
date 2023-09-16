@@ -126,3 +126,4 @@ class Constants:
     class ScriptNames:
         REPEAT_FILLER = "chain_gap_filler.py"
         RUN_LASTZ = "run_lastz.py"
+        RUN_LASTZ_LAYER = "run_lastz_intermediate_layer.py"

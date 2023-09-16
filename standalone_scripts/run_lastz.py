@@ -69,7 +69,6 @@ def parse_args():
     app.add_argument("output", help="Output file location")
 
     app.add_argument("--output_format", choices=["psl", "axt"], help="Output format axt|psl")
-    app.add_argument("--gz", help="Compress output with gzip")
     app.add_argument("--temp_dir",
                      help="Temp directory to save intermediate fasta files (if needed)\n"
                           "/tmp/ is default, however, params_json key TMPDIR can provide a value"
@@ -325,7 +324,7 @@ def main():
                                          seq_2_sizes_path,
                                          args.axt_to_psl,
                                          v)
-        f = open(args.output, "w")
+        f = open(args.output, "a")
         f.write(out_to_save)
         f.close()
     # else -> output is empty -> do not save an output file -> no need

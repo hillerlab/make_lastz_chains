@@ -14,6 +14,7 @@ class StepExecutables:
         self.not_found = []
 
         self.lastz_wrapper = self.__find_script(Constants.ScriptNames.RUN_LASTZ)
+        self.lastz_layer = self.__find_script(Constants.ScriptNames.RUN_LASTZ_LAYER)
         self.repeat_filler = self.__find_script(Constants.ScriptNames.REPEAT_FILLER)
 
         self.fa_to_two_bit = self.__find_binary(Constants.ToolNames.FA_TO_TWO_BIT)
