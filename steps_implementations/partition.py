@@ -12,6 +12,42 @@ from modules.error_classes import PipelineFileNotFoundError
 from modules.common import GenomicRegion
 
 
+def create_partition(chrom_sizes, chunk_size, overlap):
+    """High-level partitioning."""
+    partition_list = []
+    little_scaffolds_to_bulk = []
+    scaffold_size_threshold = chunk_size * 0.45
+
+    for chrom, size in chrom_sizes.items():
+        if size < scaffold_size_threshold:
+            little_scaffolds_to_bulk.append((chrom, size))
+            continue
+        start = 0
+        while start < size:
+            end = min(start + chunk_size, size)
+            partition_interval = GenomicRegion(chrom, start, end)
+            partition_list.append(partition_interval)
+            start += chunk_size - overlap  # Move the start point for the next chunk
+    return partition_list, little_scaffolds_to_bulk
+
+
+def create_buckets_for_little_scaffolds(little_scaffolds_to_bulk, chunk_size):
+    """Arrange little scaffolds into bigger groups."""
+    bulk_num_to_chroms = defaultdict(list)
+    bulk_size_threshold = chunk_size * 0.9
+    # Bulking smaller scaffolds together
+    bulk_number = 1
+    current_bulk_size = 0
+
+    for chrom, size in little_scaffolds_to_bulk:
+        if (current_bulk_size + size) > bulk_size_threshold:
+            bulk_number += 1
+            current_bulk_size = 0
+        bulk_num_to_chroms[bulk_number].append(chrom)
+        current_bulk_size += size
+    return bulk_num_to_chroms
+
+
 def do_partition_for_genome(genome_label: str,
                             params: PipelineParameters,
                             project_paths: ProjectPaths,
@@ -32,43 +68,23 @@ def do_partition_for_genome(genome_label: str,
     output_dir = os.path.join(project_paths.project_dir, Constants.TEMP_LASTZ_DIRNAME)
     os.makedirs(output_dir, exist_ok=True)
 
-    # Initialize partition list and small chrom list
-    partition_list = []
     if genome_label == Constants.TARGET_LABEL:
         partition_file_path = project_paths.reference_partitions
     else:
         partition_file_path = project_paths.query_partitions
 
+    # Initialize partition list and small chrom list
+    partition_list, little_scaffolds_to_bulk = create_partition(chrom_sizes, chunk_size, overlap)
+
     # little chromosomes/scaffolds are bulked together to avoid huge amount of jobs
-    little_scaffolds_to_bulk = []
-    scaffold_size_threshold = chunk_size * 0.45
-    bulk_size_threshold = chunk_size * 0.9
-
-    for chrom, size in chrom_sizes.items():
-        if size < scaffold_size_threshold:
-            little_scaffolds_to_bulk.append((chrom, size))
-            continue
-        start = 0
-        while start < size:
-            end = min(start + chunk_size, size)
-            partition_interval = GenomicRegion(chrom, start, end)
-            partition_list.append(partition_interval)
-            start += chunk_size - overlap  # Move the start point for the next chunk
-
-    # Bulking smaller scaffolds together
-    bulk_number = 1
-    bulk_num_to_chroms = defaultdict(list)
-    current_bulk_size = 0
-
-    for chrom, size in little_scaffolds_to_bulk:
-        if (current_bulk_size + size) > bulk_size_threshold:
-            bulk_number += 1
-            current_bulk_size = 0
-        bulk_num_to_chroms[bulk_number].append(chrom)
-        current_bulk_size += size
+    bulk_num_to_chroms = create_buckets_for_little_scaffolds(little_scaffolds_to_bulk, chunk_size)
 
     # Save the partition list to a file
-    to_log(f"Saving partitions and creating {len(partition_list)} buckets for lastz output")
+    tot_num_buckets = len(partition_list) + len(bulk_num_to_chroms)
+    to_log(f"Saving partitions and creating {tot_num_buckets} buckets for lastz output")
+    to_log(f"In particular, {len(partition_list)} partitions for bigger chromosomes")
+    to_log(f"And {len(bulk_num_to_chroms)} buckets for smaller scaffolds")
+
     out_f = open(partition_file_path, 'w')
     for part in partition_list:
         out_f.write(f"{part.to_two_bit_address(seq_dir)}\n")
