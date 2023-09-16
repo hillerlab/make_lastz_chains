@@ -80,6 +80,11 @@ def parse_args():
                      action="store_true",
                      dest="verbose",
                      help="Show verbosity messages")
+    app.add_argument("--axt_to_psl",
+                     default="axtToPsl",
+                     help="If axtToPst is not in the path, use this"
+                          "argument to provide path to this binary, if needed"
+                     )
 
     if len(sys.argv) < 5:
         app.print_help()
@@ -199,14 +204,14 @@ def call_lastz(cmd):
         )
 
 
-def make_psl_if_needed(raw_out, out_format, s1p, s2p, v):
+def make_psl_if_needed(raw_out, out_format, s1p, s2p, axt_to_psl, v):
     """Convert lastz output to psl if needed."""
     if out_format == "axt":
         return raw_out  # it's already AXT
     # need to convert to PSL
     # print(raw_out)
     
-    axt_to_psl_cmd = ["axtToPsl", "/dev/stdin", s1p, s2p, "stdout"]
+    axt_to_psl_cmd = [axt_to_psl, "/dev/stdin", s1p, s2p, "stdout"]
     _cmd_plain = " ".join(axt_to_psl_cmd)
     v(f"Running: {_cmd_plain}")
     p = subprocess.Popen(axt_to_psl_cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
@@ -314,7 +319,12 @@ def main():
     output_is_non_empty = check_if_output_is_non_empty(lastz_output)
 
     if output_is_non_empty is True:
-        out_to_save = make_psl_if_needed(lastz_output, args.output_format, seq_1_sizes_path, seq_2_sizes_path, v)
+        out_to_save = make_psl_if_needed(lastz_output,
+                                         args.output_format,
+                                         seq_1_sizes_path,
+                                         seq_2_sizes_path,
+                                         args.axt_to_psl,
+                                         v)
         f = open(args.output, "w")
         f.write(out_to_save)
         f.close()

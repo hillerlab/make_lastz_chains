@@ -118,7 +118,7 @@ class Constants:
         CHAIN_SORT = "chainSort"
         CHAIN_SCORE = "chainScore"
         CHAIN_NET = "chainNet"  # only to run chainCleaner
-        AXT_TO_PSL = "axtToPsl"  # has to be in the $PATH!
+        AXT_TO_PSL = "axtToPsl"
         CHAIN_FILTER = "chainFilter"
         # only one non-Kent binary
         LASTZ = "lastz"

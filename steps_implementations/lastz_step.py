@@ -40,7 +40,19 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
             output_filename
         )
         lastz_exec = os.path.abspath(executables.lastz_wrapper)
-        job = f"{lastz_exec} {target} {query} {project_paths.project_params_dump} {output_file} --output_format psl "
+        # standalone_scripts/run_lastz.py
+        args_list = [
+            lastz_exec,
+            target,
+            query,
+            project_paths.project_params_dump,
+            output_file,
+            "--output_format",
+            "psl",
+            "--axt_to_psl",
+            executables.axt_to_psl,
+        ]
+        job = " ".join(args_list)
         jobs.append(job)
 
     # Now 'jobs' contains all the run_lastz.py commands you need to run

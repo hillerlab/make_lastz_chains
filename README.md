@@ -1,7 +1,7 @@
 # Make Lastz Chains
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![version](https://img.shields.io/badge/version-2.0.2-blue)
+![version](https://img.shields.io/badge/version-2.0.3-blue)
 [![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
@@ -44,6 +44,32 @@ pip3 install -r requirements.txt
 
 If you wish to run the old pipeline version, please do `git checkout first_version_backup` in
 the make_lastz_chains directory.
+
+#### Kent Binaries
+
+Aside from lastz, the pipeline depends on some binaries from UCSC Kent.
+Install_dependencies.py tries to download them from (https://hgdownload.cse.ucsc.edu/admin/exe/).
+However, they can also be installed using conda.
+The following UCSC Kent binaries are required:
+
+```text
+twoBitToFa
+faToTwoBit
+pslSortAcc
+axtChain
+chainAntiRepeat
+chainMergeSort
+chainCleaner"
+chainSort"
+chainScore"
+chainNet
+axtToPsl
+chainFilter
+```
+
+For example, to install `axtChain` using conda, the following command can be used:
+
+`conda install -c bioconda ucsc-axtchain`
 
 ### Running the pipeline
 

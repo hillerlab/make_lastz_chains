@@ -20,6 +20,7 @@ class StepExecutables:
         self.two_bit_to_fa = self.__find_binary(Constants.ToolNames.TWO_BIT_TO_FA)
         self.psl_sort_acc = self.__find_binary(Constants.ToolNames.PSL_SORT_ACC)
         self.axt_chain = self.__find_binary(Constants.ToolNames.AXT_CHAIN)
+        self.axt_to_psl = self.__find_binary(Constants.ToolNames.AXT_TO_PSL)
         self.chain_anti_repeat = self.__find_binary(Constants.ToolNames.CHAIN_ANTI_REPEAT)
         self.chain_merge_sort = self.__find_binary(Constants.ToolNames.CHAIN_MERGE_SORT)
         self.chain_cleaner = self.__find_binary(Constants.ToolNames.CHAIN_CLEANER)
