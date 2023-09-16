@@ -64,6 +64,9 @@ def parse_args():
 
 
 def get_intervals_list(to_ali_arg, chrom_sizes):
+    """For bulk partitions argument, create a list of chromosomes
+    to feed into the LASTZ wrapper command.
+    """
     ret = []
     if not to_ali_arg.startswith("BULK"):
         return [to_ali_arg]
@@ -85,10 +88,14 @@ def main():
     seq_2_sizes_path = pipeline_params["seq_2_len"]
     target_chrom_sizes = read_chrom_sizes(seq_1_sizes_path)
     query_chrom_sizes = read_chrom_sizes(seq_2_sizes_path)
-
     target_coordinates = get_intervals_list(args.target, target_chrom_sizes)
     query_coordinates = get_intervals_list(args.query, query_chrom_sizes)
 
+    # for each combination of target and query partitions in this
+    # particular command, create and run the respective run_lastz.py command
+    # normally, it's just a single:
+    # reference chr 1 from 0 to 100000 vs query chr 2 1000000 to 3000000
+    # but in case some little scaffolds were aggregated, it must be unfolded first.
     for target_arg, query_arg in product(target_coordinates, query_coordinates):
         lastz_cmd = [
             args.run_lastz_script,
@@ -105,7 +112,7 @@ def main():
         if args.axt_to_psl:
             lastz_cmd.append(f"--axt_to_psl")
             lastz_cmd.append(args.axt_to_psl)
-        print(" ".join(lastz_cmd))
+        # print(" ".join(lastz_cmd))
         subprocess.call(lastz_cmd)
 
 

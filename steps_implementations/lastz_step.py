@@ -18,11 +18,11 @@ from modules.common import GenomicRegion
 
 def locate_target_bucket(target_partition):
     """Extract the respective bucket for a given target partition."""
-    if target_partition.startswith("BULK"):
+    if target_partition.startswith(Constants.PART_BULK_FILENAME_PREFIX):
         # many bulked chromosomes together
         bulk_part = target_partition.split(":")[0]
         bulk_num_str = bulk_part.split("_")[1]
-        bulk_dirname = f"bucket_ref_bulk_{bulk_num_str}"
+        bulk_dirname = f"{Constants.LASTZ_OUT_BULK_PREFIX}_{bulk_num_str}"
         return bulk_dirname
     interval_str = target_partition.split(":")
     chrom = interval_str[1]

@@ -1,14 +1,12 @@
 """Partition step implementation."""
 import os
 from collections import defaultdict
-
 from modules.make_chains_logging import to_log
 from constants import Constants
 from modules.common import read_chrom_sizes
 from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
-from modules.error_classes import PipelineFileNotFoundError
 from modules.common import GenomicRegion
 
 
@@ -35,7 +33,6 @@ def create_buckets_for_little_scaffolds(little_scaffolds_to_bulk, chunk_size):
     """Arrange little scaffolds into bigger groups."""
     bulk_num_to_chroms = defaultdict(list)
     bulk_size_threshold = chunk_size * 0.9
-    # Bulking smaller scaffolds together
     bulk_number = 1
     current_bulk_size = 0
 
@@ -53,13 +50,15 @@ def do_partition_for_genome(genome_label: str,
                             project_paths: ProjectPaths,
                             executables: StepExecutables):
     to_log(f"# Partitioning for {genome_label}")
-
     # Determine directories and filenames based on the genome label
     seq_dir = params.seq_1_dir if genome_label == Constants.TARGET_LABEL else params.seq_2_dir
     seq_len_file = params.seq_1_len if genome_label == Constants.TARGET_LABEL else params.seq_2_len
     chunk_size = params.seq_1_chunk if genome_label == Constants.TARGET_LABEL else params.seq_2_chunk
     overlap = params.seq_1_lap if genome_label == Constants.TARGET_LABEL else params.seq_2_lap
-    # seq_limit = 0  # Replace with your actual seq limit if any
+    if genome_label == Constants.TARGET_LABEL:
+        partition_file_path = project_paths.reference_partitions
+    else:
+        partition_file_path = project_paths.query_partitions
 
     # Read chromosome sizes
     chrom_sizes = read_chrom_sizes(seq_len_file)
@@ -67,11 +66,6 @@ def do_partition_for_genome(genome_label: str,
     # Create output directories
     output_dir = os.path.join(project_paths.project_dir, Constants.TEMP_LASTZ_DIRNAME)
     os.makedirs(output_dir, exist_ok=True)
-
-    if genome_label == Constants.TARGET_LABEL:
-        partition_file_path = project_paths.reference_partitions
-    else:
-        partition_file_path = project_paths.query_partitions
 
     # Initialize partition list and small chrom list
     partition_list, little_scaffolds_to_bulk = create_partition(chrom_sizes, chunk_size, overlap)
@@ -94,10 +88,13 @@ def do_partition_for_genome(genome_label: str,
             os.makedirs(bucket_dir, exist_ok=True)
     for bulk_number, chroms in bulk_num_to_chroms.items():
         chroms_ids = ":".join(chroms)
-        partition_file_line = f"BULK_{bulk_number}:{os.path.abspath(seq_dir)}:{chroms_ids}\n"
+        partition_file_line = (
+            f"{Constants.PART_BULK_FILENAME_PREFIX}_{bulk_number}:{os.path.abspath(seq_dir)}:{chroms_ids}\n"
+        )
         out_f.write(partition_file_line)
         if genome_label == Constants.TARGET_LABEL:
-            bucket_dir = os.path.join(project_paths.lastz_output_dir, f"bucket_ref_bulk_{bulk_number}")
+            bucket_dir = os.path.join(project_paths.lastz_output_dir,
+                                      f"{Constants.LASTZ_OUT_BULK_PREFIX}_{bulk_number}")
             os.makedirs(bucket_dir, exist_ok=True)
     out_f.close()
 

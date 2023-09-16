@@ -9,7 +9,7 @@ class Constants:
     DEFAULT_SEQ1_CHUNK = 175_000_000
     DEFAULT_SEQ2_CHUNK = 50_000_000
     DEFAULT_SEQ1_LAP = 0
-    DEFAULT_SEQ1_LIMIT = 4000  # what is it?
+    DEFAULT_SEQ1_LIMIT = 5000  # what is it?
     DEFAULT_SEQ2_LAP = 10_000
     DEFAULT_SEQ2_LIMIT = 10_000
 
@@ -58,7 +58,9 @@ class Constants:
     QUERY_CHROM_SIZES_FILENAME = f"{QUERY_LABEL}.chrom.sizes"
 
     # file and directory names
+    PART_BULK_FILENAME_PREFIX = "BULK"
     LASTZ_OUT_BUCKET_PREFIX = "bucket_ref_"
+    LASTZ_OUT_BULK_PREFIX = "bucket_ref_bulk"
     TEMP_LASTZ_DIRNAME = "temp_lastz_run"
     TEMP_PSL_DIRNAME = "temp_lastz_psl_output"
     TEMP_CAT_DIRNAME = "temp_concat_lastz_output"
@@ -70,11 +72,10 @@ class Constants:
     CHAIN_RUN_OUT_DIRNAME = "chain"
     PSL_SORT_TEMP_DIRNAME = "psl_sort_temp_dir"
 
-    REMOVED_SUSPECTS_BED_FNAME = "removed_suspects.bed"
-
     FILL_CHAIN_DIRNAME = "temp_fill_chain"
     FILLED_CHAINS_DIRNAME = "filled_chain_files"
     FILLED_CHAINS_JOBS_DIRNAME = "fill_chain_chunks"
+    REMOVED_SUSPECTS_BED_FNAME = "removed_suspects.bed"
 
     FILL_PREPARE_JOBLIST_NAME = "jobList_prepare.txt"
     REPEAT_FILLER_JOBLIST_NAME = "repeat_filler_joblist.txt"
@@ -98,11 +99,9 @@ class Constants:
         NF_DIRNAME = "parallelization"
         NF_DIR = os.path.abspath(os.path.join(SCRIPT_LOCATION, NF_DIRNAME))
         NF_SCRIPT_PATH = os.path.join(NF_DIR, "execute_joblist.nf")
-
         LASTZ_STEP_LABEL = "lastz"
         FILL_CHAIN_LABEL = "fill_chain"
         CHAIN_RUN_LABEL = "chain_run"
-
         JOB_MEMORY_REQ = 16  # GB
         JOB_TIME_REQ = '24h'
 
