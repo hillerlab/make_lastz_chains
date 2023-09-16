@@ -59,9 +59,9 @@ pslSortAcc
 axtChain
 chainAntiRepeat
 chainMergeSort
-chainCleaner"
-chainSort"
-chainScore"
+chainCleaner
+chainSort
+chainScore
 chainNet
 axtToPsl
 chainFilter

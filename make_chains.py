@@ -202,15 +202,14 @@ def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
 def run_pipeline(args):
     # setup project dir, parameters and step manager
     start_time = dt.now()
-
-    step_executables = StepExecutables(SCRIPT_LOCATION)
     project_dir = OutputDirectoryManager(args).project_dir
+    setup_logger(os.path.join(project_dir, "run.log"))
+    log_version()
     parameters = PipelineParameters(args)
     project_paths = ProjectPaths(project_dir, SCRIPT_LOCATION, parameters)
+    step_executables = StepExecutables(SCRIPT_LOCATION)
     step_manager = StepManager(project_paths, args)
 
-    setup_logger(project_paths.log_file)
-    log_version()
     to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
     to_log(f"Pipeline started at {start_time}")
 
