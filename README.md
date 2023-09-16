@@ -1,7 +1,7 @@
 # Make Lastz Chains
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![version](https://img.shields.io/badge/version-2.0.1-blue)
+![version](https://img.shields.io/badge/version-2.0.2-blue)
 [![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
@@ -51,7 +51,7 @@ The script to be called is `make_chains.py`.
 
 ```bash
 ### Minimal example
-./make_chains__OLD.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
+./make_chains.py ${target_genome_id} ${query_genome_id} ${target_genome_sequence} ${query_genome_sequence} --executor ${cluster_management_system} --project_dir test
  ```
 
 A quick test sample:

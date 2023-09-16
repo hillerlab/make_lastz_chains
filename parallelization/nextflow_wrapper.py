@@ -26,7 +26,7 @@ class NextflowConfig:
         f = open(self.config_path, "w")
         f.write(f"// Nextflow config for {self.label} jobs\n")
         f.write(f"process.executor = '{self.executor}'\n")
-        f.write(f"process.memory = '{self.memory}MB'\n")
+        f.write(f"process.memory = '{self.memory} G'\n")
         f.write(f"process.time = '{self.time}'\n")
         f.write(f"process.cpus = '{self.cpus}'\n")
         if self.queue:
