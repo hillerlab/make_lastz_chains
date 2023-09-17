@@ -98,7 +98,7 @@ def bundle_chrom_split_psl_files(input_dir: str,
         "verbose": verbose
     }
     os.makedirs(output_dir, exist_ok=True)
-    to_log(f"Bundling psl files with the followign arguments:")
+    to_log(f"Bundling psl files with the following arguments:")
     for k, v in args.items():
         to_log(f"* {k}: {v}")
     to_log(f"Saving results to: {output_dir}")

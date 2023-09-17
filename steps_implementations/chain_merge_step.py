@@ -17,7 +17,9 @@ def do_chains_merge(params: PipelineParameters,
     find_cmd = ["find", project_paths.chain_output_dir, "-name", "*chain"]
 
     # Define the chain_merge_sort command
-    merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin"]
+    merge_sort_cmd = [executables.chain_merge_sort,
+                      "-inputList=stdin",
+                      f"-tempDir={project_paths.kent_temp_dir}"]
 
     # Define the gzip command
     gzip_cmd = ["gzip", "-c"]

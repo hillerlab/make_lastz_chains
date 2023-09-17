@@ -54,10 +54,10 @@ def do_chains_clean(params: PipelineParameters,
 
     with open(project_paths.chain_cleaner_log, 'w') as f:
         clean_process = subprocess.Popen(chain_cleaner_cmd,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE,
-                                   env=_temp_env,
-                                   text=True)
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE,
+                                         env=_temp_env,
+                                         text=True)
         stdout, stderr = clean_process.communicate()
 
         # Write stdout to log file and also capture it in a variable
