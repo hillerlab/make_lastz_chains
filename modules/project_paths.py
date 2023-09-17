@@ -25,6 +25,7 @@ class ProjectPaths:
 
         self.hl_kent_binaries = self._j_abs(root_dir, Constants.KENT_BINARIES_DIRNAME)
         self.chain_clean_micro_env = self._j_abs(root_dir, Constants.CHAIN_CLEAN_MICRO_ENV)
+        self.kent_temp_dir = self._j_abs(project_dir, Constants.KENT_TEMP_DIRNAME)
 
         # LASTZ step
         self.lastz_working_dir = self._j_abs(project_dir, Constants.TEMP_LASTZ_DIRNAME)
@@ -39,7 +40,7 @@ class ProjectPaths:
         self.chain_run_dir = self._j_abs(project_dir, Constants.TEMP_AXT_CHAIN_DIRNAME)
         self.chain_joblist_path = self._j_abs(self.chain_run_dir, Constants.CHAIN_JOBLIST_FILENAME)
         self.chain_output_dir = self._j_abs(self.chain_run_dir, Constants.CHAIN_RUN_OUT_DIRNAME)
-        self.temp_dir_for_psl_sort = self._j_abs(self.chain_run_dir, Constants.PSL_SORT_TEMP_DIRNAME)
+        # self.temp_dir_for_psl_sort = self._j_abs(self.chain_run_dir, Constants.PSL_SORT_TEMP_DIRNAME)
         self.sorted_psl_dir = self._j_abs(self.chain_run_dir, Constants.SORTED_PSL_DIRNAME)
         self.split_psl_dir = self._j_abs(self.chain_run_dir, Constants.SPLIT_PSL_DIRNAME)
 
@@ -88,10 +89,10 @@ class ProjectPaths:
         directories_to_create = [
             self.lastz_working_dir,
             self.lastz_output_dir,
-            # self.psl_output_dir,
+            self.kent_temp_dir,
             self.cat_out_dirname,
             self.chain_run_dir,
-            self.temp_dir_for_psl_sort,
+            # self.temp_dir_for_psl_sort,
             self.sorted_psl_dir,
             self.split_psl_dir,
             self.chain_output_dir,

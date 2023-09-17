@@ -27,7 +27,7 @@ def create_repeat_filler_joblist(params: PipelineParameters,
         f"--gapMaxSizeQ {params.fill_gap_max_size_q}",
         f"--scoreThreshold {params.fill_insert_chain_min_score}",
         f"--gapMinSizeT {params.fill_gap_min_size_t}",
-        f"--gapMinSizeQ {params.fill_gap_min_size_q}"
+        f"--gapMinSizeQ {params.fill_gap_min_size_q}",
     ]
     if params.fill_unmask:
         to_log("Adding --unmask flag")
@@ -77,7 +77,7 @@ def merge_filled_chains(params: PipelineParameters,
     find_cmd = ["find", project_paths.fill_chain_filled_dir, "-type", "f", "-name", "*.chain", "-print"]
 
     # Create the 'chainMergeSort' command
-    merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin"]
+    merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin", f"-tempDir={project_paths.kent_temp_dir}"]
 
     # Create the 'gzip' command
     gzip_cmd = ["gzip", "-c"]

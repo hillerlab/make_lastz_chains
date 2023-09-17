@@ -23,7 +23,7 @@ def psl_bundle(cat_out_dirname, project_paths, executables, params):
     sort_cmd = [executables.psl_sort_acc,
                 "nohead",
                 project_paths.sorted_psl_dir,
-                project_paths.temp_dir_for_psl_sort,
+                project_paths.kent_temp_dir,
                 *concatenated_files]
     to_log(f"Sorting PSL files, saving the results to {project_paths.sorted_psl_dir}")
     to_log(" ".join(sort_cmd))
@@ -35,10 +35,9 @@ def psl_bundle(cat_out_dirname, project_paths, executables, params):
             f"Error message: {sort_process_result.stderr.decode('utf-8')}"
         )
 
-    shutil.rmtree(project_paths.temp_dir_for_psl_sort)
+    # shutil.rmtree(project_paths.temp_dir_for_psl_sort)
 
     # 1.2 -> bundle chrom split files
-
     bundle_chrom_split_psl_files(project_paths.sorted_psl_dir,
                                  params.seq_1_len,
                                  project_paths.split_psl_dir,

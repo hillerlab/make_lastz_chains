@@ -58,6 +58,7 @@ class Constants:
     QUERY_CHROM_SIZES_FILENAME = f"{QUERY_LABEL}.chrom.sizes"
 
     # file and directory names
+    KENT_TEMP_DIRNAME = "temp_kent"
     PART_BULK_FILENAME_PREFIX = "BULK"
     LASTZ_OUT_BUCKET_PREFIX = "bucket_ref_"
     LASTZ_OUT_BULK_PREFIX = "bucket_ref_bulk"
@@ -70,7 +71,7 @@ class Constants:
     SORTED_PSL_DIRNAME = "sorted_psl"
     SPLIT_PSL_DIRNAME = "split_psl"
     CHAIN_RUN_OUT_DIRNAME = "chain"
-    PSL_SORT_TEMP_DIRNAME = "psl_sort_temp_dir"
+    # PSL_SORT_TEMP_DIRNAME = "psl_sort_temp_dir"
 
     FILL_CHAIN_DIRNAME = "temp_fill_chain"
     FILLED_CHAINS_DIRNAME = "filled_chain_files"
