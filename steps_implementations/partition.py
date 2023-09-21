@@ -8,6 +8,7 @@ from modules.parameters import PipelineParameters
 from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.common import GenomicRegion
+from modules.error_classes import PipelineFileNotFoundError
 
 
 def create_partition(chrom_sizes, chunk_size, overlap):
@@ -60,6 +61,9 @@ def do_partition_for_genome(genome_label: str,
     else:
         partition_file_path = project_paths.query_partitions
 
+    if not os.path.isfile(seq_dir):
+        err_msg = f"Error! Could not find genome sequences file {seq_dir}. Please contact developers."
+        raise PipelineFileNotFoundError(err_msg)
     # Read chromosome sizes
     chrom_sizes = read_chrom_sizes(seq_len_file)
 

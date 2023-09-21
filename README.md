@@ -1,7 +1,7 @@
 # Make Lastz Chains
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![version](https://img.shields.io/badge/version-2.0.5-blue)
+![version](https://img.shields.io/badge/version-2.0.6-blue)
 [![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
 
 Portable Hillerlab solution for generating pairwise genome alignment chains.
@@ -83,7 +83,10 @@ The script to be called is `make_chains.py`.
 A quick test sample:
 
 ```bash
-./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f
+# fasta input
+./make_chains.py target query test_data/test_reference.fa test_data/test_query.fa --pd test_out -f --chaining_memory 16
+# 2bit file input - pls create 2bit files from fasta using faToTwoBit before
+./make_chains.py target query test_data/test_reference.2bit test_data/test_query.2bit --pd test_out -f --chaining_memory 16
 ```
 
 ### Full list of the pipeline CLI parameters

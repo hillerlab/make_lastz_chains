@@ -173,17 +173,23 @@ def save_final_chain(parameters: PipelineParameters, project_paths: ProjectPaths
     shutil.move(last_chain_file, project_paths.final_chain)
     to_log(f"Saved final chains file to {project_paths.final_chain}")
 
+def _del_file_and_log(path):
+    os.remove(path)
+    to_log(f"x {path}")
+
 
 def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
     """Perform the cleanup."""
     if parameters.keep_temp:
+        to_log("Temp files are not deleted because of the --keep_temp flag")
         return  # cleanup is not necessary
     dirs_to_del = [
         project_paths.chain_run_dir,
         project_paths.cat_out_dirname,
         project_paths.lastz_output_dir,
         project_paths.lastz_working_dir,
-        project_paths.fill_chain_run_dir
+        project_paths.fill_chain_run_dir,
+        project_paths.kent_temp_dir
     ]
     to_log("Cleaning up the following directories")
     for dirname in dirs_to_del:
@@ -191,12 +197,13 @@ def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
         shutil.rmtree(dirname)
 
     # remove individual temp files
-    os.remove(project_paths.reference_genome)
-    os.remove(project_paths.query_genome)
-    os.remove(project_paths.reference_partitions)
-    os.remove(project_paths.query_partitions)
-    os.remove(project_paths.ref_chrom_sizes)
-    os.remove(project_paths.query_chrom_sizes)
+    to_log("And the following files:")
+    _del_file_and_log(project_paths.reference_genome)
+    _del_file_and_log(project_paths.query_genome)
+    _del_file_and_log(project_paths.reference_partitions)
+    _del_file_and_log(project_paths.query_partitions)
+    _del_file_and_log(project_paths.ref_chrom_sizes)
+    _del_file_and_log(project_paths.query_chrom_sizes)
 
 
 def run_pipeline(args):
@@ -220,12 +227,14 @@ def run_pipeline(args):
                            args.target_name,
                            Constants.TARGET_LABEL,
                            project_paths,
-                           step_executables)
+                           step_executables,
+                           parameters)
     setup_genome_sequences(args.query_genome,
                            args.query_name,
                            Constants.QUERY_LABEL,
                            project_paths,
-                           step_executables)
+                           step_executables,
+                           parameters)
 
     # now execute steps
     step_manager.execute_steps(parameters, step_executables, project_paths)
