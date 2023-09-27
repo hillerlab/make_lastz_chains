@@ -33,7 +33,7 @@ class Version:
         return self.version_repr
 
 
-__version__ = Version(2, 0, 6)
+__version__ = Version(2, 0, 7)
 
 if __name__ == "__main__":
     print(f"Make Lastz Chains Version: {__version__}")
