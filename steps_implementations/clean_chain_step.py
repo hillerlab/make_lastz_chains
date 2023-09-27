@@ -32,9 +32,9 @@ def do_chains_clean(params: PipelineParameters,
     _intermediate_chain = f"{_output_chain}__temp"
     _clean_chain_args = params.clean_chain_parameters.split()
 
-    # dirty hack to override chainNet not found error
+    # some Kent binaries and NetFilterNonNested.perl are necessary to run chainCleaner
     _temp_env = os.environ.copy()
-    _temp_env["PATH"] = f"{project_paths.chain_clean_micro_env}:" + _temp_env["PATH"]
+    _temp_env["PATH"] = f"{project_paths.hl_kent_binaries}:" + _temp_env["PATH"]
 
     chain_cleaner_cmd = [
         executables.chain_cleaner,

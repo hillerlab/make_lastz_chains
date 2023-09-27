@@ -11,7 +11,6 @@ __author__ = "Bogdan M. Kirilenko"
 
 SCRIPT_LOCATION = os.path.abspath(os.path.dirname(__file__))
 DESTINATION_DIR = os.path.join(SCRIPT_LOCATION, "HL_kent_binaries")
-CHAIN_NET_DIR = os.path.join(SCRIPT_LOCATION, "chain_clean_micro_env")
 HG_DOWNLOAD_LINK = "https://hgdownload.cse.ucsc.edu/admin/exe/"
 
 # OS related
@@ -51,11 +50,7 @@ def process_tool(tool_name):
     # not found, need to acquire
     download_link = f"{HG_DOWNLOAD_LINK}/{HG_DOWNLOAD_DIRNAME}/{tool_name}"
     # destination dir for all binaries necessary to run the pipeline is HL_kent_binaries
-    # chainNet is only necessary for chainCleaner, and is saved to chain_clean_micro_env
-    # a directory that serves as temporary extension of the $PATH
-    # only to run chainCleaner
-    destination_dir = DESTINATION_DIR if tool_name != "chainNet" else CHAIN_NET_DIR
-    destination = os.path.join(destination_dir, tool_name)
+    destination = os.path.join(DESTINATION_DIR, tool_name)
 
     if os.path.isfile(destination):
         # if already in destination directory: just skip it

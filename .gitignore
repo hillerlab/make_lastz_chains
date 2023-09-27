@@ -17,14 +17,18 @@ modules/__pycache__/*
 */__pycache__/
 
 # Kent binaries
-HL_kent_binaries/pslSortAcc
+HL_kent_binaries/axtChain
+HL_kent_binaries/axtToPsl
 HL_kent_binaries/chainAntiRepeat
-HL_kent_binaries/chainMergeSort
 HL_kent_binaries/chainCleaner
-HL_kent_binaries/chainSort
+HL_kent_binaries/chainFilter
+HL_kent_binaries/chainMergeSort
+HL_kent_binaries/chainNet
 HL_kent_binaries/chainScore
-chain_clean_micro_env/chainNet
-/HL_kent_binaries/chainFilter
+HL_kent_binaries/chainSort
+HL_kent_binaries/faToTwoBit
+HL_kent_binaries/pslSortAcc
+HL_kent_binaries/twoBitToFa
 # to be continued
 
 # test data

@@ -27,11 +27,9 @@ class StepExecutables:
         self.chain_cleaner = self.__find_binary(Constants.ToolNames.CHAIN_CLEANER)
         self.chain_sort = self.__find_binary(Constants.ToolNames.CHAIN_SORT)
         self.chain_score = self.__find_binary(Constants.ToolNames.CHAIN_SCORE)
-        self.lastz = self.__find_binary(Constants.ToolNames.LASTZ)
+        self.chain_net = self.__find_binary(Constants.ToolNames.CHAIN_NET)
         self.chain_filter = self.__find_binary(Constants.ToolNames.CHAIN_FILTER)
-
-        # ChainNet is special for now
-        self.chain_net = self.__locate_chain_net(Constants.ToolNames.CHAIN_NET)
+        self.lastz = self.__find_binary(Constants.ToolNames.LASTZ)
 
         self.__check_completeness()
 
@@ -57,16 +55,6 @@ class StepExecutables:
         to_log(f"* found {binary_name} at {binary_path}")
         return binary_path
 
-    def __locate_chain_net(self, chain_net):
-        if shutil.which(chain_net):
-            to_log(f"found {chain_net} in $PATH")
-            return True
-        elif os.path.isfile(os.path.join(self.chain_clean_env_dir, chain_net)):
-            to_log(f"found {chain_net} in {self.chain_clean_env_dir}")
-            return True
-        self.not_found.append(chain_net)
-        return None
-
     def __check_completeness(self):
         if len(self.not_found) == 0:
             to_log("All necessary executables found.")
@@ -74,10 +62,8 @@ class StepExecutables:
         not_found_bins = "\n".join([f"* {x}" for x in self.not_found])
         err_msg = (
             f"Error! The following tools not found neither in $PATH nor "
-            f"in the download dir:\n{not_found_bins}\nPlease note that "
-            f"chainNet should be placed either in $PATH or in the "
-            f"{self.chain_clean_env_dir} directory. Other tools are "
-            f"expected to be either in $PATH or {self.hl_kent_binaries_path}\n"
+            f"in the download dir:\n{not_found_bins}\n"
+            f"The tools are expected to be either in $PATH or {self.hl_kent_binaries_path}\n"
             f"Please use install_dependencies.py to automate the process."
         )
         raise ExecutableNotFoundError(err_msg)

@@ -17,13 +17,13 @@
 
 ## Nice to do
 
-- Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?
+- ~~Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?~~ -> not split anymore
 - QC module or something - detailed statistics per each step
 - Explanation for each pipeline parameter in the parse_args
+- Document masking, etc. - nuances that affect the pipeline performance.
 - ~~Refactor chain gap filler: get rid of chainExtractID dependency -> not needed~~
 - ~~read parameters from config file~~
-- Document masking, etc. - nuances that affect the pipeline performance.
-- https://github.com/hillerlab/make_lastz_chains/issues/20 - temp files location
+- ~~https://github.com/hillerlab/make_lastz_chains/issues/20 - temp files location~~
 
 ## Minor things
 

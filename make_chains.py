@@ -173,6 +173,7 @@ def save_final_chain(parameters: PipelineParameters, project_paths: ProjectPaths
     shutil.move(last_chain_file, project_paths.final_chain)
     to_log(f"Saved final chains file to {project_paths.final_chain}")
 
+
 def _del_file_and_log(path):
     os.remove(path)
     to_log(f"x {path}")
