@@ -3,7 +3,7 @@
 ## Mandatory
 
 - Documentation
-- Full scale test
+- ~~Full scale test~~
 - ~~get rid of negatively scored chains~~
 - ~~Organise cat step better~~
 - ~~Get rid of all magic numbers and strings~~
@@ -17,15 +17,16 @@
 
 ## Nice to do
 
-- ~~Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?~~ -> not split anymore
-- QC module or something - detailed statistics per each step
+- About dependencies: properly handle `missing *.so` error that may occur when running Kent binaries, like here https://github.com/hillerlab/make_lastz_chains/issues/34
+- QC module: https://github.com/hillerlab/make_lastz_chains/issues/33
+- lastz_q parameter - figure out what stands for and whether it is needed
 - Explanation for each pipeline parameter in the parse_args
 - Document masking, etc. - nuances that affect the pipeline performance.
+- ~~Refactor HL kent dependencies -> maybe it was not necessary to split into 2 dirs?~~ -> not split anymore
 - ~~Refactor chain gap filler: get rid of chainExtractID dependency -> not needed~~
 - ~~read parameters from config file~~
 - ~~https://github.com/hillerlab/make_lastz_chains/issues/20 - temp files location~~
 
-## Minor things
+## Ideas for additional features
 
-- lastz_q parameter - figure out what stands for and whether it is needed
-- 
+- Self chains: https://github.com/hillerlab/make_lastz_chains/issues/31
