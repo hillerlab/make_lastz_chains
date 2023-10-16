@@ -7,7 +7,7 @@ from modules.make_chains_logging import to_log
 
 
 class StepExecutables:
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, args):
         self.root_dir = root_dir
         self.hl_kent_binaries_path = os.path.join(root_dir, Constants.KENT_BINARIES_DIRNAME)
         self.chain_clean_env_dir = os.path.join(root_dir, Constants.CHAIN_CLEAN_MICRO_ENV)
@@ -29,7 +29,8 @@ class StepExecutables:
         self.chain_score = self.__find_binary(Constants.ToolNames.CHAIN_SCORE)
         self.chain_net = self.__find_binary(Constants.ToolNames.CHAIN_NET)
         self.chain_filter = self.__find_binary(Constants.ToolNames.CHAIN_FILTER)
-        self.lastz = self.__find_binary(Constants.ToolNames.LASTZ)
+        self.lastz = self.__find_binary(Constants.ToolNames.LASTZ, predef_arg=args.lastz_executable)
+        self.nextflow = self.__find_binary(Constants.ToolNames.NEXTFLOW, predef_arg=args.nextflow_executable)
 
         self.__check_completeness()
 
@@ -42,7 +43,13 @@ class StepExecutables:
         to_log(f"* found {script_name} at {abs_path}")
         return abs_path
 
-    def __find_binary(self, binary_name):
+    def __find_binary(self, binary_name, predef_arg=None):
+        if predef_arg:
+            if not os.path.isfile(predef_arg):
+                self.not_found.append(binary_name)
+                return
+            to_log(f"* using {binary_name} manually located at {binary_name}")
+            return predef_arg
         binary_path = shutil.which(binary_name)
 
         if binary_path is None:  # not in $PATH

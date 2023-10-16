@@ -8,8 +8,7 @@ from modules.project_paths import ProjectPaths
 from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
 from modules.error_classes import PipelineSubprocessError
-from parallelization.nextflow_wrapper import NextflowWrapper
-from parallelization.nextflow_wrapper import NextflowConfig
+from parallelization.nextflow_wrapper import execute_nextflow_step
 from steps_implementations.fill_chain_split_into_parts_substep import randomly_split_chains
 from modules.common import check_expected_file
 
@@ -145,20 +144,17 @@ def do_chains_fill(params: PipelineParameters,
     # 2. create and execute fill joblist
     create_repeat_filler_joblist(params, project_paths, executables)
 
-    nextflow_config = NextflowConfig(params.cluster_executor,
-                                     Constants.NextflowConstants.JOB_MEMORY_REQ,
-                                     Constants.NextflowConstants.JOB_TIME_REQ,
-                                     Constants.NextflowConstants.FILL_CHAIN_LABEL,
-                                     config_dir=project_paths.fill_chain_run_dir,
-                                     queue=params.cluster_queue)
-    nextflow_manager = NextflowWrapper()
-    nextflow_manager.execute(project_paths.repeat_filler_joblist,
-                             nextflow_config,
-                             project_paths.fill_chain_run_dir,
-                             wait=True,
-                             label=Constants.NextflowConstants.FILL_CHAIN_LABEL)
-    nextflow_manager.check_failed()
-    nextflow_manager.cleanup()
+    execute_nextflow_step(
+        executables.nextflow,
+        params.cluster_executor,
+        Constants.NextflowConstants.JOB_MEMORY_REQ,
+        Constants.NextflowConstants.JOB_TIME_REQ,
+        Constants.NextflowConstants.FILL_CHAIN_LABEL,
+        project_paths.fill_chain_run_dir,
+        params.cluster_queue,
+        project_paths.repeat_filler_joblist,
+        project_paths.fill_chain_run_dir
+    )
 
     # 3. merge the filled chains
     merge_filled_chains(params, project_paths, executables)

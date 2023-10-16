@@ -45,7 +45,8 @@ class NextflowWrapper:
     Nextflow manager.
     """
 
-    def __init__(self):
+    def __init__(self, nextflow_exec):
+        self.nextflow_exec = nextflow_exec
         self._process = None
         self.joblist_path = None
         self.config_file = None
@@ -64,15 +65,10 @@ class NextflowWrapper:
         self.label = kwargs.get("label", "")
 
         # create the nextflow process
-        # cmd = f"nextflow {self.nf_master_script} --joblist {joblist_path}"
-        # if self.config_file:
-        #     cmd += f" -c {self.config_file}"
         self.config_file = config_instance.dump_to_file()
-        cmd = f"nextflow {self.nf_master_script} --joblist {joblist_path} -c {self.config_file}"
+        cmd = f"{self.nextflow_exec} {self.nf_master_script} --joblist {joblist_path} -c {self.config_file}"
 
         os.makedirs(self.execute_dir, exist_ok=True)
-        # log_file_path = os.path.join(execute_dir, "nextflow_process.log")
-        # with open(log_file_path, "w") as log_file:
         to_log(f"Parallel manager: pushing job {cmd}")
         self._process = subprocess.Popen(cmd,
                                          shell=True,
@@ -117,3 +113,44 @@ class NextflowWrapper:
         shutil.rmtree(nf_dir)
         shutil.rmtree(work_dir)
         self.config_instance.remove_config()
+
+
+def execute_nextflow_step(nextflow_exec,
+                          executor,
+                          memory_req,
+                          time_req,
+                          step_label,
+                          config_dir,
+                          queue,
+                          joblist,
+                          run_dir):
+    """
+
+    Execute Nextflow Step
+
+    Executes a Nextflow step using the specified parameters.
+    Facilitates the cooperation between NextflowConfig and NextflowWrapper classes.
+
+    Parameters:
+    - nextflow_exec (str): The path to the Nextflow executable.
+    - executor (str): The Nextflow executor to use.
+    - memory_req (str): The memory requirement for the step.
+    - time_req (str): The time requirement for the step.
+    - step_label (str): The label for the step.
+    - config_dir (str): The directory to find the Nextflow configuration files.
+    - queue (str): The queue to submit the job to.
+    - joblist (str): The list of jobs to execute.
+    - run_dir (str): The directory where the Nextflow run will be executed.
+
+    Returns:
+    None
+
+    Raises:
+    - NextflowProcessError: If the Nextflow process fails.
+
+    """
+    nextflow_config = NextflowConfig(executor, memory_req, time_req, step_label, config_dir=config_dir, queue=queue)
+    nextflow_manager = NextflowWrapper(nextflow_exec)
+    nextflow_manager.execute(joblist, nextflow_config, run_dir, wait=True, label=step_label)
+    nextflow_manager.check_failed()
+    nextflow_manager.cleanup()

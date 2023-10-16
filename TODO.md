@@ -30,3 +30,7 @@
 ## Ideas for additional features
 
 - Self chains: https://github.com/hillerlab/make_lastz_chains/issues/31
+
+## Very minor things
+
+- install_dependencies crash `FileNotFoundError: [Errno 2] No such file or directory: 'wget'` -> maybe show a better message suggesting to install wget?

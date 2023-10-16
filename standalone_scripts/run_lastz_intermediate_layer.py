@@ -11,7 +11,7 @@ from itertools import product
 
 
 def read_chrom_sizes(chrom_sizes_path):
-    """Read chrom.sizes file"""
+    """Read chrom.sizes file."""
     chrom_sizes = {}
     f = open(chrom_sizes_path, "r")
     for line in f:
@@ -112,7 +112,6 @@ def main():
         if args.axt_to_psl:
             lastz_cmd.append(f"--axt_to_psl")
             lastz_cmd.append(args.axt_to_psl)
-        # print(" ".join(lastz_cmd))
         subprocess.call(lastz_cmd)
 
 

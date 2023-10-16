@@ -57,6 +57,8 @@ class Constants:
     QUERY_SEQ_FILENAME = f"{QUERY_LABEL}.2bit"
     QUERY_CHROM_SIZES_FILENAME = f"{QUERY_LABEL}.chrom.sizes"
 
+    MAX_CHROM_IN_BULK = 100
+
     # file and directory names
     KENT_TEMP_DIRNAME = "temp_kent"
     PART_BULK_FILENAME_PREFIX = "BULK"
@@ -122,6 +124,8 @@ class Constants:
         CHAIN_FILTER = "chainFilter"
         # only one non-Kent binary
         LASTZ = "lastz"
+        # very special but necessary executable
+        NEXTFLOW = "nextflow"
 
     class ScriptNames:
         REPEAT_FILLER = "chain_gap_filler.py"
