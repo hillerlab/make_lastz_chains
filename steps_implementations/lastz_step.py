@@ -54,10 +54,8 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
             output_bucket,
             output_filename
         )
-        lastz_exec = os.path.abspath(executables.lastz_wrapper)
-        # standalone_scripts/run_lastz.py
+
         args_list = [
-            # lastz_exec,
             executables.lastz_layer,
             target,
             query,
@@ -82,7 +80,7 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
 
 def check_results_completeness(project_paths: ProjectPaths):
     lastz_output_filenames = os.listdir(project_paths.lastz_output_dir)
-    lastz_output_files = [os.path.join(project_paths.lastz_output_dir, x) for x in lastz_output_filenames]
+    # lastz_output_files = [os.path.join(project_paths.lastz_output_dir, x) for x in lastz_output_filenames]
     results_num = len(lastz_output_filenames)
     to_log(f"Found {results_num} output files from the LASTZ step")
     to_log("Please note that lastz_step.py does not produce output in case LASTZ could not find any alignment")
