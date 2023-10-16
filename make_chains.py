@@ -71,6 +71,12 @@ def parse_args():
     app.add_argument("--params_from_file",
                      default=None,
                      help="Read parameters from a specified config file")
+    app.add_argument("--lastz_executable",
+                     default=None,
+                     help="Set up the path to the lastz executable manually")
+    app.add_argument("--nextflow_executable",
+                     default=None,
+                     help="Set up the path to the nextflow executable manually")
     # Pipeline parameters group
     pipeline_params = app.add_argument_group('Pipeline Parameters')
     pipeline_params.add_argument("--skip_fill_chain", dest="skip_fill_chains", action="store_true")
@@ -215,7 +221,7 @@ def run_pipeline(args):
     log_version()
     parameters = PipelineParameters(args)
     project_paths = ProjectPaths(project_dir, SCRIPT_LOCATION, parameters)
-    step_executables = StepExecutables(SCRIPT_LOCATION)
+    step_executables = StepExecutables(SCRIPT_LOCATION, args)
     step_manager = StepManager(project_paths, args)
 
     to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
