@@ -58,6 +58,7 @@ class Constants:
     QUERY_CHROM_SIZES_FILENAME = f"{QUERY_LABEL}.chrom.sizes"
 
     MAX_CHROM_IN_BULK = 100
+    CHUNK_SIZE_FRACTION_FOR_LITTLE_CHROMOSOMES = 0.75
 
     # file and directory names
     KENT_TEMP_DIRNAME = "temp_kent"

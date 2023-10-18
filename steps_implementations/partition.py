@@ -33,15 +33,16 @@ def create_partition(chrom_sizes, chunk_size, overlap):
 def create_buckets_for_little_scaffolds(little_scaffolds_to_bulk, chunk_size):
     """Arrange little scaffolds into bigger groups."""
     bulk_num_to_chroms = defaultdict(list)
-    bulk_size_threshold = chunk_size * 0.9
+    bulk_size_threshold = chunk_size * Constants.CHUNK_SIZE_FRACTION_FOR_LITTLE_CHROMOSOMES
     bulk_number = 1
     current_bulk_size = 0
     chrom_count_in_bulk = 0
 
-    for chrom, size in little_scaffolds_to_bulk or chrom_count_in_bulk >= Constants.MAX_CHROM_IN_BULK:
-        if (current_bulk_size + size) > bulk_size_threshold:
+    for chrom, size in little_scaffolds_to_bulk:
+        if (current_bulk_size + size) > bulk_size_threshold or chrom_count_in_bulk >= Constants.MAX_CHROM_IN_BULK:
             bulk_number += 1
             current_bulk_size = 0
+            chrom_count_in_bulk = 0
         bulk_num_to_chroms[bulk_number].append(chrom)
         current_bulk_size += size
         chrom_count_in_bulk += 1
