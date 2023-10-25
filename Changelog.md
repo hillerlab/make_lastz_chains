@@ -9,3 +9,6 @@ also considers a maximum chromosome count per bucket.
 - bulky nextflow classes cooperation is wrapped into `execute_nextflow_step` (bulky as well,
 but a bit better) 
 
+# 2.0.9 (in progress)
+
+- added executor.queueSize parameter to the NF config (default to 1000)
