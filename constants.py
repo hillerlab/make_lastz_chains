@@ -108,6 +108,7 @@ class Constants:
         CHAIN_RUN_LABEL = "chain_run"
         JOB_MEMORY_REQ = 16  # GB
         JOB_TIME_REQ = '48h'
+        DEFAULT_QUEUE_SIZE = 1000
 
     class ToolNames:
         # Kent tools
