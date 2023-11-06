@@ -98,7 +98,7 @@ def parse_args():
                                  type=int)
     pipeline_params.add_argument("--chain_linear_gap",
                                  default=Constants.DEFAULT_CHAIN_LINEAR_GAP,
-                                 choices=["loose, medium"],
+                                 choices=["loose", "medium"],
                                  type=str)
     pipeline_params.add_argument("--num_fill_jobs", default=Constants.DEFAULT_NUM_FILL_JOBS, type=int)
     pipeline_params.add_argument("--fill_chain_min_score",
