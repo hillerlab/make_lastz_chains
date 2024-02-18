@@ -145,6 +145,7 @@ Pipeline Parameters:
   --chaining_memory CHAINING_MEMORY
   --chain_clean_memory CHAIN_CLEAN_MEMORY
   --clean_chain_parameters CLEAN_CHAIN_PARAMETERS
+  --job_time_req JOB_TIME_REQ
 ```
 
 #### Target and query genome IDs
