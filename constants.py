@@ -40,6 +40,8 @@ class Constants:
     BUNDLE_PSL_MAX_BASES = 1_000_000
     DEFAULT_NUM_FILL_JOBS = 1000
 
+    DEFAULT_JOB_TIME_REQ = "48h"
+
     DEFAULT_CLEAN_CHAIN_PARAMS = (
         "-LRfoldThreshold=2.5 "
         "-doPairs "
@@ -107,7 +109,6 @@ class Constants:
         FILL_CHAIN_LABEL = "fill_chain"
         CHAIN_RUN_LABEL = "chain_run"
         JOB_MEMORY_REQ = 16  # GB
-        JOB_TIME_REQ = '48h'
         DEFAULT_QUEUE_SIZE = 1000
 
     class ToolNames:
