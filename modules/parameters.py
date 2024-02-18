@@ -57,6 +57,7 @@ class PipelineParameters:
         self.chaining_memory = args.chaining_memory
         self.chain_clean_memory = args.chain_clean_memory
         self.clean_chain_parameters = args.clean_chain_parameters
+        self.job_time_req = args.job_time_req
 
         self.keep_temp = args.keep_temp
 
