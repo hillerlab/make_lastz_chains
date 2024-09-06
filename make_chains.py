@@ -133,6 +133,9 @@ def parse_args():
                                  type=int)
     pipeline_params.add_argument("--clean_chain_parameters",
                                  default=Constants.DEFAULT_CLEAN_CHAIN_PARAMS)
+    pipeline_params.add_argument("--job_time_req",
+                                 default=Constants.DEFAULT_JOB_TIME_REQ, type=str,
+                                 help="Maximum time allocated per Nextflow job")
 
     if len(sys.argv) < 5:
         app.print_help()
