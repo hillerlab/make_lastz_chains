@@ -50,8 +50,8 @@ def make_chains_joblist(project_paths: ProjectPaths,
     # Prepare parameters
     seq1_dir = params.seq_1_dir
     seq2_dir = params.seq_2_dir
-    # matrix = params.lastz_q if params.lastz_q else ""
-    # matrix = ""
+    matrix = params.lastz_q if hasattr(params, 'lastz_q') else "" # add lastz_q if it exists
+
     min_score = params.chain_min_score
     linear_gap = params.chain_linear_gap
     bundle_filenames = os.listdir(project_paths.split_psl_dir)
@@ -76,6 +76,8 @@ def make_chains_joblist(project_paths: ProjectPaths,
                seq2_dir,
                "stdin",
                out_path]
+        if matrix != "" :
+            cmd.insert(3, f"-scoreScheme={matrix}") # add lastz_q if it exists
         cluster_jobs.append(" ".join(cmd))
     return cluster_jobs
 
