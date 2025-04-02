@@ -19,6 +19,7 @@ class NextflowConfig:
         self.cpus = 1  # always a fixed number
         self.config_path = None
         self.queue_size = Constants.NextflowConstants.DEFAULT_QUEUE_SIZE
+        self.maxRetries = 5  # stop Nextflow from retrying too many times
 
     def dump_to_file(self):
         """Write the respective config file,"""
@@ -33,6 +34,7 @@ class NextflowConfig:
         if self.queue:
             f.write(f"process.queue = '{self.queue}'\n")
         f.write(f"executor.queueSize = '{self.queue_size}'\n")
+        f.write(f"process.maxRetries = '{self.maxRetries}'\n")
         f.close()
         return self.config_path
 
