@@ -32,7 +32,7 @@ Please also install `lastz` (https://github.com/lastz/lastz/) and add a binary t
 Then do the following:
 
 ```bash
-git clone git@github.com:hillerlab/make_lastz_chains.git
+git clone https://github.com/hillerlab/make_lastz_chains.git
 cd make_lastz_chains
 # install python packages (just one actually for now)
 pip3 install -r requirements.txt
