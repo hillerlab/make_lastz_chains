@@ -27,7 +27,7 @@ Install nextflow:
 https://www.nextflow.io/docs/latest/getstarted.html
 
 Please note that Nextflow requires a java runtime.
-Please also acquire `lastz` and add a binary to your `$PATH`.
+Please also install `lastz` (https://github.com/lastz/lastz/) and add a binary to your `$PATH`. 
 
 Then do the following:
 
