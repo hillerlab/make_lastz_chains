@@ -71,6 +71,19 @@ For example, to install `axtChain` using conda, the following command can be use
 
 `conda install -c bioconda ucsc-axtchain`
 
+### Proper RepeatMasking is crucial
+Before running the pipeline, please make sure that $${\color{red}both \space reference}$$ and $${\color{red}query}$$ genome is properly repeatMasked. This is the most common problem that many users encountered. Masking that is produced by NCBI is $${\color{red}NOT}$$ sufficient. 
+
+We therefore highly recommend running RepeatModeler 2 on the reference genome, generating a consensus.fa repeat library for this genome and using this library to softmask (lower case; do NOT hardmask) the reference genome. 
+
+The same procedure should be done for the query genome (generating an independent repeat library for it). 
+
+In case you still get excessive lastz job run times that could indicate still insufficient masking, pls try the following
+* split your reference and query into smaller chunks. This will give more but smaller jobs. Many of the 'normal' jobs will now run very fast and the problematic ones may now also finish within several hours or a day.
+* run WindowMasker on the reference and query genome and add the windowMask to the softmask. We have seen cases where satellite repeats (e.g. likely in centromers) are not properly masked by RepeatMasker. WindowMasker does a good job in masking these satellites.
+
+Important: Over-excessive masking will lead to missed alignments (that also RepeatFiller won't unearth, because we restrict it to unaligning regions of certain sizes), because lastz only seeds in non-masked regions and alignments of homologous repetitive regions are only found by extending into them. 
+
 ### Running the pipeline
 
 The script to be called is `make_chains.py`.
