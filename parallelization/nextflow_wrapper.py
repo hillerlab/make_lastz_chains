@@ -28,7 +28,7 @@ class NextflowConfig:
         f.write(f"// Nextflow config for {self.label} jobs\n")
         f.write(f"process.executor = '{self.executor}'\n")
         f.write("process.memory = { 4.GB * task.attempt }\n")
-        f.write("process.time = { 1.hour * task.attempt }\n")
+        f.write("process.time = { self.time * task.attempt }\n")
         f.write(f"process.cpus = '{self.cpus}'\n")
         if self.queue:
             f.write(f"process.queue = '{self.queue}'\n")
