@@ -11,7 +11,7 @@ class NextflowConfig:
     """Model for a config file."""
     def __init__(self, executor, memory, time, label, config_dir, **kwargs):
         self.executor = executor
-        self.memory = memory
+        self.memory = 4
         self.time = time
         self.label = label
         self.config_dir = config_dir
@@ -19,7 +19,6 @@ class NextflowConfig:
         self.cpus = 1  # always a fixed number
         self.config_path = None
         self.queue_size = Constants.NextflowConstants.DEFAULT_QUEUE_SIZE
-        self.maxRetries = 5  # stop Nextflow from retrying too many times
 
     def dump_to_file(self):
         """Write the respective config file,"""
@@ -28,13 +27,14 @@ class NextflowConfig:
         f = open(self.config_path, "w")
         f.write(f"// Nextflow config for {self.label} jobs\n")
         f.write(f"process.executor = '{self.executor}'\n")
-        f.write(f"process.memory = '{self.memory} G'\n")
-        f.write(f"process.time = '{self.time}'\n")
+        f.write("process.memory = { 4.GB * task.attempt }\n")
+        f.write("process.time = { 1.hour * task.attempt }\n")
         f.write(f"process.cpus = '{self.cpus}'\n")
         if self.queue:
             f.write(f"process.queue = '{self.queue}'\n")
         f.write(f"executor.queueSize = '{self.queue_size}'\n")
-        f.write(f"process.maxRetries = '{self.maxRetries}'\n")
+        f.write(f"process.maxRetries = 2\n")
+        f.write("process.errorStrategy = { task.exitStatus == 140 ? 'retry' : 'ignore' }\n")
         f.close()
         return self.config_path
 
