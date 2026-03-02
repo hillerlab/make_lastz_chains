@@ -1,0 +1,307 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/hillerlab/make_lastz_chains/master/nextflow_schema.json",
+    "title": "make_lastz_chains pipeline parameters",
+    "description": "Pipeline to create chain-formatted pairwise genome alignments.",
+    "type": "object",
+    "definitions": {
+        "input_output_options": {
+            "title": "Input / Output options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define genome inputs and the output directory.",
+            "required": ["target_name", "query_name", "target_genome", "query_genome", "outdir"],
+            "properties": {
+                "target_name": {
+                    "type": "string",
+                    "description": "Target genome identifier (e.g. hg38, human).",
+                    "fa_icon": "fas fa-dna"
+                },
+                "query_name": {
+                    "type": "string",
+                    "description": "Query genome identifier (e.g. mm39, mouse).",
+                    "fa_icon": "fas fa-dna"
+                },
+                "target_genome": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to the target genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit.",
+                    "fa_icon": "fas fa-file"
+                },
+                "query_genome": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to the query genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit.",
+                    "fa_icon": "fas fa-file"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Output directory for results.",
+                    "default": "./results",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "publish_dir_mode": {
+                    "type": "string",
+                    "default": "copy",
+                    "description": "Method used to save pipeline results to --outdir.",
+                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
+                    "fa_icon": "fas fa-copy"
+                }
+            }
+        },
+        "genome_partitioning": {
+            "title": "Genome partitioning",
+            "type": "object",
+            "description": "Parameters controlling how genomes are split into chunks for parallel LASTZ alignment.",
+            "properties": {
+                "seq1_chunk": {
+                    "type": "integer",
+                    "default": 175000000,
+                    "description": "Target genome chunk size in base pairs.",
+                    "fa_icon": "fas fa-cut"
+                },
+                "seq2_chunk": {
+                    "type": "integer",
+                    "default": 50000000,
+                    "description": "Query genome chunk size in base pairs.",
+                    "fa_icon": "fas fa-cut"
+                },
+                "seq1_lap": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Overlap between adjacent target genome chunks (bp)."
+                },
+                "seq2_lap": {
+                    "type": "integer",
+                    "default": 10000,
+                    "description": "Overlap between adjacent query genome chunks (bp)."
+                }
+            }
+        },
+        "lastz_alignment": {
+            "title": "LASTZ alignment",
+            "type": "object",
+            "description": "Parameters for the LASTZ pairwise sequence aligner.",
+            "properties": {
+                "lastz_y": {
+                    "type": "integer",
+                    "default": 9400,
+                    "description": "LASTZ gap extension penalty (Y parameter)."
+                },
+                "lastz_h": {
+                    "type": "integer",
+                    "default": 2000,
+                    "description": "LASTZ seed hit count (H parameter)."
+                },
+                "lastz_l": {
+                    "type": "integer",
+                    "default": 3000,
+                    "description": "LASTZ step length (L parameter)."
+                },
+                "lastz_k": {
+                    "type": "integer",
+                    "default": 2400,
+                    "description": "LASTZ minimum anchor score (K parameter)."
+                },
+                "lastz_q": {
+                    "type": "string",
+                    "description": "Optional path to a substitution score matrix file for axtChain (lastz_q / -scoreScheme).",
+                    "default": null
+                },
+                "lastz_path": {
+                    "type": "string",
+                    "default": "lastz",
+                    "description": "Path to the lastz executable (if not in PATH)."
+                },
+                "axt_to_psl_path": {
+                    "type": "string",
+                    "default": "axtToPsl",
+                    "description": "Path to the axtToPsl executable (if not in PATH)."
+                }
+            }
+        },
+        "chain_building": {
+            "title": "Chain building",
+            "type": "object",
+            "description": "Parameters for converting LASTZ alignments to genome alignment chains.",
+            "properties": {
+                "min_chain_score": {
+                    "type": "integer",
+                    "default": 1000,
+                    "description": "Minimum chain score threshold for axtChain and chainFilter."
+                },
+                "chain_linear_gap": {
+                    "type": "string",
+                    "default": "loose",
+                    "enum": ["loose", "medium"],
+                    "description": "Linear gap model to use: 'loose' (default) or 'medium'."
+                },
+                "chaining_memory": {
+                    "type": "integer",
+                    "default": 50,
+                    "description": "Memory (GB) per axtChain parallel job."
+                },
+                "bundle_psl_max_bases": {
+                    "type": "integer",
+                    "default": 1000000,
+                    "description": "Maximum number of bases per PSL bundle for parallel axtChain."
+                }
+            }
+        },
+        "fill_chains": {
+            "title": "Fill chains (optional)",
+            "type": "object",
+            "description": "Parameters for the optional gap-filling step using RepeatFiller / chain_gap_filler.",
+            "properties": {
+                "skip_fill_chains": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the fill-chains step entirely."
+                },
+                "skip_fill_unmask": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Do not unmask (lowercase → uppercase) sequences during gap-filling."
+                },
+                "num_fill_jobs": {
+                    "type": "integer",
+                    "default": 1000,
+                    "description": "Number of parallel gap-filling jobs."
+                },
+                "fill_chain_min_score": {
+                    "type": "integer",
+                    "default": 25000,
+                    "description": "Minimum chain score for chain_gap_filler (--chainMinScore)."
+                },
+                "fill_insert_chain_min_score": {
+                    "type": "integer",
+                    "default": 5000,
+                    "description": "Minimum score for inserted mini-chains (--scoreThreshold)."
+                },
+                "fill_gap_max_size_t": {
+                    "type": "integer",
+                    "default": 20000,
+                    "description": "Maximum gap size on target side to consider for filling (bp)."
+                },
+                "fill_gap_max_size_q": {
+                    "type": "integer",
+                    "default": 20000,
+                    "description": "Maximum gap size on query side to consider for filling (bp)."
+                },
+                "fill_gap_min_size_t": {
+                    "type": "integer",
+                    "default": 30,
+                    "description": "Minimum gap size on target side to consider for filling (bp)."
+                },
+                "fill_gap_min_size_q": {
+                    "type": "integer",
+                    "default": 30,
+                    "description": "Minimum gap size on query side to consider for filling (bp)."
+                },
+                "fill_lastz_k": {
+                    "type": "integer",
+                    "default": 2000,
+                    "description": "LASTZ K parameter used during gap filling."
+                },
+                "fill_lastz_l": {
+                    "type": "integer",
+                    "default": 3000,
+                    "description": "LASTZ L parameter used during gap filling."
+                },
+                "fill_memory": {
+                    "type": "integer",
+                    "default": 16,
+                    "description": "Memory (GB) per repeat-filler parallel job."
+                }
+            }
+        },
+        "clean_chains": {
+            "title": "Clean chains (optional)",
+            "type": "object",
+            "description": "Parameters for the optional chainCleaner step that removes weak/suspicious chains.",
+            "properties": {
+                "skip_clean_chain": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the chain-cleaning step entirely."
+                },
+                "chain_clean_memory": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Memory (GB) for the chainCleaner process."
+                },
+                "clean_chain_parameters": {
+                    "type": "string",
+                    "default": "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 -maxSuspectScore=100000 -minBrokenChainScore=75000",
+                    "description": "Additional parameters passed verbatim to chainCleaner."
+                }
+            }
+        },
+        "generic_options": {
+            "title": "Generic options",
+            "type": "object",
+            "fa_icon": "fas fa-file-import",
+            "description": "Less common options for the pipeline, typically set in a config file.",
+            "properties": {
+                "help": {
+                    "type": "boolean",
+                    "description": "Display help text.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "version": {
+                    "type": "boolean",
+                    "description": "Display version and exit.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "validate_params": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Boolean whether to validate parameters against the schema at runtime.",
+                    "fa_icon": "fas fa-check-square",
+                    "hidden": true
+                },
+                "monochrome_logs": {
+                    "type": "boolean",
+                    "description": "Do not use coloured log outputs.",
+                    "fa_icon": "fas fa-palette",
+                    "hidden": true
+                },
+                "max_memory": {
+                    "type": "string",
+                    "description": "Maximum amount of memory that can be requested for any single job.",
+                    "default": "500.GB",
+                    "fa_icon": "fas fa-memory",
+                    "hidden": true,
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$"
+                },
+                "max_cpus": {
+                    "type": "integer",
+                    "description": "Maximum number of CPUs that can be requested for any single job.",
+                    "default": 16,
+                    "fa_icon": "fas fa-microchip",
+                    "hidden": true
+                },
+                "max_time": {
+                    "type": "string",
+                    "description": "Maximum amount of time that can be requested for any single job.",
+                    "default": "240.h",
+                    "fa_icon": "fas fa-clock",
+                    "hidden": true,
+                    "pattern": "^(\\d+\\.?\\s*(s|m|h|d|day)\\s*)+$"
+                }
+            }
+        }
+    },
+    "allOf": [
+        { "$ref": "#/definitions/input_output_options" },
+        { "$ref": "#/definitions/genome_partitioning" },
+        { "$ref": "#/definitions/lastz_alignment" },
+        { "$ref": "#/definitions/chain_building" },
+        { "$ref": "#/definitions/fill_chains" },
+        { "$ref": "#/definitions/clean_chains" },
+        { "$ref": "#/definitions/generic_options" }
+    ]
+}
