@@ -4,7 +4,7 @@ channels:
 
 dependencies:
   - python=3
-  - twobitreader
+  - py2bit
   - ucsc-twobittofa
   - ucsc-fatotwobit
   - ucsc-pslsortacc

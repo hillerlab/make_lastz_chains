@@ -13,7 +13,7 @@ import shutil
 import string
 import random
 import json
-from twobitreader import TwoBitFile
+import py2bit
 
 __author__ = "Bogdan M. Kirilenko"
 
@@ -273,9 +273,10 @@ def parse_seq_arg(arg, tmp_dir, v):
         path_specs_split = elem.split(":")
         path = path_specs_split[0]
         chrom = path_specs_split[1]
-        # extract the chrom sequence from 2bit
-        two_bit_conn = TwoBitFile(path)
-        chrom_seq = two_bit_conn[chrom]
+        # extract the chrom sequence from 2bit (py2bit supports 64-bit .2bit files)
+        two_bit_conn = py2bit.open(path)
+        chrom_seq = two_bit_conn.sequence(chrom)
+        two_bit_conn.close()
         f.write(f">{chrom}\n{chrom_seq}\n")
     f.close()
     return fasta_path
