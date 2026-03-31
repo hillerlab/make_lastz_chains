@@ -23,7 +23,7 @@ class Version:
         with open(filename, "w") as f:
             for line in lines:
                 if "img.shields.io/badge/version-" in line:
-                    line = f'![version](https://img.shields.io/badge/version-{self.readme_repr}-blue)\n'
+                    line = f"![version](https://img.shields.io/badge/version-{self.readme_repr}-blue)\n"
                 f.write(line)
 
     def __repr__(self):

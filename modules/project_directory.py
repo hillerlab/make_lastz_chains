@@ -1,4 +1,5 @@
 """Class to manage project directory."""
+
 import os
 import shutil
 # import json
@@ -6,7 +7,11 @@ import shutil
 
 class OutputDirectoryManager:
     def __init__(self, project_args):
-        self.project_dir = os.path.abspath(project_args.project_dir) if project_args.project_dir else os.getcwd()
+        self.project_dir = (
+            os.path.abspath(project_args.project_dir)
+            if project_args.project_dir
+            else os.getcwd()
+        )
         self.force_override = project_args.force
         self.continue_from_step = project_args.continue_from_step
         self.__create_directory_if_possible()

@@ -1,4 +1,5 @@
 """Clean chains step."""
+
 import os
 import shutil
 import subprocess
@@ -11,15 +12,19 @@ from modules.error_classes import PipelineSubprocessError
 from modules.common import check_expected_file
 
 
-def do_chains_clean(params: PipelineParameters,
-                    project_paths: ProjectPaths,
-                    executables: StepExecutables):
+def do_chains_clean(
+    params: PipelineParameters,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+):
     # select input chain files, depending on whether fill chains step was executed or not
     if params.fill_chain is True:
         to_log(f"Chains were filled: using {project_paths.filled_chain} as input")
         input_chain = project_paths.filled_chain
     else:
-        to_log(f"Fill chains step was skipped: using {project_paths.merged_chain} as input")
+        to_log(
+            f"Fill chains step was skipped: using {project_paths.merged_chain} as input"
+        )
         input_chain = project_paths.merged_chain
 
     if not os.path.isfile(input_chain):
@@ -52,12 +57,14 @@ def do_chains_clean(params: PipelineParameters,
     to_log("Executing the following chain cleaner command:")
     to_log(" ".join(chain_cleaner_cmd))
 
-    with open(project_paths.chain_cleaner_log, 'w') as f:
-        clean_process = subprocess.Popen(chain_cleaner_cmd,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE,
-                                         env=_temp_env,
-                                         text=True)
+    with open(project_paths.chain_cleaner_log, "w") as f:
+        clean_process = subprocess.Popen(
+            chain_cleaner_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=_temp_env,
+            text=True,
+        )
         stdout, stderr = clean_process.communicate()
 
         # Write stdout to log file and also capture it in a variable
@@ -80,12 +87,15 @@ def do_chains_clean(params: PipelineParameters,
                 raise PipelineSubprocessError(error_message)
 
     to_log(f"Not filtered by score chains temporary saved to {_intermediate_chain}")
-    filter_cmd = [executables.chain_filter, f"-minScore={params.chain_min_score}", _intermediate_chain]
+    filter_cmd = [
+        executables.chain_filter,
+        f"-minScore={params.chain_min_score}",
+        _intermediate_chain,
+    ]
     with open(_output_chain, "w") as f:
-        filter_process = subprocess.Popen(filter_cmd,
-                                          stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE,
-                                          text=True)
+        filter_process = subprocess.Popen(
+            filter_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         stdout, stderr = filter_process.communicate()
         f.write(stdout)
         if filter_process.returncode != 0:

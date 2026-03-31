@@ -3,6 +3,7 @@
 
 Replacement for blastz-run-ucsc.
 """
+
 import argparse
 import os
 import sys
@@ -48,11 +49,15 @@ Bogdan: probably it makes sense to also add
 
 class LastzProcessError(Exception):
     """Must be standalone and run in the nextflow env: easier to define it here."""
+
     pass
 
 
 def _gen_random_string(n):
-    return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(n))
+    return "".join(
+        random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+        for _ in range(n)
+    )
 
 
 def print_err(msg):
@@ -68,22 +73,28 @@ def parse_args():
     app.add_argument("params_json", help="pipeline configuration file")
     app.add_argument("output", help="Output file location")
 
-    app.add_argument("--output_format", choices=["psl", "axt"], help="Output format axt|psl")
-    app.add_argument("--temp_dir",
-                     help="Temp directory to save intermediate fasta files (if needed)\n"
-                          "/tmp/ is default, however, params_json key TMPDIR can provide a value"
-                          "the command line argument has a higher priority than DEF file"
-                    )
-    app.add_argument("--verbose",
-                     "-v",
-                     action="store_true",
-                     dest="verbose",
-                     help="Show verbosity messages")
-    app.add_argument("--axt_to_psl",
-                     default="axtToPsl",
-                     help="If axtToPst is not in the path, use this"
-                          "argument to provide path to this binary, if needed"
-                     )
+    app.add_argument(
+        "--output_format", choices=["psl", "axt"], help="Output format axt|psl"
+    )
+    app.add_argument(
+        "--temp_dir",
+        help="Temp directory to save intermediate fasta files (if needed)\n"
+        "/tmp/ is default, however, params_json key TMPDIR can provide a value"
+        "the command line argument has a higher priority than DEF file",
+    )
+    app.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        dest="verbose",
+        help="Show verbosity messages",
+    )
+    app.add_argument(
+        "--axt_to_psl",
+        default="axtToPsl",
+        help="If axtToPst is not in the path, use this"
+        "argument to provide path to this binary, if needed",
+    )
 
     if len(sys.argv) < 5:
         app.print_help()
@@ -99,7 +110,7 @@ def clean_die(tmp_dir, msg):
 
 
 def read_json_file(file_path):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return json.load(f)
 
 
@@ -150,7 +161,7 @@ def get_blastz_params(def_vals):
 
 def parse_file_spec(filename):
     """For a given filename return file specifications.
-    
+
     Such as sequence name (chrom), start and end.
     """
     if len(filename.split(":")) == 1:
@@ -180,21 +191,23 @@ def build_lastz_command(t_specs, q_specs, blastz_options):
     """
     if all(x is not None for x in t_specs):
         # if specs (chrom, start and end) are specified: feed them to lastz
-        target_arg = f"\"{t_path}/{t_chrom}[{t_start + 1},{t_end}][multiple]\""
+        target_arg = f'"{t_path}/{t_chrom}[{t_start + 1},{t_end}][multiple]"'
     else:  # not specified: do not add, quite simple
-        target_arg = f"\"{t_path}[multiple]\""
+        target_arg = f'"{t_path}[multiple]"'
     if all(x is not None for x in q_specs):
         # the same applies to query sequences
-        query_arg = f"\"{q_path}/{q_chrom}[{q_start + 1},{q_end }][multiple]\""
+        query_arg = f'"{q_path}/{q_chrom}[{q_start + 1},{q_end }][multiple]"'
     else:  # no specs: get entire file
-        query_arg = f"\"{q_path}[multiple]\""
+        query_arg = f'"{q_path}[multiple]"'
     fields = ("lastz", target_arg, query_arg, blastz_options, ALLOC_ARG, FORMAT_ARG)
     return " ".join(fields)
 
 
 def call_lastz(cmd):
     try:
-        lastz_out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE).decode("utf-8")
+        lastz_out = subprocess.check_output(
+            cmd, shell=True, stderr=subprocess.PIPE
+        ).decode("utf-8")
         return lastz_out
     except subprocess.CalledProcessError as e:
         error_message = e.stderr.decode("utf-8")
@@ -209,7 +222,7 @@ def make_psl_if_needed(raw_out, out_format, s1p, s2p, axt_to_psl, v):
         return raw_out  # it's already AXT
     # need to convert to PSL
     # print(raw_out)
-    
+
     axt_to_psl_cmd = [axt_to_psl, "/dev/stdin", s1p, s2p, "stdout"]
     _cmd_plain = " ".join(axt_to_psl_cmd)
     v(f"Running: {_cmd_plain}")
@@ -225,7 +238,7 @@ def make_psl_if_needed(raw_out, out_format, s1p, s2p, axt_to_psl, v):
 
 def parse_seq_arg(arg, tmp_dir, v):
     """Parse target or query argument.
-    
+
     If it's just a .2bit -> keep it.
     If a .lst:
         if single element -> return it
@@ -318,12 +331,14 @@ def main():
     output_is_non_empty = check_if_output_is_non_empty(lastz_output)
 
     if output_is_non_empty is True:
-        out_to_save = make_psl_if_needed(lastz_output,
-                                         args.output_format,
-                                         seq_1_sizes_path,
-                                         seq_2_sizes_path,
-                                         args.axt_to_psl,
-                                         v)
+        out_to_save = make_psl_if_needed(
+            lastz_output,
+            args.output_format,
+            seq_1_sizes_path,
+            seq_2_sizes_path,
+            args.axt_to_psl,
+            v,
+        )
         f = open(args.output, "a")
         f.write(out_to_save)
         f.close()
@@ -332,5 +347,5 @@ def main():
         shutil.rmtree(tmp_dir) if os.path.isdir(tmp_dir) else None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

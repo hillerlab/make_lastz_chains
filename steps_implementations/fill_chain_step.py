@@ -1,4 +1,5 @@
 """Fill chains step."""
+
 import shutil
 import subprocess
 import os
@@ -9,17 +10,21 @@ from modules.step_executables import StepExecutables
 from modules.make_chains_logging import to_log
 from modules.error_classes import PipelineSubprocessError
 from parallelization.nextflow_wrapper import execute_nextflow_step
-from steps_implementations.fill_chain_split_into_parts_substep import randomly_split_chains
+from steps_implementations.fill_chain_split_into_parts_substep import (
+    randomly_split_chains,
+)
 from modules.common import check_expected_file
 
 
-def create_repeat_filler_joblist(params: PipelineParameters,
-                                 project_paths: ProjectPaths,
-                                 executables: StepExecutables):
+def create_repeat_filler_joblist(
+    params: PipelineParameters,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+):
     to_log("Creating repeat filler jobs list")
     infill_chain_filenames = os.listdir(project_paths.fill_chain_jobs_dir)
     to_log(f"fGot {len(infill_chain_filenames)} chain files to fill")
-    lastz_parameters = f"\"K={params.fill_lastz_k} L={params.fill_lastz_l}\""
+    lastz_parameters = f'"K={params.fill_lastz_k} L={params.fill_lastz_l}"'
     repeat_filler_params = [
         f"--chainMinScore {params.chain_min_score}",
         f"--gapMaxSizeT {params.fill_gap_max_size_t}",
@@ -35,7 +40,9 @@ def create_repeat_filler_joblist(params: PipelineParameters,
     f = open(project_paths.repeat_filler_joblist, "w")
     for filename in infill_chain_filenames:
         chainf = os.path.join(project_paths.fill_chain_jobs_dir, filename)
-        chainf_out = f"{os.path.join(project_paths.fill_chain_filled_dir, filename)}.chain"
+        chainf_out = (
+            f"{os.path.join(project_paths.fill_chain_filled_dir, filename)}.chain"
+        )
         repeat_filler_command_parts = [
             executables.repeat_filler,
             f"--workdir {project_paths.fill_chain_run_dir}",
@@ -58,25 +65,41 @@ def create_repeat_filler_joblist(params: PipelineParameters,
             "|",
             executables.chain_sort,
             "stdin",
-            chainf_out
+            chainf_out,
         ]
         repeat_filler_command = " ".join(repeat_filler_command_parts)
         f.write(f"{repeat_filler_command}\n")
     f.close()
 
-    to_log(f"Saved {len(infill_chain_filenames)} chain fill jobs to {project_paths.repeat_filler_joblist}")
+    to_log(
+        f"Saved {len(infill_chain_filenames)} chain fill jobs to {project_paths.repeat_filler_joblist}"
+    )
 
 
-def merge_filled_chains(params: PipelineParameters,
-                        project_paths: ProjectPaths,
-                        executables: StepExecutables):
+def merge_filled_chains(
+    params: PipelineParameters,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+):
     # files_to_merge = os.listdir(project_paths.fill_chain_filled_dir)
     to_log("Merging filled chains")
     # Create the 'find' command
-    find_cmd = ["find", project_paths.fill_chain_filled_dir, "-type", "f", "-name", "*.chain", "-print"]
+    find_cmd = [
+        "find",
+        project_paths.fill_chain_filled_dir,
+        "-type",
+        "f",
+        "-name",
+        "*.chain",
+        "-print",
+    ]
 
     # Create the 'chainMergeSort' command
-    merge_sort_cmd = [executables.chain_merge_sort, "-inputList=stdin", f"-tempDir={project_paths.kent_temp_dir}"]
+    merge_sort_cmd = [
+        executables.chain_merge_sort,
+        "-inputList=stdin",
+        f"-tempDir={project_paths.kent_temp_dir}",
+    ]
 
     # Create the 'gzip' command
     gzip_cmd = ["gzip", "-c"]
@@ -89,14 +112,18 @@ def merge_filled_chains(params: PipelineParameters,
     find_process = subprocess.Popen(find_cmd, stdout=subprocess.PIPE)
 
     # Pipe the output of 'find' to 'chainMergeSort'
-    merge_sort_process = subprocess.Popen(merge_sort_cmd, stdin=find_process.stdout, stdout=subprocess.PIPE)
+    merge_sort_process = subprocess.Popen(
+        merge_sort_cmd, stdin=find_process.stdout, stdout=subprocess.PIPE
+    )
 
     # Close the stdout of 'find_process'
     find_process.stdout.close()
 
     # Pipe the output of 'chainMergeSort' to 'gzip'
     with open(project_paths.filled_chain, "wb") as f:
-        gzip_process = subprocess.Popen(gzip_cmd, stdin=merge_sort_process.stdout, stdout=f)
+        gzip_process = subprocess.Popen(
+            gzip_cmd, stdin=merge_sort_process.stdout, stdout=f
+        )
 
     # Close the stdout of 'merge_sort_process'
     merge_sort_process.stdout.close()
@@ -104,42 +131,50 @@ def merge_filled_chains(params: PipelineParameters,
     # Wait for processes to complete and check for errors
     find_exit_code = find_process.wait()
     if find_exit_code != 0:
-        raise PipelineSubprocessError(f"find_process failed with exit code {find_exit_code}")
+        raise PipelineSubprocessError(
+            f"find_process failed with exit code {find_exit_code}"
+        )
 
     merge_sort_exit_code = merge_sort_process.wait()
     if merge_sort_exit_code != 0:
-        raise PipelineSubprocessError(f"merge_sort_process failed with exit code {merge_sort_exit_code}")
+        raise PipelineSubprocessError(
+            f"merge_sort_process failed with exit code {merge_sort_exit_code}"
+        )
 
     gzip_exit_code = gzip_process.wait()
     if gzip_exit_code != 0:
-        raise PipelineSubprocessError(f"gzip_process failed with exit code {gzip_exit_code}")
+        raise PipelineSubprocessError(
+            f"gzip_process failed with exit code {gzip_exit_code}"
+        )
 
     # Wait for 'gzip' to finish
     gzip_process.communicate()
     to_log("Merging filled chains done")
 
 
-def do_chains_fill(params: PipelineParameters,
-                   project_paths: ProjectPaths,
-                   executables: StepExecutables):
+def do_chains_fill(
+    params: PipelineParameters,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+):
     # 1. jobs preparation
     infill_template = f"{project_paths.fill_chain_jobs_dir}/infill_chain_"
     to_log("Preparing fill jobs")
 
     # Need to unzip the zipped merged chain first...
-    gunzip_cmd = [
-        "gunzip",
-        "-c",
-        project_paths.merged_chain
-    ]
-    to_log(f"gunzip -c {project_paths.merged_chain} > {project_paths.fill_chain_temp_input}")
+    gunzip_cmd = ["gunzip", "-c", project_paths.merged_chain]
+    to_log(
+        f"gunzip -c {project_paths.merged_chain} > {project_paths.fill_chain_temp_input}"
+    )
     try:
         with open(project_paths.fill_chain_temp_input, "wb") as f:
             subprocess.run(gunzip_cmd, stdout=f, check=True)
     except subprocess.CalledProcessError:
         raise PipelineSubprocessError("gunzip command at do_chains_fill failed")
 
-    randomly_split_chains(project_paths.fill_chain_temp_input, params.num_fill_jobs, infill_template)
+    randomly_split_chains(
+        project_paths.fill_chain_temp_input, params.num_fill_jobs, infill_template
+    )
 
     # 2. create and execute fill joblist
     create_repeat_filler_joblist(params, project_paths, executables)
@@ -153,7 +188,7 @@ def do_chains_fill(params: PipelineParameters,
         project_paths.fill_chain_run_dir,
         params.cluster_queue,
         project_paths.repeat_filler_joblist,
-        project_paths.fill_chain_run_dir
+        project_paths.fill_chain_run_dir,
     )
 
     # 3. merge the filled chains

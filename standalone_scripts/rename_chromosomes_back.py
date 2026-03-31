@@ -10,6 +10,7 @@ the created rename table.
 
 It is placed in the project directory root under a $genomeID_chrom_rename_table.tsv name.
 """
+
 import argparse
 import sys
 

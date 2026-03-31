@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Script to download UCSC Kent binaries necessary to run the pipeline."""
+
 import shutil
 import os
 import subprocess
@@ -63,7 +64,11 @@ def process_tool(tool_name):
 
     # If wget was unable to download the tool, it will create and empty file
     # at destination (sometimes?).
-    if cmd_result.returncode == 0 and os.path.isfile(destination) and os.path.getsize(destination) > 0:
+    if (
+        cmd_result.returncode == 0
+        and os.path.isfile(destination)
+        and os.path.getsize(destination) > 0
+    ):
         make_executable(destination)
         print(f"Successfully downloaded {tool_name}")
     else:

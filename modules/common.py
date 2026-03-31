@@ -1,4 +1,5 @@
 """Common functions that can be potentially necessary for all modules."""
+
 import os.path
 from dataclasses import dataclass
 

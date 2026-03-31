@@ -1,4 +1,5 @@
 """Class to manage pipeline parameters."""
+
 import os
 import json
 from constants import Constants as Const
@@ -15,10 +16,18 @@ class PipelineParameters:
         self.cluster_queue = args.cluster_queue
         self.params_from_file = args.params_from_file
 
-        self.seq_1_dir = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_SEQ_FILENAME))
-        self.seq_1_len = os.path.abspath(os.path.join(self.project_dir, Const.TARGET_CHROM_SIZES_FILENAME))
-        self.seq_2_dir = os.path.abspath(os.path.join(self.project_dir, Const.QUERY_SEQ_FILENAME))
-        self.seq_2_len = os.path.abspath(os.path.join(self.project_dir, Const.QUERY_CHROM_SIZES_FILENAME))
+        self.seq_1_dir = os.path.abspath(
+            os.path.join(self.project_dir, Const.TARGET_SEQ_FILENAME)
+        )
+        self.seq_1_len = os.path.abspath(
+            os.path.join(self.project_dir, Const.TARGET_CHROM_SIZES_FILENAME)
+        )
+        self.seq_2_dir = os.path.abspath(
+            os.path.join(self.project_dir, Const.QUERY_SEQ_FILENAME)
+        )
+        self.seq_2_len = os.path.abspath(
+            os.path.join(self.project_dir, Const.QUERY_CHROM_SIZES_FILENAME)
+        )
 
         self.lastz_y = args.lastz_y
         self.lastz_h = args.lastz_h

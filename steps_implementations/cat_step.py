@@ -1,4 +1,5 @@
 """Cat step implementation."""
+
 import os
 import gzip
 import shutil
@@ -12,14 +13,19 @@ from modules.common import has_non_empty_file
 from modules.error_classes import PipelineFileNotFoundError
 
 
-def do_cat(params: PipelineParameters,
-           project_paths: ProjectPaths,
-           executables: StepExecutables):
+def do_cat(
+    params: PipelineParameters,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+):
     tot_combined_files = 0
     concatenated_paths = []
     # 1. List PSL buckets
-    lastz_output_buckets = [x for x in os.listdir(project_paths.lastz_output_dir)
-                            if x.startswith(Constants.LASTZ_OUT_BUCKET_PREFIX)]
+    lastz_output_buckets = [
+        x
+        for x in os.listdir(project_paths.lastz_output_dir)
+        if x.startswith(Constants.LASTZ_OUT_BUCKET_PREFIX)
+    ]
     num_lastz_buckets = len(lastz_output_buckets)
     if num_lastz_buckets == 0:
         raise PipelineFileNotFoundError("Found no lastz output buckets!")
@@ -27,7 +33,9 @@ def do_cat(params: PipelineParameters,
     # 2. Combine each bucket separately
     for num, bucket in enumerate(lastz_output_buckets):
         bucket_location = os.path.join(project_paths.lastz_output_dir, bucket)
-        output_filename = os.path.join(project_paths.cat_out_dirname, f"concat_{num}.psl.gz")
+        output_filename = os.path.join(
+            project_paths.cat_out_dirname, f"concat_{num}.psl.gz"
+        )
         filenames_to_concat = os.listdir(bucket_location)
         len_out_files = len(filenames_to_concat)
         if len_out_files == 0:
@@ -38,7 +46,7 @@ def do_cat(params: PipelineParameters,
         psl_files = [os.path.join(bucket_location, psl) for psl in filenames_to_concat]
         concatenated_paths.append(output_filename)
         # concatenate files into the bucket
-        with gzip.open(output_filename, 'wt') as out_f:
+        with gzip.open(output_filename, "wt") as out_f:
             for psl_file in psl_files:
                 with open(psl_file, "r") as in_f:
                     for line in in_f:
@@ -50,4 +58,6 @@ def do_cat(params: PipelineParameters,
 
     has_non_empty_file(project_paths.cat_out_dirname, "cat_step")
     num_concated_files = len(concatenated_paths)
-    to_log(f"Concatenated {tot_combined_files} files in total into {num_concated_files} files")
+    to_log(
+        f"Concatenated {tot_combined_files} files in total into {num_concated_files} files"
+    )

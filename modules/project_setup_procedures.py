@@ -1,4 +1,5 @@
 """Collection of procedures to set up the pipeline input."""
+
 import sys
 import os
 import subprocess
@@ -112,12 +113,14 @@ def rename_chrom_names_fasta(genome_seq_file, tmp_dir, genome_id, invalid_chrom_
     return renamed_fasta_path, rename_table
 
 
-def setup_genome_sequences(genome_seq_file: str,
-                           genome_id: str,
-                           label: str,
-                           project_paths: ProjectPaths,
-                           executables: StepExecutables,
-                           params: PipelineParameters):
+def setup_genome_sequences(
+    genome_seq_file: str,
+    genome_id: str,
+    label: str,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+    params: PipelineParameters,
+):
     """Setup genome sequence input.
 
     DoBlastzChainNet procedure requires the 2bit-formatted sequence
@@ -132,11 +135,13 @@ def setup_genome_sequences(genome_seq_file: str,
     is_two_bit = check_if_twobit(genome_seq_file)
     chrom_rename_table_path = None
     seq_dir = params.seq_1_dir if label == Constants.TARGET_LABEL else params.seq_2_dir
-    to_log(f"* Setting up genome sequences for {label}\n"
-           f"genomeID: {genome_id}\n"
-           f"input sequence file: {genome_seq_file}\n"
-           f"is 2bit: {is_two_bit}\n"
-           f"planned genome dir location: {seq_dir}")
+    to_log(
+        f"* Setting up genome sequences for {label}\n"
+        f"genomeID: {genome_id}\n"
+        f"input sequence file: {genome_seq_file}\n"
+        f"is 2bit: {is_two_bit}\n"
+        f"planned genome dir location: {seq_dir}"
+    )
 
     # genome seq path -> final destination of 2bit used for further pipeline steps
     if is_two_bit:
@@ -152,13 +157,24 @@ def setup_genome_sequences(genome_seq_file: str,
         if len(invalid_chrom_names) > 0:
             # there are invalid chrom names, that need to be renamed
             # (1) create intermediate fasta and rename chromosomes there
-            to_log(f"Detected {len(invalid_chrom_names)} invalid chrom names in the input 2bit file")
-            fasta_dump_path = os.path.join(project_paths.project_dir, f"TEMP_{genome_id}_genome_dump.fa")
-            two_bit_to_fa_cmd = [executables.two_bit_to_fa, genome_seq_file, fasta_dump_path]
+            to_log(
+                f"Detected {len(invalid_chrom_names)} invalid chrom names in the input 2bit file"
+            )
+            fasta_dump_path = os.path.join(
+                project_paths.project_dir, f"TEMP_{genome_id}_genome_dump.fa"
+            )
+            two_bit_to_fa_cmd = [
+                executables.two_bit_to_fa,
+                genome_seq_file,
+                fasta_dump_path,
+            ]
             call_convert_format_subprocess(two_bit_to_fa_cmd, genome_seq_file)
             to_log(f"Saving intermediate fasta to {fasta_dump_path}")
             fixed_fasta_file, chrom_rename_table_path = rename_chrom_names_fasta(
-                fasta_dump_path, project_paths.project_dir, genome_id, invalid_chrom_names
+                fasta_dump_path,
+                project_paths.project_dir,
+                genome_id,
+                invalid_chrom_names,
             )
             os.remove(fasta_dump_path)
             # (2) create 2bit with renamed sequences
@@ -180,7 +196,10 @@ def setup_genome_sequences(genome_seq_file: str,
             # create rename table -> to track chrom name changes
             # update genomes seq file then -> use it as src to create twobit
             genome_seq_file, chrom_rename_table_path = rename_chrom_names_fasta(
-                genome_seq_file, project_paths.project_dir, genome_id, invalid_chrom_names
+                genome_seq_file,
+                project_paths.project_dir,
+                genome_id,
+                invalid_chrom_names,
             )
 
         two_bit_to_fa_cmd = [executables.fa_to_two_bit, genome_seq_file, seq_dir]
@@ -200,12 +219,18 @@ def setup_genome_sequences(genome_seq_file: str,
         f.write(f"{k}\t{v}\n")
     f.close()
 
-    to_log(f"For {genome_id} ({label}) sequence file: {seq_dir}; chrom sizes saved to: {chrom_sizes_path}")
+    to_log(
+        f"For {genome_id} ({label}) sequence file: {seq_dir}; chrom sizes saved to: {chrom_sizes_path}"
+    )
 
     if len(invalid_chrom_names) > 0:
         to_log(f"Warning! Genome sequence file {genome_seq_file}")
-        to_log(f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline")
-        to_log(f"were renamed in the intermediate files according to {chrom_rename_table_path}")
+        to_log(
+            f"{len(invalid_chrom_names)} chromosome names cannot be processed via pipeline"
+        )
+        to_log(
+            f"were renamed in the intermediate files according to {chrom_rename_table_path}"
+        )
 
     if label == Constants.TARGET_LABEL:
         project_paths.set_target_chrom_rename_table(chrom_rename_table_path)

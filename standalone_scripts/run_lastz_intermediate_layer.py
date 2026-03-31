@@ -3,6 +3,7 @@
 
 Needed to process the case if many little scaffolds are to be aligned
 withing one cluster job."""
+
 import argparse
 import subprocess
 import sys
@@ -24,7 +25,7 @@ def read_chrom_sizes(chrom_sizes_path):
 
 
 def read_json_file(file_path):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return json.load(f)  # TODO: move to commons
 
 
@@ -39,22 +40,28 @@ def parse_args():
     app.add_argument("output", help="Output file location")
     app.add_argument("run_lastz_script", help="Path to the run_lastz script")
 
-    app.add_argument("--output_format", choices=["psl", "axt"], help="Output format axt|psl")
-    app.add_argument("--temp_dir",
-                     help="Temp directory to save intermediate fasta files (if needed)\n"
-                          "/tmp/ is default, however, params_json key TMPDIR can provide a value"
-                          "the command line argument has a higher priority than DEF file"
-                    )
-    app.add_argument("--verbose",
-                     "-v",
-                     action="store_true",
-                     dest="verbose",
-                     help="Show verbosity messages")
-    app.add_argument("--axt_to_psl",
-                     default="axtToPsl",
-                     help="If axtToPst is not in the path, use this"
-                          "argument to provide path to this binary, if needed"
-                     )
+    app.add_argument(
+        "--output_format", choices=["psl", "axt"], help="Output format axt|psl"
+    )
+    app.add_argument(
+        "--temp_dir",
+        help="Temp directory to save intermediate fasta files (if needed)\n"
+        "/tmp/ is default, however, params_json key TMPDIR can provide a value"
+        "the command line argument has a higher priority than DEF file",
+    )
+    app.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        dest="verbose",
+        help="Show verbosity messages",
+    )
+    app.add_argument(
+        "--axt_to_psl",
+        default="axtToPsl",
+        help="If axtToPst is not in the path, use this"
+        "argument to provide path to this binary, if needed",
+    )
 
     if len(sys.argv) < 5:
         app.print_help()

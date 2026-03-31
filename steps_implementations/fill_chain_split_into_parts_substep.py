@@ -1,10 +1,11 @@
 """Split chain into random parts module."""
+
 import random
 from modules.make_chains_logging import to_log
 
 
 def get_chain_ids(chain_file):
-    with open(chain_file, 'r') as f:
+    with open(chain_file, "r") as f:
         return [int(line.strip().split()[-1]) for line in f if line.startswith("chain")]
 
 
@@ -14,7 +15,7 @@ def assign_ids_to_files(chain_ids, nsplit):
 
 
 def split_chain_file(chain_file, id_to_fh, fhs):
-    with open(chain_file, 'r') as f:
+    with open(chain_file, "r") as f:
         for line in f:
             if line.startswith("chain"):
                 chain_id = int(line.strip().split()[-1])
@@ -35,7 +36,7 @@ def randomly_split_chains(chain, nsplit, prefix):
     id_to_fh = assign_ids_to_files(chain_ids, nsplit)
     max_num_filex = max(id_to_fh.values()) + 1
 
-    fhs = [open(f"{prefix}{i}", 'w') for i in range(max_num_filex)]
+    fhs = [open(f"{prefix}{i}", "w") for i in range(max_num_filex)]
     split_chain_file(chain, id_to_fh, fhs)
 
     for fh in fhs:

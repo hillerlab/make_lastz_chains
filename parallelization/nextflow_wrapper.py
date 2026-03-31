@@ -1,4 +1,5 @@
 """Module to manage Nextflow processes."""
+
 import os
 import shutil
 import subprocess
@@ -9,31 +10,63 @@ from modules.error_classes import NextflowProcessError
 
 class NextflowConfig:
     """Model for a config file."""
+
     def __init__(self, executor, memory, time, label, config_dir, **kwargs):
         self.executor = executor
-        self.memory = memory
-        self.time = time
+        self.memory = 16
+        self.time = 1
         self.label = label
         self.config_dir = config_dir
         self.queue = kwargs.get("queue", None)
         self.cpus = 1  # always a fixed number
         self.config_path = None
-        self.queue_size = Constants.NextflowConstants.DEFAULT_QUEUE_SIZE
+        # self.queue_size = Constants.NextflowConstants.DEFAULT_QUEUE_SIZE
+        self.queue_size = 2000  # default is 1k for slurm
+        self.job_count = kwargs.get("job_count", 0)
+        self.maxRetries = 5
+        self.errorStrategy = "retry"
+        self.maxErrors = "-1"
+        # add more executor config
+        self.retryMaxAttempt = (
+            5  # Max attempts when retrying failed job submissions (default: 3)
+        )
+        self.killBatchSize = 1000000  # the number of jobs that can be killed in a single command execution (default: 100)
+        # self.pollInterval = '30 s'
+        # self.queueStatInterval = '2 min'
+        # self.submitRateLimit = '10/2min'
 
     def dump_to_file(self):
         """Write the respective config file,"""
         filename = f"{self.label}_config.nf"
         self.config_path = os.path.join(self.config_dir, filename)
-        f = open(self.config_path, "w")
-        f.write(f"// Nextflow config for {self.label} jobs\n")
-        f.write(f"process.executor = '{self.executor}'\n")
-        f.write(f"process.memory = '{self.memory} G'\n")
-        f.write(f"process.time = '{self.time}'\n")
-        f.write(f"process.cpus = '{self.cpus}'\n")
-        if self.queue:
-            f.write(f"process.queue = '{self.queue}'\n")
-        f.write(f"executor.queueSize = '{self.queue_size}'\n")
-        f.close()
+        with open(self.config_path, "w") as f:
+            f.write(f"// Nextflow config for {self.label} jobs\n")
+            # if self.job_count > 0:
+            # f.write(f"params.array_size = {self.job_count}\n")
+
+            # Write executor configuration first
+            f.write("executor {\n")
+            f.write(f"   queueSize = {self.queue_size}\n")
+            f.write(f"   retry.maxAttempt = {self.retryMaxAttempt}\n")
+            f.write(f"   killBatchSize = {self.killBatchSize}\n")
+            # f.write(f"   pollInterval = '{self.pollInterval}'\n")
+            # f.write(f"   queueStatInterval = '{self.queueStatInterval}'\n")
+            # f.write(f"   submitRateLimit = '{self.submitRateLimit}'\n")
+            f.write("}\n\n")
+
+            f.write("process {\n")
+            f.write(f"    executor = '{self.executor}'\n")
+            f.write(f"    memory = {{ {self.memory}.GB * task.attempt }}\n")
+            f.write(f"    time = {{ {self.time}.hour * task.attempt }}\n")
+            f.write(f"    queue = '{self.queue}'\n")
+            f.write(f"    cpus = {self.cpus}\n")
+            if self.job_count > 0 and self.executor in Constants.NextflowConstants.ARRAY_SUPPORTING_EXECS:
+                f.write("   array = 2000\n")
+            f.write(f"    maxRetries = {self.maxRetries}\n")
+            f.write(f"    errorStrategy = '{self.errorStrategy}'\n")
+            f.write(f"    maxErrors = '{self.maxErrors}'\n")
+            f.write("}\n")
+
         return self.config_path
 
     def remove_config(self):
@@ -58,7 +91,14 @@ class NextflowWrapper:
         self.label = None
         self.nf_master_script = Constants.NextflowConstants.NF_SCRIPT_PATH
 
-    def execute(self, joblist_path: str, config_instance: NextflowConfig, execute_dir: str, wait=False, **kwargs):
+    def execute(
+        self,
+        joblist_path: str,
+        config_instance: NextflowConfig,
+        execute_dir: str,
+        wait=False,
+        **kwargs,
+    ):
         """Implementation for Nextflow."""
         # define parameters
         self.joblist_path = joblist_path
@@ -68,15 +108,24 @@ class NextflowWrapper:
 
         # create the nextflow process
         self.config_file = config_instance.dump_to_file()
-        cmd = f"{self.nextflow_exec} {self.nf_master_script} --joblist {joblist_path} -c {self.config_file}"
+        # cmd = f"{self.nextflow_exec} {self.nf_master_script} --joblist {joblist_path} -c {self.config_file}"
+        cmd = (
+            f"{self.nextflow_exec} run {self.nf_master_script} "
+            f"--joblist {joblist_path} "
+            f"-c {self.config_file} "
+            f"-with-report {os.path.join(self.execute_dir, 'report.html')} "
+            f"-with-timeline {os.path.join(self.execute_dir, 'timeline.html')}"
+        )
 
         os.makedirs(self.execute_dir, exist_ok=True)
         to_log(f"Parallel manager: pushing job {cmd}")
-        self._process = subprocess.Popen(cmd,
-                                         shell=True,
-                                         # stdout=log_file,
-                                         # stderr=log_file,
-                                         cwd=self.execute_dir)
+        self._process = subprocess.Popen(
+            cmd,
+            shell=True,
+            # stdout=log_file,
+            # stderr=log_file,
+            cwd=self.execute_dir,
+        )
         if wait:
             self._process.wait()
 
@@ -117,15 +166,17 @@ class NextflowWrapper:
         self.config_instance.remove_config()
 
 
-def execute_nextflow_step(nextflow_exec,
-                          executor,
-                          memory_req,
-                          time_req,
-                          step_label,
-                          config_dir,
-                          queue,
-                          joblist,
-                          run_dir):
+def execute_nextflow_step(
+    nextflow_exec,
+    executor,
+    memory_req,
+    time_req,
+    step_label,
+    config_dir,
+    queue,
+    joblist,
+    run_dir,
+):
     """
 
     Execute Nextflow Step
@@ -151,8 +202,26 @@ def execute_nextflow_step(nextflow_exec,
     - NextflowProcessError: If the Nextflow process fails.
 
     """
-    nextflow_config = NextflowConfig(executor, memory_req, time_req, step_label, config_dir=config_dir, queue=queue)
+
+    # Count the number of jobs in the list to determine the array size
+    try:
+        with open(joblist, "r") as f:
+            num_jobs = sum(1 for _ in f)
+    except FileNotFoundError:
+        raise NextflowProcessError(f"Joblist file not found: {joblist}")
+    # Also pass on the job number
+    nextflow_config = NextflowConfig(
+        executor,
+        memory_req,
+        time_req,
+        step_label,
+        config_dir=config_dir,
+        queue=queue,
+        job_count=num_jobs,
+    )
     nextflow_manager = NextflowWrapper(nextflow_exec)
-    nextflow_manager.execute(joblist, nextflow_config, run_dir, wait=True, label=step_label)
+    nextflow_manager.execute(
+        joblist, nextflow_config, run_dir, wait=True, label=step_label
+    )
     nextflow_manager.check_failed()
     nextflow_manager.cleanup()

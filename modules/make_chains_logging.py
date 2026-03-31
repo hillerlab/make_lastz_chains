@@ -1,4 +1,5 @@
 """Logging module."""
+
 import logging
 
 LOGGER_ID = "make_chains"

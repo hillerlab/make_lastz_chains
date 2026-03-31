@@ -3,6 +3,7 @@
 Creates a lastz joblist for NxK chunks created at the partitioning step.
 Executes these lastz alignment jobs in parallel.
 """
+
 import os
 from itertools import product
 from modules.common import read_list_txt_file
@@ -34,7 +35,7 @@ def _get_lastz_out_fname_part(partition):
     if partition.startswith("BULK"):  # TODO: constants
         return partition.split(":")[0]
     else:
-        return partition.split(':')[-2]
+        return partition.split(":")[-2]
 
 
 def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables):
@@ -43,16 +44,16 @@ def create_lastz_jobs(project_paths: ProjectPaths, executables: StepExecutables)
     query_partitions = read_list_txt_file(project_paths.query_partitions)
     jobs = []
 
-    for num, (target, query) in enumerate(product(target_partitions, query_partitions), 1):
+    for num, (target, query) in enumerate(
+        product(target_partitions, query_partitions), 1
+    ):
         target_out_name_part = _get_lastz_out_fname_part(target)
         query_out_name_part = _get_lastz_out_fname_part(query)
 
         output_filename = f"{target_out_name_part}_{query_out_name_part}__{num}.psl"
         output_bucket = locate_target_bucket(target)
         output_file = os.path.join(
-            project_paths.lastz_output_dir,
-            output_bucket,
-            output_filename
+            project_paths.lastz_output_dir, output_bucket, output_filename
         )
 
         args_list = [
@@ -83,7 +84,9 @@ def check_results_completeness(project_paths: ProjectPaths):
     # lastz_output_files = [os.path.join(project_paths.lastz_output_dir, x) for x in lastz_output_filenames]
     results_num = len(lastz_output_filenames)
     to_log(f"Found {results_num} output files from the LASTZ step")
-    to_log("Please note that lastz_step.py does not produce output in case LASTZ could not find any alignment")
+    to_log(
+        "Please note that lastz_step.py does not produce output in case LASTZ could not find any alignment"
+    )
 
     if results_num == 0:
         err_msg = "Error! Lastz results are absent."
@@ -91,9 +94,11 @@ def check_results_completeness(project_paths: ProjectPaths):
     # other more sophisticated checks?
 
 
-def do_lastz(params: PipelineParameters,
-             project_paths: ProjectPaths,
-             executables: StepExecutables):
+def do_lastz(
+    params: PipelineParameters,
+    project_paths: ProjectPaths,
+    executables: StepExecutables,
+):
     create_lastz_jobs(project_paths, executables)
 
     execute_nextflow_step(
@@ -105,6 +110,6 @@ def do_lastz(params: PipelineParameters,
         project_paths.lastz_working_dir,
         params.cluster_queue,
         project_paths.lastz_joblist,
-        project_paths.lastz_working_dir
+        project_paths.lastz_working_dir,
     )
     check_results_completeness(project_paths)

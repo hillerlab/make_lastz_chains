@@ -27,15 +27,16 @@ Install nextflow:
 https://www.nextflow.io/docs/latest/getstarted.html
 
 Please note that Nextflow requires a java runtime.
-Please also acquire `lastz` and add a binary to your `$PATH`.
+Please also install `lastz` (https://github.com/lastz/lastz/) and add a binary to your `$PATH`.
 
 Then do the following:
 
 ```bash
-git clone git@github.com:hillerlab/make_lastz_chains.git
+git clone https://github.com/hillerlab/make_lastz_chains.git
 cd make_lastz_chains
 # install python packages (just one actually for now)
-pip3 install -r requirements.txt
+uv venv && source .venv/bin/activate
+uv pip install "."
 # The pipeline requires many UCSC Kent binaries,
 # they can be downloaded using this script,
 # unless they are already in the $PATH:
@@ -70,6 +71,19 @@ chainFilter
 For example, to install `axtChain` using conda, the following command can be used:
 
 `conda install -c bioconda ucsc-axtchain`
+
+### Proper RepeatMasking is crucial
+Before running the pipeline, please make sure that $${\color{red}both \space reference}$$ and $${\color{red}query}$$ genome is properly repeatMasked. This is the most common problem that many users encountered. Masking that is produced by NCBI is $${\color{red}NOT}$$ sufficient.
+
+We therefore highly recommend running RepeatModeler 2 on the reference genome, generating a consensus.fa repeat library for this genome and using this library to softmask (lower case; do NOT hardmask) the reference genome.
+
+The same procedure should be done for the query genome (generating an independent repeat library for it).
+
+In case you still get excessive lastz job run times that could indicate still insufficient masking, pls try the following
+* split your reference and query into smaller chunks. This will give more but smaller jobs. Many of the 'normal' jobs will now run very fast and the problematic ones may now also finish within several hours or a day.
+* run WindowMasker on the reference and query genome and add the windowMask to the softmask. We have seen cases where satellite repeats (e.g. likely in centromers) are not properly masked by RepeatMasker. WindowMasker does a good job in masking these satellites.
+
+Important: Over-excessive masking will lead to missed alignments (that also RepeatFiller won't unearth, because we restrict it to unaligning regions of certain sizes), because lastz only seeds in non-masked regions and alignments of homologous repetitive regions are only found by extending into them.
 
 ### Running the pipeline
 
@@ -204,7 +218,7 @@ The output file is named as follows: `${target_ID}.${query_ID}.final.chain.gz`
 
 ## Citation
 
-- Kirilenko BM, Munegowda C, Osipova E, Jebb D, Sharma V, Blumer M, Morales A, Ahmed AW, Kontopoulos DG, Hilgers L, Lindblad-Toh K, Karlsson EK, Zoonomia Consortium, Hiller M. [Integrating gene annotation with orthology inference at scale.](https://www.science.org/stoken/author-tokens/ST-1161/full), Science, 380, 2023 
+- Kirilenko BM, Munegowda C, Osipova E, Jebb D, Sharma V, Blumer M, Morales A, Ahmed AW, Kontopoulos DG, Hilgers L, Lindblad-Toh K, Karlsson EK, Zoonomia Consortium, Hiller M. [Integrating gene annotation with orthology inference at scale.](https://www.science.org/stoken/author-tokens/ST-1161/full), Science, 380, 2023
 - Osipova E, Hecker N, Hiller M. [RepeatFiller newly identifies megabases of aligning repetitive sequences and improves annotations of conserved non-exonic elements.](https://academic.oup.com/gigascience/article/8/11/giz132/5631861) GigaScience, 8(11), giz132, 2019
 - Suarez H, Langer BE, Ladde P, Hiller M. [chainCleaner improves genome alignment specificity and sensitivity.](https://academic.oup.com/bioinformatics/article/33/11/1596/2929344) Bioinformatics, 33(11), 1596-1603, 2017
 - Kent WJ, Baertsch R, Hinrichs A, Miller W, Haussler D. [Evolution's cauldron: Duplication, deletion, and rearrangement in the mouse and human genomes](https://www.pnas.org/doi/10.1073/pnas.1932072100) PNAS, 100(20):11484-9, 2003

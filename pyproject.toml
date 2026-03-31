@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "make_lastz_chains"
+description = "Portable solution to generate genome alignment chains using lastz"
+readme = "README.md"
+requires-python = ">=3.8,<3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Bogdan M. Kirilenko" },
+    { name = "Michael Hiller" },
+    { name = "Virag Sharma" },
+    { name = "Ekaterina Osipova" },
+    { name = "Alejandro Gonzales-Irribarren" },
+]
+dynamic = ["version"]
+
+dependencies = [
+    "twobitreader",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["modules", "steps_implementations", "standalone_scripts", "parallelization"]
+
+[tool.setuptools.dynamic]
+version = { attr = "version.__version__" }

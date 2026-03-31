@@ -1,4 +1,5 @@
 """Class to manage pipeline steps."""
+
 from constants import Constants
 from modules.make_chains_logging import to_log
 from modules.step_status import StepStatus
@@ -33,23 +34,23 @@ class PipelineSteps:
     @staticmethod
     def partition_step(params, project_paths, executables):
         to_log("\n### Partition Step ###\n")
-        target_partitions_list = do_partition_for_genome(Constants.TARGET_LABEL,
-                                                         params,
-                                                         project_paths,
-                                                         executables)
-        query_partitions_list = do_partition_for_genome(Constants.QUERY_LABEL,
-                                                        params,
-                                                        project_paths,
-                                                        executables)
+        target_partitions_list = do_partition_for_genome(
+            Constants.TARGET_LABEL, params, project_paths, executables
+        )
+        query_partitions_list = do_partition_for_genome(
+            Constants.QUERY_LABEL, params, project_paths, executables
+        )
         to_log(f"Num. target partitions: {len(target_partitions_list)}")
         to_log(f"Num. query partitions: {len(query_partitions_list)}")
-        to_log(f"Num. lastz jobs: {len(target_partitions_list) * len(query_partitions_list)}")
+        to_log(
+            f"Num. lastz jobs: {len(target_partitions_list) * len(query_partitions_list)}"
+        )
         return StepStatus.COMPLETED
 
     @staticmethod
     def lastz_step(params, project_paths, executables):
         to_log("\n### Lastz Alignment Step ###\n")
-        do_lastz(params, project_paths,  executables)
+        do_lastz(params, project_paths, executables)
         return StepStatus.COMPLETED
 
     @staticmethod

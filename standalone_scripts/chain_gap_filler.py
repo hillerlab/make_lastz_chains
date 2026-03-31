@@ -25,12 +25,16 @@ def parse_args():
     """Builds an argument parser with all required and optional arguments."""
     # initializes parameters
     parser = argparse.ArgumentParser(
-        description=("This script extracts a chain from all.chain file by ID, "
-                     "finds gaps and using lastz patches these gaps, "
-                     "then inserts new blocks to a chain"),
-        epilog=("Example of use:\nchain_gap_filler.py -c hg38.speTri2.all.chain "
-                "-ix hg38.speTri2.all.bb -T2 hg38.2bit "
-                "-Q2 speTri2.2bit -um -m mini.chains -o out.chain"),
+        description=(
+            "This script extracts a chain from all.chain file by ID, "
+            "finds gaps and using lastz patches these gaps, "
+            "then inserts new blocks to a chain"
+        ),
+        epilog=(
+            "Example of use:\nchain_gap_filler.py -c hg38.speTri2.all.chain "
+            "-ix hg38.speTri2.all.bb -T2 hg38.2bit "
+            "-Q2 speTri2.2bit -um -m mini.chains -o out.chain"
+        ),
     )
     # Required arguments
     required_named = parser.add_argument_group("required named arguments")
@@ -217,7 +221,12 @@ def make_shell_list(input_chain, out_file, args):
                 # e.g. chain 196228 chr4 62094675 + 12690854 12816143 chr23 24050845 - 20051667 20145391 1252
                 score = int(ll[1])
                 t_name, t_start, t_end = ll[2], int(ll[5]), int(ll[6])
-                q_name, q_start_x, q_end_x, q_strand = ll[7], int(ll[10]), int(ll[11]), ll[9]
+                q_name, q_start_x, q_end_x, q_strand = (
+                    ll[7],
+                    int(ll[10]),
+                    int(ll[11]),
+                    ll[9],
+                )
                 q_size = int(ll[8])
                 logging.info(f"q_strand = {q_strand}")
                 # changing coords for -strand if necessary
@@ -230,16 +239,14 @@ def make_shell_list(input_chain, out_file, args):
                     lastz_parameters = args.lastzParameters + " --strand=minus"
 
                 if ll[4] != "+":
-                    logging.error(
-                        f"ERROR: target strand is not + for chain:{line}"
-                    )
+                    logging.error(f"ERROR: target strand is not + for chain:{line}")
                     sys.exit(1)
                 # check if we consider this chain
                 logging.info(f"score of this chain = {score}")
                 if (
-                        (score >= args.chainMinScore)
-                        and (t_end - t_start >= args.chainMinSizeT)
-                        and (q_end - q_start >= args.chainMinSizeQ)
+                    (score >= args.chainMinScore)
+                    and (t_end - t_start >= args.chainMinSizeT)
+                    and (q_end - q_start >= args.chainMinSizeQ)
                 ):
                     logging.info("valid chain")
                     current_t_position = t_start
@@ -265,10 +272,10 @@ def make_shell_list(input_chain, out_file, args):
                             q_gap_span = q_gap_end - q_block_end
                             # check if we want to patch this gap
                             if (
-                                    (t_gap_span >= args.gapMinSizeT)
-                                    and (t_gap_span <= args.gapMaxSizeT)
-                                    and (q_gap_span >= args.gapMinSizeQ)
-                                    and (q_gap_span <= args.gapMaxSizeQ)
+                                (t_gap_span >= args.gapMinSizeT)
+                                and (t_gap_span <= args.gapMaxSizeT)
+                                and (q_gap_span >= args.gapMinSizeQ)
+                                and (q_gap_span <= args.gapMaxSizeQ)
                             ):
                                 logging.info(f"yes, this gap will be patched: {line}")
                                 t_block_end += 1
@@ -305,9 +312,7 @@ def make_shell_list(input_chain, out_file, args):
                                     f"{query_two_bit}/{q_name}[{real_q_block_end}..{real_q_gap_end}]{unmask} "
                                     f"--format=axt {lastz_parameters} | "
                                 )
-                                command_2 = (
-                                    f"-linearGap=loose stdin {target_two_bit} {query_two_bit} stdout 2> /dev/null | "
-                                )
+                                command_2 = f"-linearGap=loose stdin {target_two_bit} {query_two_bit} stdout 2> /dev/null | "
                                 command_3 = "stdin stdout"
                                 command_lastz = (
                                     f"{lastz_arg}{command_1}{axt_chain_arg}"
@@ -319,7 +324,8 @@ def make_shell_list(input_chain, out_file, args):
                                 shell_command = (
                                     f'echo -e "LINE{line_number - 1}\\n{block_len}\\n{t_block_end}\\n{t_gap_end}\\n'
                                     f'{real_q_block_end}\\n{real_q_gap_end}\\n"; {command_lastz}; '
-                                    f'echo -e "LINE{line_number - 1}\\n"\n')
+                                    f'echo -e "LINE{line_number - 1}\\n"\n'
+                                )
 
                                 out_file_handler.write(shell_command)
 
@@ -417,7 +423,6 @@ def get_chain_block_from_lastz_output(all_mini_chains_split, cur_position):
 
     # check whether initial line start with LINE#, raise error otherwise
     if re_line.match(line) is not None:
-
         position += 1  # get next line
         line = all_mini_chains_split[position]
 
@@ -441,7 +446,7 @@ def get_chain_block_from_lastz_output(all_mini_chains_split, cur_position):
             f"position {str(position)} does not start with LINE..."
         )
 
-    cur_block_list = all_mini_chains_split[start: (end + 1)]
+    cur_block_list = all_mini_chains_split[start : (end + 1)]
     return cur_block_list
 
 
@@ -457,7 +462,6 @@ def take_first_chain_from_list(chain_list):
     chain_end = None
 
     for pos in range(0, len(chain_list)):
-
         line = chain_list[pos]
 
         # check if chain line
@@ -501,7 +505,13 @@ def write_mini_chains_file(s, outfile, enum):
 
 
 def insert_chain_content(
-        chain_content, best_chain, block_len_a, t_block_end, t_gap_end, lo_q_block_end, lo_q_gap_end
+    chain_content,
+    best_chain,
+    block_len_a,
+    t_block_end,
+    t_gap_end,
+    lo_q_block_end,
+    lo_q_gap_end,
 ):
     """
     After patching chain we need to insert it back on the right place
@@ -545,12 +555,12 @@ def insert_chain_content(
 
 
 def fill_gaps_from_mini_chains(
-        current_chain_lines,
-        cur_mini_block_lines,
-        args,
-        number_mini_chains,
-        all_mini_chain_lines,
-        start_time,
+    current_chain_lines,
+    cur_mini_block_lines,
+    args,
+    number_mini_chains,
+    all_mini_chain_lines,
+    start_time,
 ):
     """Processes initial chain and fills gaps with mini chains; writes to output file if provided."""
     if args.output:
@@ -572,15 +582,13 @@ def fill_gaps_from_mini_chains(
     # initial position
     next_pos = 0
     for line_num in range(0, len(current_chain_lines)):
-
         # get current initial chain line
         line = current_chain_lines[line_num]
 
         # update chain
         if line_num == next_line_number:
-
             # strip first and last line containing LINE# from block
-            values_list = cur_mini_block_lines[1: (len(cur_mini_block_lines) - 1)]
+            values_list = cur_mini_block_lines[1 : (len(cur_mini_block_lines) - 1)]
             coords = values_list[:5]
             # remove new lines from coords elements
             coords = [s.strip() for s in coords]

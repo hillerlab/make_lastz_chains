@@ -1,4 +1,5 @@
 """Step status enum."""
+
 from enum import Enum
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Make LASTZ chains master script."""
+
 import argparse
 import shutil
 import sys
@@ -53,89 +54,145 @@ def parse_args():
         "-f",
         action="store_true",
         dest="force",
-        help="Overwrite output directory if exists"
+        help="Overwrite output directory if exists",
     )
 
-    app.add_argument("--cluster_executor",
-                     "--executor",
-                     default="local",
-                     help="Nextflow executor parameter")
-    app.add_argument("--cluster_queue",
-                     default="batch",
-                     help="Queue/Partition label to run cluster jobs")
-    app.add_argument("--keep_temp",
-                     "--kt",
-                     dest="keep_temp",
-                     action="store_true",
-                     help="Do not remove temp files")
-    app.add_argument("--params_from_file",
-                     default=None,
-                     help="Read parameters from a specified config file")
-    app.add_argument("--lastz_executable",
-                     default=None,
-                     help="Set up the path to the lastz executable manually")
-    app.add_argument("--nextflow_executable",
-                     default=None,
-                     help="Set up the path to the nextflow executable manually")
+    app.add_argument(
+        "--cluster_executor",
+        "--executor",
+        default="local",
+        help="Nextflow executor parameter",
+    )
+    app.add_argument(
+        "--cluster_queue",
+        default="batch",
+        help="Queue/Partition label to run cluster jobs",
+    )
+    app.add_argument(
+        "--keep_temp",
+        "--kt",
+        dest="keep_temp",
+        action="store_true",
+        help="Do not remove temp files",
+    )
+    app.add_argument(
+        "--params_from_file",
+        default=None,
+        help="Read parameters from a specified config file",
+    )
+    app.add_argument(
+        "--lastz_executable",
+        default=None,
+        help="Set up the path to the lastz executable manually",
+    )
+    app.add_argument(
+        "--nextflow_executable",
+        default=None,
+        help="Set up the path to the nextflow executable manually",
+    )
     # Pipeline parameters group
-    pipeline_params = app.add_argument_group('Pipeline Parameters')
-    pipeline_params.add_argument("--skip_fill_chain", dest="skip_fill_chains", action="store_true")
-    pipeline_params.add_argument("--skip_fill_unmask", dest="skip_fill_unmask", action="store_true")
-    pipeline_params.add_argument("--skip_clean_chain", dest="skip_clean_chain", action="store_true")
+    pipeline_params = app.add_argument_group("Pipeline Parameters")
+    pipeline_params.add_argument(
+        "--skip_fill_chain", dest="skip_fill_chains", action="store_true"
+    )
+    pipeline_params.add_argument(
+        "--skip_fill_unmask", dest="skip_fill_unmask", action="store_true"
+    )
+    pipeline_params.add_argument(
+        "--skip_clean_chain", dest="skip_clean_chain", action="store_true"
+    )
 
-    pipeline_params.add_argument("--lastz_y", default=Constants.DEFAULT_LASTZ_Y, type=int)
-    pipeline_params.add_argument("--lastz_h", default=Constants.DEFAULT_LASTZ_H, type=int)
-    pipeline_params.add_argument("--lastz_l", default=Constants.DEFAULT_LASTZ_L, type=int)
-    pipeline_params.add_argument("--lastz_k", default=Constants.DEFAULT_LASTZ_K, type=int)
-    pipeline_params.add_argument("--seq1_chunk", default=Constants.DEFAULT_SEQ1_CHUNK, type=int)
-    pipeline_params.add_argument("--seq1_lap", default=Constants.DEFAULT_SEQ1_LAP, type=int)
-    pipeline_params.add_argument("--seq1_limit", default=Constants.DEFAULT_SEQ1_LIMIT, type=int)
-    pipeline_params.add_argument("--seq2_chunk", default=Constants.DEFAULT_SEQ2_CHUNK, type=int)
-    pipeline_params.add_argument("--seq2_lap", default=Constants.DEFAULT_SEQ2_LAP, type=int)
-    pipeline_params.add_argument("--seq2_limit", default=Constants.DEFAULT_SEQ2_LIMIT, type=int)
-    pipeline_params.add_argument("--min_chain_score",
-                                 default=Constants.DEFAULT_MIN_CHAIN_SCORE,
-                                 type=int)
-    pipeline_params.add_argument("--chain_linear_gap",
-                                 default=Constants.DEFAULT_CHAIN_LINEAR_GAP,
-                                 choices=["loose", "medium"],
-                                 type=str)
-    pipeline_params.add_argument("--num_fill_jobs", default=Constants.DEFAULT_NUM_FILL_JOBS, type=int)
-    pipeline_params.add_argument("--fill_chain_min_score",
-                                 default=Constants.DEFAULT_FILL_CHAIN_MIN_SCORE,
-                                 type=int)
-    pipeline_params.add_argument("--fill_insert_chain_min_score",
-                                 default=Constants.DEFAULT_INSERT_CHAIN_MIN_SCORE,
-                                 type=int)
-    pipeline_params.add_argument("--fill_gap_max_size_t",
-                                 default=Constants.DEFAULT_FILL_GAP_MAX_SIZE_T,
-                                 type=int)
-    pipeline_params.add_argument("--fill_gap_max_size_q",
-                                 default=Constants.DEFAULT_FILL_GAP_MAX_SIZE_Q,
-                                 type=int)
-    pipeline_params.add_argument("--fill_gap_min_size_t",
-                                 default=Constants.DEFAULT_FILL_GAP_MIN_SIZE_T,
-                                 type=int)
-    pipeline_params.add_argument("--fill_gap_min_size_q",
-                                 default=Constants.DEFAULT_FILL_GAP_MIN_SIZE_Q,
-                                 type=int)
-    pipeline_params.add_argument("--fill_lastz_k", default=Constants.DEFAULT_FILL_LASTZ_K, type=int)
-    pipeline_params.add_argument("--fill_lastz_l", default=Constants.DEFAULT_FILL_LASTZ_L, type=int)
-    pipeline_params.add_argument("--fill_memory", default=Constants.DEFAULT_FILL_MEMORY, type=int)
-    pipeline_params.add_argument("--fill_prepare_memory",
-                                 default=Constants.DEFAULT_FILL_PREPARE_MEMORY,
-                                 type=int)
-    pipeline_params.add_argument("--chaining_memory",
-                                 default=Constants.DEFAULT_CHAINING_MEMORY,
-                                 type=int)
-    pipeline_params.add_argument("--chain_clean_memory",
-                                 default=Constants.DEFAULT_CHAIN_CLEAN_MEMORY,
-                                 type=int)
-    pipeline_params.add_argument("--clean_chain_parameters",
-                                 default=Constants.DEFAULT_CLEAN_CHAIN_PARAMS)
-    pipeline_params.add_argument("--job_time_req",
-                                 default=Constants.DEFAULT_JOB_TIME_REQ, type=str,
-                                 help="Maximum time allocated per Nextflow job")
+    pipeline_params.add_argument(
+        "--lastz_y", default=Constants.DEFAULT_LASTZ_Y, type=int
+    )
+    pipeline_params.add_argument(
+        "--lastz_h", default=Constants.DEFAULT_LASTZ_H, type=int
+    )
+    pipeline_params.add_argument(
+        "--lastz_l", default=Constants.DEFAULT_LASTZ_L, type=int
+    )
+    pipeline_params.add_argument(
+        "--lastz_k", default=Constants.DEFAULT_LASTZ_K, type=int
+    )
+    pipeline_params.add_argument(
+        "--seq1_chunk", default=Constants.DEFAULT_SEQ1_CHUNK, type=int
+    )
+    pipeline_params.add_argument(
+        "--seq1_lap", default=Constants.DEFAULT_SEQ1_LAP, type=int
+    )
+    pipeline_params.add_argument(
+        "--seq1_limit", default=Constants.DEFAULT_SEQ1_LIMIT, type=int
+    )
+    pipeline_params.add_argument(
+        "--seq2_chunk", default=Constants.DEFAULT_SEQ2_CHUNK, type=int
+    )
+    pipeline_params.add_argument(
+        "--seq2_lap", default=Constants.DEFAULT_SEQ2_LAP, type=int
+    )
+    pipeline_params.add_argument(
+        "--seq2_limit", default=Constants.DEFAULT_SEQ2_LIMIT, type=int
+    )
+    pipeline_params.add_argument(
+        "--min_chain_score", default=Constants.DEFAULT_MIN_CHAIN_SCORE, type=int
+    )
+    pipeline_params.add_argument(
+        "--chain_linear_gap",
+        default=Constants.DEFAULT_CHAIN_LINEAR_GAP,
+        choices=["loose", "medium"],
+        type=str,
+    )
+    pipeline_params.add_argument(
+        "--num_fill_jobs", default=Constants.DEFAULT_NUM_FILL_JOBS, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_chain_min_score",
+        default=Constants.DEFAULT_FILL_CHAIN_MIN_SCORE,
+        type=int,
+    )
+    pipeline_params.add_argument(
+        "--fill_insert_chain_min_score",
+        default=Constants.DEFAULT_INSERT_CHAIN_MIN_SCORE,
+        type=int,
+    )
+    pipeline_params.add_argument(
+        "--fill_gap_max_size_t", default=Constants.DEFAULT_FILL_GAP_MAX_SIZE_T, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_gap_max_size_q", default=Constants.DEFAULT_FILL_GAP_MAX_SIZE_Q, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_gap_min_size_t", default=Constants.DEFAULT_FILL_GAP_MIN_SIZE_T, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_gap_min_size_q", default=Constants.DEFAULT_FILL_GAP_MIN_SIZE_Q, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_lastz_k", default=Constants.DEFAULT_FILL_LASTZ_K, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_lastz_l", default=Constants.DEFAULT_FILL_LASTZ_L, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_memory", default=Constants.DEFAULT_FILL_MEMORY, type=int
+    )
+    pipeline_params.add_argument(
+        "--fill_prepare_memory", default=Constants.DEFAULT_FILL_PREPARE_MEMORY, type=int
+    )
+    pipeline_params.add_argument(
+        "--chaining_memory", default=Constants.DEFAULT_CHAINING_MEMORY, type=int
+    )
+    pipeline_params.add_argument(
+        "--chain_clean_memory", default=Constants.DEFAULT_CHAIN_CLEAN_MEMORY, type=int
+    )
+    pipeline_params.add_argument(
+        "--clean_chain_parameters", default=Constants.DEFAULT_CLEAN_CHAIN_PARAMS
+    )
+    pipeline_params.add_argument(
+        "--job_time_req",
+        default=Constants.DEFAULT_JOB_TIME_REQ,
+        type=str,
+        help="Maximum time allocated per Nextflow job",
+    )
 
     if len(sys.argv) < 5:
         app.print_help()
@@ -150,12 +207,16 @@ def log_version():
     cmd_hash = "git rev-parse HEAD"
     cmd_branch = "git rev-parse --abbrev-ref HEAD"
     try:
-        git_hash = subprocess.check_output(
-            cmd_hash, shell=True, cwd=SCRIPT_LOCATION
-        ).decode("utf-8").strip()
-        git_branch = subprocess.check_output(
-            cmd_branch, shell=True, cwd=SCRIPT_LOCATION
-        ).decode("utf-8").strip()
+        git_hash = (
+            subprocess.check_output(cmd_hash, shell=True, cwd=SCRIPT_LOCATION)
+            .decode("utf-8")
+            .strip()
+        )
+        git_branch = (
+            subprocess.check_output(cmd_branch, shell=True, cwd=SCRIPT_LOCATION)
+            .decode("utf-8")
+            .strip()
+        )
     except subprocess.CalledProcessError:
         git_hash = "unknown"
         git_branch = "unknown"
@@ -172,7 +233,9 @@ def save_final_chain(parameters: PipelineParameters, project_paths: ProjectPaths
         to_log(f"Chains were filled, using {last_chain_file} as the last output file.")
     else:
         last_chain_file = project_paths.merged_chain
-        to_log(f"Chains were NOT filled, using {last_chain_file} as the last output file.")
+        to_log(
+            f"Chains were NOT filled, using {last_chain_file} as the last output file."
+        )
     if not os.path.isfile(last_chain_file):
         raise ValueError(
             f"Critical! Output chain file {last_chain_file} is absent!"
@@ -199,7 +262,7 @@ def cleanup(parameters: PipelineParameters, project_paths: ProjectPaths):
         project_paths.lastz_output_dir,
         project_paths.lastz_working_dir,
         project_paths.fill_chain_run_dir,
-        project_paths.kent_temp_dir
+        project_paths.kent_temp_dir,
     ]
     to_log("Cleaning up the following directories")
     for dirname in dirs_to_del:
@@ -227,24 +290,30 @@ def run_pipeline(args):
     step_executables = StepExecutables(SCRIPT_LOCATION, args)
     step_manager = StepManager(project_paths, args)
 
-    to_log(f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}")
+    to_log(
+        f"Making chains for {args.target_genome} and {args.query_genome} files, saving results to {project_dir}"
+    )
     to_log(f"Pipeline started at {start_time}")
 
     parameters.dump_to_json(project_dir)
 
     # initiate input files
-    setup_genome_sequences(args.target_genome,
-                           args.target_name,
-                           Constants.TARGET_LABEL,
-                           project_paths,
-                           step_executables,
-                           parameters)
-    setup_genome_sequences(args.query_genome,
-                           args.query_name,
-                           Constants.QUERY_LABEL,
-                           project_paths,
-                           step_executables,
-                           parameters)
+    setup_genome_sequences(
+        args.target_genome,
+        args.target_name,
+        Constants.TARGET_LABEL,
+        project_paths,
+        step_executables,
+        parameters,
+    )
+    setup_genome_sequences(
+        args.query_genome,
+        args.query_name,
+        Constants.QUERY_LABEL,
+        project_paths,
+        step_executables,
+        parameters,
+    )
 
     # now execute steps
     step_manager.execute_steps(parameters, step_executables, project_paths)

@@ -1,4 +1,5 @@
 """Class that holds paths to all necessary executables."""
+
 import os
 import shutil
 from constants import Constants
@@ -9,8 +10,12 @@ from modules.make_chains_logging import to_log
 class StepExecutables:
     def __init__(self, root_dir, args):
         self.root_dir = root_dir
-        self.hl_kent_binaries_path = os.path.join(root_dir, Constants.KENT_BINARIES_DIRNAME)
-        self.chain_clean_env_dir = os.path.join(root_dir, Constants.CHAIN_CLEAN_MICRO_ENV)
+        self.hl_kent_binaries_path = os.path.join(
+            root_dir, Constants.KENT_BINARIES_DIRNAME
+        )
+        self.chain_clean_env_dir = os.path.join(
+            root_dir, Constants.CHAIN_CLEAN_MICRO_ENV
+        )
         self.not_found = []
 
         self.lastz_wrapper = self.__find_script(Constants.ScriptNames.RUN_LASTZ)
@@ -22,15 +27,21 @@ class StepExecutables:
         self.psl_sort_acc = self.__find_binary(Constants.ToolNames.PSL_SORT_ACC)
         self.axt_chain = self.__find_binary(Constants.ToolNames.AXT_CHAIN)
         self.axt_to_psl = self.__find_binary(Constants.ToolNames.AXT_TO_PSL)
-        self.chain_anti_repeat = self.__find_binary(Constants.ToolNames.CHAIN_ANTI_REPEAT)
+        self.chain_anti_repeat = self.__find_binary(
+            Constants.ToolNames.CHAIN_ANTI_REPEAT
+        )
         self.chain_merge_sort = self.__find_binary(Constants.ToolNames.CHAIN_MERGE_SORT)
         self.chain_cleaner = self.__find_binary(Constants.ToolNames.CHAIN_CLEANER)
         self.chain_sort = self.__find_binary(Constants.ToolNames.CHAIN_SORT)
         self.chain_score = self.__find_binary(Constants.ToolNames.CHAIN_SCORE)
         self.chain_net = self.__find_binary(Constants.ToolNames.CHAIN_NET)
         self.chain_filter = self.__find_binary(Constants.ToolNames.CHAIN_FILTER)
-        self.lastz = self.__find_binary(Constants.ToolNames.LASTZ, predef_arg=args.lastz_executable)
-        self.nextflow = self.__find_binary(Constants.ToolNames.NEXTFLOW, predef_arg=args.nextflow_executable)
+        self.lastz = self.__find_binary(
+            Constants.ToolNames.LASTZ, predef_arg=args.lastz_executable
+        )
+        self.nextflow = self.__find_binary(
+            Constants.ToolNames.NEXTFLOW, predef_arg=args.nextflow_executable
+        )
 
         self.__check_completeness()
 

@@ -1,4 +1,5 @@
 """Pipeline step manager."""
+
 import json
 import os
 import sys
@@ -20,7 +21,9 @@ class StepManager:
         if os.path.exists(self.steps_file):
             with open(self.steps_file, "r") as f:
                 loaded_steps = json.load(f)
-                self.steps = {k: StepStatus.from_string(v) for k, v in loaded_steps.items()}
+                self.steps = {
+                    k: StepStatus.from_string(v) for k, v in loaded_steps.items()
+                }
             if self.continue_from_step:
                 self.set_continue_from_step(self.continue_from_step)
         else:
@@ -41,9 +44,13 @@ class StepManager:
             elif mark_following:
                 self.steps[step] = StepStatus.NOT_STARTED
             elif mark_following is False and self.steps[step] == StepStatus.FAILED:
-                raise ValueError(f"Cannot start from {step_to_start_from}: {step} failed")
+                raise ValueError(
+                    f"Cannot start from {step_to_start_from}: {step} failed"
+                )
             elif mark_following is False and self.steps[step] == StepStatus.NOT_STARTED:
-                raise ValueError(f"Cannot start from {step_to_start_from}: {step} was not done")
+                raise ValueError(
+                    f"Cannot start from {step_to_start_from}: {step} was not done"
+                )
         self.save_steps()
 
     def mark_step_status(self, step, status):
@@ -58,7 +65,7 @@ class StepManager:
             PipelineSteps.CHAIN_RUN: PipelineSteps.chain_run_step,
             PipelineSteps.CHAIN_MERGE: PipelineSteps.chain_merge_step,
             PipelineSteps.FILL_CHAINS: PipelineSteps.fill_chains_step,
-            PipelineSteps.CLEAN_CHAINS: PipelineSteps.clean_chains_step
+            PipelineSteps.CLEAN_CHAINS: PipelineSteps.clean_chains_step,
         }
 
         for step in PipelineSteps.ORDER:
@@ -67,7 +74,9 @@ class StepManager:
                 self.mark_step_status(step, StepStatus.RUNNING)
                 try:
                     # Execute the actual step function here
-                    step_result = step_to_function[step](params, project_paths, step_executables)
+                    step_result = step_to_function[step](
+                        params, project_paths, step_executables
+                    )
                     step_result = step_result if step_result else StepStatus.COMPLETED
                     # After successful execution:
                     self.mark_step_status(step, step_result)
