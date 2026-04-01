@@ -7,7 +7,7 @@
 */
 
 process PSL_BUNDLE {
-    label 'process_single'
+    label 'process_fast'
 
     // TODO: conda "conda-forge::python=3.10"
     // TODO: container 'path/to/python.sif'

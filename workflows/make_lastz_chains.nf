@@ -12,7 +12,8 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { PREPARE_GENOMES    } from '../subworkflows/local/prepare_genomes/main'
+include { PREPARE_GENOMES                      } from '../subworkflows/local/prepare_genomes/main'
+include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from '../subworkflows/local/prepare_genomes/main'
 include { LASTZ_ALIGNMENT    } from '../subworkflows/local/lastz_alignment/main'
 include { CHAIN_BUILD        } from '../subworkflows/local/chain_build/main'
 include { FILL_CLEAN_CHAINS  } from '../subworkflows/local/fill_clean_chains/main'
@@ -32,9 +33,7 @@ workflow MAKE_LASTZ_CHAINS {
         target_name,
         target_genome
     )
-    // second call uses an alias — Nextflow supports calling the same
-    // workflow twice if they are named differently via alias
-    PREPARE_GENOMES as PREPARE_QUERY_GENOME (
+    PREPARE_QUERY_GENOME (
         query_name,
         query_genome
     )

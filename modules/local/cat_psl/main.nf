@@ -8,7 +8,7 @@
 
 process CAT_PSL {
     tag "$bucket_key"
-    label 'process_single'
+    label 'process_fast'
 
     // TODO: conda "conda-forge::gzip=1.12"
     // TODO: container 'path/to/coreutils.sif'

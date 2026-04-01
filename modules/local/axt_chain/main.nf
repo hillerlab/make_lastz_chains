@@ -10,8 +10,6 @@ process AXT_CHAIN {
     tag "$bundle_psl.name"
     label 'process_medium'
 
-    errorStrategy 'retry'
-    maxRetries    3
 
     // TODO: conda "bioconda::ucsc-axtchain=377 bioconda::ucsc-chainantirepeat=377"
     // TODO: container 'path/to/ucsc_tools.sif'

@@ -7,7 +7,7 @@
 */
 
 process FILL_CHAIN_SPLIT {
-    label 'process_medium'
+    label 'process_fast'
 
     // TODO: conda "conda-forge::python=3.10 conda-forge::gzip=1.12"
     // TODO: container 'path/to/python.sif'

@@ -9,7 +9,7 @@
 
 process CHAIN_CLEANER {
     tag "$input_chain_gz.name"
-    label 'process_high'
+    label 'process_medium'
 
     // TODO: conda "bioconda::ucsc-chaincleaner bioconda::ucsc-chainnet bioconda::ucsc-chainfilter"
     // TODO: container 'path/to/ucsc_tools.sif'

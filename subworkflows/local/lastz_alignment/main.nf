@@ -11,7 +11,8 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { PARTITION } from '../../../modules/local/partition/main'
+include { PARTITION as PARTITION_TARGET } from '../../../modules/local/partition/main'
+include { PARTITION as PARTITION_QUERY  } from '../../../modules/local/partition/main'
 include { LASTZ     } from '../../../modules/local/lastz/main'
 include { CAT_PSL   } from '../../../modules/local/cat_psl/main'
 
@@ -37,13 +38,13 @@ workflow LASTZ_ALIGNMENT {
 
     main:
     // ── Partition ───────────────────────────────────────────────────────────
-    PARTITION (
+    PARTITION_TARGET (
         target_prepared,
         'target',
         params.seq1_chunk,
         params.seq1_lap
     )
-    PARTITION (
+    PARTITION_QUERY (
         query_prepared,
         'query',
         params.seq2_chunk,
@@ -51,16 +52,14 @@ workflow LASTZ_ALIGNMENT {
     )
 
     // ── Emit individual partition strings as channel items ──────────────────
-    target_parts_ch = PARTITION.out.partitions
+    target_parts_ch = PARTITION_TARGET.out.partitions
         .map { _name, part_file -> part_file }
-        .first()          // only one target partition file
         .splitText()      // one line per channel item
         .map { it.trim() }
         .filter { it }    // drop empty lines
 
-    query_parts_ch = PARTITION.out.partitions
+    query_parts_ch = PARTITION_QUERY.out.partitions
         .map { _name, part_file -> part_file }
-        .last()           // only one query partition file
         .splitText()
         .map { it.trim() }
         .filter { it }
@@ -100,5 +99,5 @@ workflow LASTZ_ALIGNMENT {
 
     emit:
     psl_gz   = CAT_PSL.out.psl_gz     // all .psl.gz files for PSL_SORT_ACC
-    versions = PARTITION.out.versions.mix(LASTZ.out.versions, CAT_PSL.out.versions)
+    versions = PARTITION_TARGET.out.versions.mix(PARTITION_QUERY.out.versions, LASTZ.out.versions, CAT_PSL.out.versions)
 }

@@ -8,10 +8,8 @@
 
 process LASTZ {
     tag "${target_part} vs ${query_part}"
-    label 'process_single'
+    label 'process_fast'
 
-    errorStrategy 'retry'
-    maxRetries    3
 
     // TODO: conda "bioconda::lastz=1.04.22 bioconda::ucsc-axttopsl=377 conda-forge::python=3.10"
     // TODO: container 'path/to/lastz.sif'

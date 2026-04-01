@@ -6,7 +6,7 @@
 
 process TWO_BIT_INFO {
     tag "$genome_name"
-    label 'process_single'
+    label 'process_fast'
 
     // TODO: conda "bioconda::ucsc-twobitinfo=377"
     // TODO: container 'path/to/ucsc_tools.sif'

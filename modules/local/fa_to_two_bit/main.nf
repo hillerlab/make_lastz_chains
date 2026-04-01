@@ -6,7 +6,7 @@
 
 process FA_TO_TWO_BIT {
     tag "$genome_name"
-    label 'process_single'
+    label 'process_fast'
 
     // TODO: conda "bioconda::ucsc-fatotwobit=377"
     // TODO: container 'path/to/ucsc_tools.sif'

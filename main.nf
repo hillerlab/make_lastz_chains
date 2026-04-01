@@ -20,11 +20,9 @@ nextflow.enable.dsl = 2
 
 if (params.help) {
     log.info """
-    ╔══════════════════════════════════════════════════════════════════════════╗
-    ║                  make_lastz_chains  v${workflow.manifest.version}                            ║
-    ╠══════════════════════════════════════════════════════════════════════════╣
-    ║  Pipeline to create chain-formatted pairwise genome alignments.         ║
-    ╚══════════════════════════════════════════════════════════════════════════╝
+    make_lastz_chains v${workflow.manifest.version}
+    Pipeline to create chain-formatted pairwise genome alignments.
+
 
     Usage (full run):
         nextflow run main.nf \\
@@ -112,7 +110,7 @@ def validateFullRun() {
     if (!params.query_name)    errors << "  --query_name is required"
     if (!params.target_genome) errors << "  --target_genome is required"
     if (!params.query_genome)  errors << "  --query_genome is required"
-    if (params.chain_linear_gap !in ['loose', 'medium'])
+    if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
@@ -129,7 +127,7 @@ def validateAliasBase() {
     if (!params.query_twobit)       errors << "  --query_twobit is required (path to query .2bit)"
     if (!params.target_chrom_sizes) errors << "  --target_chrom_sizes is required"
     if (!params.query_chrom_sizes)  errors << "  --query_chrom_sizes is required"
-    if (params.chain_linear_gap !in ['loose', 'medium'])
+    if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     return errors
 }
@@ -163,9 +161,7 @@ workflow {
     validateFullRun()
 
     log.info """
-    ╔══════════════════════════════════════════════════════════════╗
-    ║             make_lastz_chains  v${workflow.manifest.version}                   ║
-    ╚══════════════════════════════════════════════════════════════╝
+    make_lastz_chains v${workflow.manifest.version}
       Target : ${params.target_name}  (${params.target_genome})
       Query  : ${params.query_name}   (${params.query_genome})
       Outdir : ${params.outdir}
@@ -188,9 +184,7 @@ workflow FROM_FILL_CHAINS {
     validateFromFillChains()
 
     log.info """
-    ╔══════════════════════════════════════════════════════════════╗
-    ║   make_lastz_chains  v${workflow.manifest.version} — FROM_FILL_CHAINS          ║
-    ╚══════════════════════════════════════════════════════════════╝
+    make_lastz_chains v${workflow.manifest.version} — FROM_FILL_CHAINS
       Target : ${params.target_name}
       Query  : ${params.query_name}
       Input  : ${params.merged_chain}
@@ -217,9 +211,7 @@ workflow FROM_CLEAN_CHAINS {
     validateFromCleanChains()
 
     log.info """
-    ╔══════════════════════════════════════════════════════════════╗
-    ║   make_lastz_chains  v${workflow.manifest.version} — FROM_CLEAN_CHAINS         ║
-    ╚══════════════════════════════════════════════════════════════╝
+    make_lastz_chains v${workflow.manifest.version} — FROM_CLEAN_CHAINS
       Target : ${params.target_name}
       Query  : ${params.query_name}
       Input  : ${params.filled_chain}

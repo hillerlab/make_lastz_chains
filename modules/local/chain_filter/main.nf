@@ -7,7 +7,7 @@
 
 process CHAIN_FILTER {
     tag "$cleaned_chain.name"
-    label 'process_single'
+    label 'process_fast'
 
     // TODO: conda "bioconda::ucsc-chainfilter=377 conda-forge::gzip=1.12"
     // TODO: container 'path/to/ucsc_tools.sif'

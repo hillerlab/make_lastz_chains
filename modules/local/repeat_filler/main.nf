@@ -8,10 +8,8 @@
 
 process REPEAT_FILLER {
     tag "$chain_chunk.name"
-    label 'process_single'
+    label 'process_fast'
 
-    errorStrategy 'retry'
-    maxRetries    3
 
     // TODO: conda "bioconda::lastz bioconda::ucsc-axtchain bioconda::ucsc-chainscore bioconda::ucsc-chainsort conda-forge::python=3.10"
     // TODO: container 'path/to/repeat_filler.sif'

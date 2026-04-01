@@ -129,6 +129,12 @@ To build it locally:
 docker buildx build --platform linux/amd64 -t nilablueshirt/make_lastz_chains:latest-amd64 .
 ```
 
+To use a pre-built Apptainer SIF instead of pulling from Docker Hub:
+```bash
+apptainer build make_lastz_chains.sif docker://nilablueshirt/make_lastz_chains:latest-amd64
+export NXF_CONTAINER_IMAGE=/path/to/make_lastz_chains.sif
+```
+
 ### Quick start
 
 Scientific parameters (genome paths, alignment settings) are configured in `params.json`.
@@ -221,6 +227,15 @@ cd make_lastz_chains
 Apptainer will pull the container image automatically on first run.
 No conda environment is needed when using the `apptainer` profile.
 
+To pre-build the SIF with a clean name (recommended for shared HPC installs):
+```bash
+apptainer build /scratch/$USER/make_lastz_chains.sif \
+    docker://nilablueshirt/make_lastz_chains:latest-amd64
+export NXF_APPTAINER_CACHEDIR=/scratch/$USER/apptainer
+export NXF_CONTAINER_IMAGE=/scratch/$USER/make_lastz_chains.sif
+```
+Add both `export` lines to your sbatch submission script. If `NXF_CONTAINER_IMAGE` is unset, Nextflow pulls and caches automatically.
+
 ### Quick start
 
 ```bash
@@ -236,10 +251,10 @@ Jobs are automatically routed based on wall-time — no manual queue selection n
 
 | Label | Steps | Time | SLURM partition | QOS |
 |-------|-------|------|-----------------|-----|
-| `process_fast` | genome prep, partition, LASTZ, cat, bundle, filter | 0.5 h | `htc` | `public` |
-| `process_single` | repeat filler | 1 h | `htc` | `public` |
-| `process_medium` | PSL sort, axtChain, merge | 2 h | `public` | `public` |
-| `process_high` | chainCleaner | 3 h | `public` | `public` |
+| `process_fast` | genome prep, partition, LASTZ, cat, bundle, filter | 0.5 h × attempt | `htc` | `public` |
+| `REPEAT_FILLER` | repeat filler | 1 h × attempt | `htc` | `public` |
+| `process_medium` | PSL sort, axtChain, merge | 2 h × attempt | `htc` | `public` |
+| `CHAIN_CLEANER` | chainCleaner | 3 h × attempt | `htc` | `public` |
 
 ### SLURM job arrays
 
@@ -250,12 +265,9 @@ Array sizes: LASTZ=500, AXT_CHAIN=100, REPEAT_FILLER=500. Modify the `nextflow.c
 
 ### Resource limits
 
-The pipeline caps all resource requests against `max_memory`, `max_cpus`, and `max_time`
-in `nextflow.config`, which can be modified if needed. You can also override on the command line:
-
-```bash
-nextflow run main.nf -params-file params.json --max_memory 122.GB --max_cpus 28 -profile apptainer,slurm
-```
+Resources scale with `task.attempt` (each retry multiplies the base value). To change limits,
+edit the relevant `withLabel` or `withName` block in `nextflow.config`, or override per-run
+with a `-c resources.config` file.
 
 ### Checkpoint entry points
 
@@ -289,8 +301,8 @@ nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
 | `params.json` | Scientific parameters — edit this for every run |
 | `nextflow.config` | Infrastructure — compute tiers, SLURM settings, container image |
 
-`nextflow.config` is organised into five sections:
-1. `params {}` — output dir, resource ceilings, nf-core boilerplate
+`nextflow.config` is organised into four sections:
+1. `params {}` — output dir, nf-core boilerplate
 2. `withLabel` — compute resource tiers (memory, time per attempt)
 3. `withName` — per-step container, conda, publishDir
 4. `profiles {}` — executor and environment selection
