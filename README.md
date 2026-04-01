@@ -11,34 +11,7 @@ Chains explained: http://genomewiki.ucsc.edu/index.php/Chains_Nets
 
 Chain format specification: https://genome.ucsc.edu/goldenPath/help/chain.html
 
-## Requirements
-
-- Nextflow ≥ 23.10.0 (required for SLURM job array support)
-- Apptainer/Singularity, Docker, or conda
-- Java runtime (required by Nextflow)
-
-⚠️ Although the pipeline runs on macOS, it is strongly recommended to use it on a Linux-based machine.
-
-## Installation
-
-```bash
-git clone https://github.com/hillerlab/make_lastz_chains.git
-cd make_lastz_chains
-```
-
-All tools are bundled in the container image built from the `Dockerfile`:
-- Full UCSC Kent binary distribution (via rsync)
-- `NetFilterNonNested.perl` pinned to commit `fbdd299`
-- LASTZ v1.04.22
-- Python 3 + py2bit
-
-```bash
-docker build -t make_lastz_chains:latest .
-# push to a registry, then set the URI in nextflow.config:
-#   docker://ghcr.io/your-org/make_lastz_chains:latest
-```
-
-See `CHANGES_nfcore_refactor.md` for full details.
+---
 
 ## Proper RepeatMasking is crucial
 
@@ -48,11 +21,13 @@ We therefore highly recommend running RepeatModeler 2 on the reference genome, g
 
 The same procedure should be done for the query genome (generating an independent repeat library for it).
 
-In case you still get excessive lastz job run times that could indicate still insufficient masking, pls try the following:
-* Split your reference and query into smaller chunks using `--seq1_chunk` / `--seq2_chunk`. This will give more but smaller jobs. Many of the 'normal' jobs will now run very fast and the problematic ones may now also finish within several hours or a day.
-* Run WindowMasker on the reference and query genome and add the windowMask to the softmask. We have seen cases where satellite repeats (e.g. likely in centromers) are not properly masked by RepeatMasker. WindowMasker does a good job in masking these satellites.
+In case you still get excessive lastz job run times that could indicate still insufficient masking, try the following:
+* Split your reference and query into smaller chunks using `--seq1_chunk` / `--seq2_chunk`. This will give more but smaller jobs.
+* Run WindowMasker on the reference and query genome and add the windowMask to the softmask. We have seen cases where satellite repeats (e.g. likely in centromeres) are not properly masked by RepeatMasker. WindowMasker does a good job in masking these satellites.
 
-Important: Over-excessive masking will lead to missed alignments (that also RepeatFiller won't unearth, because we restrict it to unaligning regions of certain sizes), because lastz only seeds in non-masked regions and alignments of homologous repetitive regions are only found by extending into them.
+Important: Over-excessive masking will lead to missed alignments, because lastz only seeds in non-masked regions.
+
+---
 
 ## Input genomes
 
@@ -66,39 +41,125 @@ if the pipeline detects spaces in chain headers, it will crash.
 If you wish to rename chromosomes back to their original names after the run, use
 `standalone_scripts/rename_chromosomes_back.py`.
 
-## Quick start
+---
+
+## 1. Running the old Python pipeline (`make_chains.py`)
+
+The original Python-orchestrated pipeline is preserved for backward compatibility.
+
+### Requirements
+
+- Python 3
+- Nextflow (used as a generic parallel job runner)
+- UCSC Kent tools, LASTZ, RepeatFiller installed on `$PATH`
+- `py2bit` Python package (`pip install py2bit`)
+
+### Installation
 
 ```bash
-# Full run with apptainer on a SLURM cluster
+git clone https://github.com/hillerlab/make_lastz_chains.git
+cd make_lastz_chains
+pip install -r requirements.txt   # if present, otherwise: pip install py2bit
+```
+
+### Usage
+
+```bash
+python make_chains.py \
+    --project_dir    /path/to/output \
+    --target_genome  /path/to/target.fa \
+    --query_genome   /path/to/query.fa \
+    --target_name    hg38 \
+    --query_name     mm39
+```
+
+Key optional flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--seq1_chunk` | 175000000 | Target partition size (bp) |
+| `--seq2_chunk` | 300000000 | Query partition size (bp) |
+| `--lastz_q` | (none) | Path to lastz scoring matrix |
+| `--continue_from_step` | (none) | Resume from a named step |
+
+Pass all parameters from a file:
+```bash
+python make_chains.py --params_from_file my_params.yaml
+```
+
+---
+
+## 2. Running the new nf-core pipeline locally
+
+### Requirements
+
+- Nextflow ≥ 23.10.0
+- Docker or Apptainer/Singularity
+- Java runtime (required by Nextflow)
+
+### Installation
+
+```bash
+git clone https://github.com/hillerlab/make_lastz_chains.git
+cd make_lastz_chains
+```
+
+The container image (`nilablueshirt/make_lastz_chains:latest-amd64`) includes:
+- Full UCSC Kent binary distribution
+- `NetFilterNonNested.perl` pinned to commit `fbdd299`
+- LASTZ v1.04.22
+- Python 3 + py2bit
+
+To build locally:
+```bash
+docker buildx build --platform linux/amd64 \
+    -t nilablueshirt/make_lastz_chains:latest-amd64 .
+```
+
+### Quick start (Docker)
+
+```bash
 nextflow run main.nf \
     --target_name   hg38 \
     --query_name    mm39 \
     --target_genome /path/to/hg38.fa \
     --query_genome  /path/to/mm39.fa \
     --outdir        results/ \
-    -profile        apptainer,slurm
-
-# Test run with bundled test data
-nextflow run main.nf -profile test,apptainer,slurm
-
-# Pass all parameters from a JSON file
-nextflow run main.nf -params-file my_params.json -profile apptainer,slurm
-
-# Print all available parameters
-nextflow run main.nf --help
+    -profile        docker
 ```
 
-## Checkpoint entry points
+### Quick start (Apptainer/Singularity)
 
-If a run fails after the expensive LASTZ or fill-chains steps, you can restart from a
-published intermediate rather than rerunning from scratch.
+```bash
+nextflow run main.nf \
+    --target_name   hg38 \
+    --query_name    mm39 \
+    --target_genome /path/to/hg38.fa \
+    --query_genome  /path/to/mm39.fa \
+    --outdir        results/ \
+    -profile        apptainer
+```
 
-For mid-run recovery (e.g. a node failure), Nextflow's built-in `-resume` is sufficient:
+### Test run
+
+```bash
+nextflow run main.nf -profile test,apptainer
+```
+
+### Pass parameters from a JSON file
+
+```bash
+nextflow run main.nf -params-file my_params.json -profile apptainer
+```
+
+### Checkpoint entry points (local)
+
+For mid-run recovery after a failure, Nextflow's built-in `-resume` is sufficient:
 ```bash
 nextflow run main.nf [same args as original run] -resume
 ```
 
-To restart from a specific published intermediate:
+To restart from a published intermediate file:
 
 ```bash
 # Skip LASTZ + chain build — start from *.all.chain.gz
@@ -110,7 +171,7 @@ nextflow run main.nf -entry FROM_FILL_CHAINS \
     --query_twobit       results/genome_prep/query.2bit \
     --target_chrom_sizes results/genome_prep/target.chrom.sizes \
     --query_chrom_sizes  results/genome_prep/query.chrom.sizes \
-    -profile apptainer,slurm
+    -profile apptainer
 
 # Skip LASTZ + chain build + fill — start from *.filled.chain.gz
 nextflow run main.nf -entry FROM_CLEAN_CHAINS \
@@ -121,10 +182,10 @@ nextflow run main.nf -entry FROM_CLEAN_CHAINS \
     --query_twobit       results/genome_prep/query.2bit \
     --target_chrom_sizes results/genome_prep/target.chrom.sizes \
     --query_chrom_sizes  results/genome_prep/query.chrom.sizes \
-    -profile apptainer,slurm
+    -profile apptainer
 ```
 
-## Output structure
+### Output structure
 
 ```
 results/
@@ -136,23 +197,99 @@ results/
 └── pipeline_info/    execution timeline, trace, DAG (HTML)
 ```
 
-## SLURM partition routing
+---
 
-Jobs are automatically routed based on wall-time request — no manual queue selection needed:
+## 3. Running the new nf-core pipeline on HPC (SLURM)
 
-| Label | Steps | Time request | SLURM partition | QOS |
-|-------|-------|-------------|-----------------|-----|
+### Requirements
+
+- Nextflow ≥ 23.10.0
+- Apptainer/Singularity (recommended for HPC)
+- Java runtime
+- SLURM scheduler
+
+### Quick start (SLURM + Apptainer)
+
+```bash
+nextflow run main.nf \
+    --target_name   hg38 \
+    --query_name    mm39 \
+    --target_genome /path/to/hg38.fa \
+    --query_genome  /path/to/mm39.fa \
+    --outdir        results/ \
+    -profile        apptainer,slurm
+```
+
+Nextflow itself should be run from a login node or a long-running session (e.g. `tmux`, `screen`, or an interactive node). It submits all compute jobs as SLURM batch jobs.
+
+### SLURM partition routing
+
+Jobs are automatically routed based on wall-time — no manual queue selection needed:
+
+| Label | Steps | Time | SLURM partition | QOS |
+|-------|-------|------|-----------------|-----|
 | `process_fast` | genome prep, partition, cat, bundle, filter | 2 h | `htc` | `public` |
 | `process_single` | LASTZ, repeat filler | 48 h | `public` | `public` |
 | `process_medium` | PSL sort, axtChain, merge | 48 h | `public` | `public` |
 | `process_high` | chainCleaner | 48 h | `public` | `public` |
 
-LASTZ, AXT_CHAIN, and REPEAT_FILLER submit tasks as **SLURM job arrays**, reducing scheduler
-overhead for large genome pairs (thousands of individual jobs).
+### SLURM job arrays
 
-## Configuration
+LASTZ, AXT_CHAIN, and REPEAT_FILLER submit tasks as **SLURM job arrays** (Nextflow ≥ 23.10.0),
+reducing scheduler overhead for large genome pairs (thousands of individual jobs).
 
-All configuration lives in a single `nextflow.config` file organised into five sections:
+Array sizes: LASTZ=500, AXT_CHAIN=100, REPEAT_FILLER=500.
+
+### Resource limits
+
+The pipeline caps all resource requests against `params.max_memory`, `params.max_cpus`, and
+`params.max_time` via the `check_max()` helper. Defaults match the public partition:
+
+```groovy
+params.max_memory = 248.GB
+params.max_cpus   = 52
+params.max_time   = 240.h
+```
+
+Override on the command line if your cluster has different limits:
+```bash
+nextflow run main.nf ... --max_memory 122.GB --max_cpus 28
+```
+
+### Checkpoint entry points (HPC)
+
+Same as local — append `-profile apptainer,slurm`:
+
+```bash
+# Resume from a failed run
+nextflow run main.nf [same args] -resume -profile apptainer,slurm
+
+# Restart from *.all.chain.gz
+nextflow run main.nf -entry FROM_FILL_CHAINS \
+    --target_name        hg38 \
+    --query_name         mm39 \
+    --merged_chain       results/chain_merge/hg38.mm39.all.chain.gz \
+    --target_twobit      results/genome_prep/target.2bit \
+    --query_twobit       results/genome_prep/query.2bit \
+    --target_chrom_sizes results/genome_prep/target.chrom.sizes \
+    --query_chrom_sizes  results/genome_prep/query.chrom.sizes \
+    -profile apptainer,slurm
+
+# Restart from *.filled.chain.gz
+nextflow run main.nf -entry FROM_CLEAN_CHAINS \
+    --target_name        hg38 \
+    --query_name         mm39 \
+    --filled_chain       results/fill_chains/hg38.mm39.filled.chain.gz \
+    --target_twobit      results/genome_prep/target.2bit \
+    --query_twobit       results/genome_prep/query.2bit \
+    --target_chrom_sizes results/genome_prep/target.chrom.sizes \
+    --query_chrom_sizes  results/genome_prep/query.chrom.sizes \
+    -profile apptainer,slurm
+```
+
+### Configuration
+
+All configuration lives in `nextflow.config`, organised into five sections:
 
 1. `params {}` — scientific and I/O parameters
 2. `withLabel` — compute resource tiers (memory, time per attempt)
@@ -160,8 +297,9 @@ All configuration lives in a single `nextflow.config` file organised into five s
 4. `profiles {}` — executor and environment selection (`apptainer`, `slurm`, `conda`, etc.)
 5. Reporting — execution timeline, trace, DAG
 
-See `CHANGES_nfcore_refactor.md` for a full description of design decisions and differences
-from the original Python pipeline.
+See `CHANGES_nfcore_refactor.md` for a full description of design decisions.
+
+---
 
 ## Citation
 

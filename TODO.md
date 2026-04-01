@@ -21,7 +21,7 @@
 - [x] `CHANGES_nfcore_refactor.md` written
 
 ### Still needed before merging
-- [ ] Build Docker image, push to a registry, replace `docker://YOUR_REGISTRY/make_lastz_chains:latest` in `nextflow.config`
+- [x] Build Docker image (`docker://nilablueshirt/make_lastz_chains:latest-amd64`), update `nextflow.config`
 - [ ] Run `nextflow run main.nf -profile test,apptainer` to validate end-to-end locally
 - [ ] Run `nextflow run main.nf -profile test,apptainer,slurm` on HPC to validate SLURM job array submission for LASTZ, AXT_CHAIN, REPEAT_FILLER
 - [ ] Run `nf-core lint` and fix reported issues before nf-core submission

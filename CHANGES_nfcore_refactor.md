@@ -200,7 +200,7 @@ The following files are unchanged and the old `make_chains.py` CLI still works:
 
 ## TODO (before production use)
 
-- [ ] Build the Docker image, push to a registry, and replace `docker://YOUR_REGISTRY/make_lastz_chains:latest` in `nextflow.config`
+- [x] Build the Docker image (`nilablueshirt/make_lastz_chains:latest-amd64`) and update `nextflow.config`
 - [x] Add `ucsc-twobitinfo` to `environment.yml`
 - [x] Switch Dockerfile to full Kent rsync distribution
 - [x] Fix `NetFilterNonNested.perl` URL to use `raw.githubusercontent.com` pinned to commit `fbdd299`
