@@ -207,9 +207,9 @@ results/
 ### Requirements
 
 - Nextflow ≥ 23.10.0
-- Apptainer/Singularity (recommended for HPC)
+- Apptainer
 - Java runtime
-- SLURM scheduler
+- SLURM HPC cluster, CPU-intensive
 
 ### Quick start
 
@@ -218,12 +218,11 @@ results/
 nextflow run main.nf -params-file params.json -profile apptainer,slurm
 ```
 
-Nextflow itself should be run from a login node or a long-running session (e.g. `tmux`, `screen`,
-or an interactive node). It submits all compute jobs as SLURM batch jobs.
+Nextflow itself should be run in a long-running interactive session or sbatch job, with small amount of memory and CPU core, as this is the "main job" that doesn't carry out the actual computation. It submits all compute jobs as SLURM batch jobs.
 
 ### SLURM partition routing
 
-Jobs are automatically routed based on wall-time — no manual queue selection needed:
+Jobs are automatically routed based on wall-time — no manual queue selection needed. Modify `nextflow.config` file to match your slurm cluster settings.
 
 | Label | Steps | Time | SLURM partition | QOS |
 |-------|-------|------|-----------------|-----|
@@ -237,20 +236,13 @@ Jobs are automatically routed based on wall-time — no manual queue selection n
 LASTZ, AXT_CHAIN, and REPEAT_FILLER submit tasks as **SLURM job arrays** (Nextflow ≥ 23.10.0),
 reducing scheduler overhead for large genome pairs (thousands of individual jobs).
 
-Array sizes: LASTZ=500, AXT_CHAIN=100, REPEAT_FILLER=500.
+Array sizes: LASTZ=500, AXT_CHAIN=100, REPEAT_FILLER=500. Modify the `nextflow.config` file to control the job array size.
 
 ### Resource limits
 
 The pipeline caps all resource requests against `max_memory`, `max_cpus`, and `max_time`
-in `nextflow.config`. Defaults match the public partition:
+in `nextflow.config`, which can be modified if needed. You can also override on the command line:
 
-```groovy
-max_memory = '248.GB'
-max_cpus   = 52
-max_time   = '240.h'
-```
-
-Override on the command line if your cluster has different limits:
 ```bash
 nextflow run main.nf -params-file params.json --max_memory 122.GB --max_cpus 28 -profile apptainer,slurm
 ```
