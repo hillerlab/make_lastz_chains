@@ -3,7 +3,7 @@
 #
 # Includes:
 #   - Full UCSC Kent binary distribution (linux.x86_64, latest release)
-#   - NetFilterNonNested.perl (commit fbdd299 — same version pinned in repo)
+#   - NetFilterNonNested.perl (commit fbdd299 — same version pinned by Dr. Hiller)
 #   - LASTZ aligner (v1.04.22)
 #   - Python 3 + py2bit (supports 64-bit .2bit files, fixes issue #56)
 #
@@ -12,13 +12,11 @@
 #
 # Convert to Apptainer SIF:
 #   apptainer build make_lastz_chains.sif docker-daemon://make_lastz_chains:latest
-#   # or pull directly from a registry:
-#   apptainer build make_lastz_chains.sif docker://ghcr.io/your-org/make_lastz_chains:latest
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM ubuntu:22.04
 
-LABEL maintainer="Bogdan M. Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova"
+LABEL maintainer="Nil Tianchen Mu <nilmu@asu.edu>"
 LABEL description="make_lastz_chains pipeline dependencies"
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -36,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-pip \
         libssl-dev \
         zlib1g \
+        zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Full UCSC Kent binary distribution ───────────────────────────────────────
