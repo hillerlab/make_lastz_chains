@@ -43,7 +43,7 @@ If you wish to rename chromosomes back to their original names after the run, us
 
 ---
 
-## 1. Running the old Python pipeline (`make_chains.py`)
+## 1. Running the original Python pipeline (`make_chains.py`)
 
 The original Python-orchestrated pipeline is preserved for backward compatibility.
 
@@ -89,7 +89,7 @@ python make_chains.py --params_from_file my_params.yaml
 
 ---
 
-## 2. Running the new nf-core pipeline locally
+## 2. Running the new nf-core pipeline on your local computer
 
 ### Requirements
 
@@ -102,43 +102,26 @@ python make_chains.py --params_from_file my_params.yaml
 ```bash
 git clone https://github.com/hillerlab/make_lastz_chains.git
 cd make_lastz_chains
+docker buildx build --platform linux/amd64 -t nilablueshirt/make_lastz_chains:latest-amd64 .
 ```
 
-The container image (`nilablueshirt/make_lastz_chains:latest-amd64`) includes:
-- Full UCSC Kent binary distribution
-- `NetFilterNonNested.perl` pinned to commit `fbdd299`
-- LASTZ v1.04.22
-- Python 3 + py2bit
+### Quick start
 
-To build locally:
-```bash
-docker buildx build --platform linux/amd64 \
-    -t nilablueshirt/make_lastz_chains:latest-amd64 .
-```
-
-### Quick start (Docker)
+Scientific parameters (genome paths, alignment settings) are configured in `params.json`.
+Edit it for your run, then pass it with `-params-file`:
 
 ```bash
-nextflow run main.nf \
-    --target_name   hg38 \
-    --query_name    mm39 \
-    --target_genome /path/to/hg38.fa \
-    --query_genome  /path/to/mm39.fa \
-    --outdir        results/ \
-    -profile        docker
+# 1. Edit params.json — set target_name, query_name, target_genome, query_genome
+vi params.json
+
+# 2a. Run with Docker
+nextflow run main.nf -params-file params.json -profile docker
+
+# 2b. Run with Apptainer/Singularity
+nextflow run main.nf -params-file params.json -profile apptainer
 ```
 
-### Quick start (Apptainer/Singularity)
-
-```bash
-nextflow run main.nf \
-    --target_name   hg38 \
-    --query_name    mm39 \
-    --target_genome /path/to/hg38.fa \
-    --query_genome  /path/to/mm39.fa \
-    --outdir        results/ \
-    -profile        apptainer
-```
+`nextflow.config` only needs editing to change compute resource limits or the container image URI.
 
 ### Test run
 
@@ -146,26 +129,19 @@ nextflow run main.nf \
 nextflow run main.nf -profile test,apptainer
 ```
 
-### Pass parameters from a JSON file
-
-```bash
-nextflow run main.nf -params-file my_params.json -profile apptainer
-```
-
 ### Checkpoint entry points (local)
 
 For mid-run recovery after a failure, Nextflow's built-in `-resume` is sufficient:
 ```bash
-nextflow run main.nf [same args as original run] -resume
+nextflow run main.nf -params-file params.json -profile apptainer -resume
 ```
 
-To restart from a published intermediate file:
+To restart from a published intermediate file, set the checkpoint fields in your `params.json`
+(or pass them as extra flags) and use the appropriate entry alias:
 
 ```bash
 # Skip LASTZ + chain build — start from *.all.chain.gz
-nextflow run main.nf -entry FROM_FILL_CHAINS \
-    --target_name        hg38 \
-    --query_name         mm39 \
+nextflow run main.nf -entry FROM_FILL_CHAINS -params-file params.json \
     --merged_chain       results/chain_merge/hg38.mm39.all.chain.gz \
     --target_twobit      results/genome_prep/target.2bit \
     --query_twobit       results/genome_prep/query.2bit \
@@ -174,9 +150,7 @@ nextflow run main.nf -entry FROM_FILL_CHAINS \
     -profile apptainer
 
 # Skip LASTZ + chain build + fill — start from *.filled.chain.gz
-nextflow run main.nf -entry FROM_CLEAN_CHAINS \
-    --target_name        hg38 \
-    --query_name         mm39 \
+nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
     --filled_chain       results/fill_chains/hg38.mm39.filled.chain.gz \
     --target_twobit      results/genome_prep/target.2bit \
     --query_twobit       results/genome_prep/query.2bit \
@@ -211,16 +185,12 @@ results/
 ### Quick start (SLURM + Apptainer)
 
 ```bash
-nextflow run main.nf \
-    --target_name   hg38 \
-    --query_name    mm39 \
-    --target_genome /path/to/hg38.fa \
-    --query_genome  /path/to/mm39.fa \
-    --outdir        results/ \
-    -profile        apptainer,slurm
+# Edit params.json first, then:
+nextflow run main.nf -params-file params.json -profile apptainer,slurm
 ```
 
-Nextflow itself should be run from a login node or a long-running session (e.g. `tmux`, `screen`, or an interactive node). It submits all compute jobs as SLURM batch jobs.
+Nextflow itself should be run from a login node or a long-running session (e.g. `tmux`, `screen`,
+or an interactive node). It submits all compute jobs as SLURM batch jobs.
 
 ### SLURM partition routing
 
@@ -258,16 +228,12 @@ nextflow run main.nf ... --max_memory 122.GB --max_cpus 28
 
 ### Checkpoint entry points (HPC)
 
-Same as local — append `-profile apptainer,slurm`:
-
 ```bash
 # Resume from a failed run
-nextflow run main.nf [same args] -resume -profile apptainer,slurm
+nextflow run main.nf -params-file params.json -resume -profile apptainer,slurm
 
 # Restart from *.all.chain.gz
-nextflow run main.nf -entry FROM_FILL_CHAINS \
-    --target_name        hg38 \
-    --query_name         mm39 \
+nextflow run main.nf -entry FROM_FILL_CHAINS -params-file params.json \
     --merged_chain       results/chain_merge/hg38.mm39.all.chain.gz \
     --target_twobit      results/genome_prep/target.2bit \
     --query_twobit       results/genome_prep/query.2bit \
@@ -276,9 +242,7 @@ nextflow run main.nf -entry FROM_FILL_CHAINS \
     -profile apptainer,slurm
 
 # Restart from *.filled.chain.gz
-nextflow run main.nf -entry FROM_CLEAN_CHAINS \
-    --target_name        hg38 \
-    --query_name         mm39 \
+nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
     --filled_chain       results/fill_chains/hg38.mm39.filled.chain.gz \
     --target_twobit      results/genome_prep/target.2bit \
     --query_twobit       results/genome_prep/query.2bit \
@@ -289,12 +253,16 @@ nextflow run main.nf -entry FROM_CLEAN_CHAINS \
 
 ### Configuration
 
-All configuration lives in `nextflow.config`, organised into five sections:
+| File | Purpose |
+|------|---------|
+| `params.json` | Scientific parameters — edit this for every run |
+| `nextflow.config` | Infrastructure — compute tiers, SLURM settings, container image |
 
-1. `params {}` — scientific and I/O parameters
+`nextflow.config` is organised into five sections:
+1. `params {}` — output dir, resource ceilings, nf-core boilerplate
 2. `withLabel` — compute resource tiers (memory, time per attempt)
 3. `withName` — per-step container, conda, publishDir
-4. `profiles {}` — executor and environment selection (`apptainer`, `slurm`, `conda`, etc.)
+4. `profiles {}` — executor and environment selection
 5. Reporting — execution timeline, trace, DAG
 
 See `CHANGES_nfcore_refactor.md` for a full description of design decisions.

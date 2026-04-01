@@ -1,0 +1,57 @@
+{
+    "_comment": "Copy this file, fill in your genome paths, and pass it with: nextflow run main.nf -params-file my_params.json",
+
+    "//": "── Input / Output ──────────────────────────────────────────────────────",
+    "target_name":   null,
+    "query_name":    null,
+    "target_genome": null,
+    "query_genome":  null,
+    "outdir":        "./results",
+
+    "//1": "── Checkpoint entry point inputs ───────────────────────────────────────",
+    "//1a": "Used with -entry FROM_FILL_CHAINS or -entry FROM_CLEAN_CHAINS.",
+    "merged_chain":       null,
+    "filled_chain":       null,
+    "target_twobit":      null,
+    "query_twobit":       null,
+    "target_chrom_sizes": null,
+    "query_chrom_sizes":  null,
+
+    "//2": "── Genome partitioning ─────────────────────────────────────────────────",
+    "seq1_chunk": 175000000,
+    "seq2_chunk": 50000000,
+    "seq1_lap":   0,
+    "seq2_lap":   10000,
+
+    "//3": "── LASTZ alignment ─────────────────────────────────────────────────────",
+    "lastz_y": 9400,
+    "lastz_h": 2000,
+    "lastz_l": 3000,
+    "lastz_k": 2400,
+    "lastz_q": null,
+
+    "//4": "── Chain building ──────────────────────────────────────────────────────",
+    "min_chain_score":      1000,
+    "chain_linear_gap":     "loose",
+    "bundle_psl_max_bases": 1000000,
+
+    "//5": "── Fill chains (set skip_fill_chains to true to disable this step) ─────",
+    "skip_fill_chains":            false,
+    "skip_fill_unmask":            false,
+    "num_fill_jobs":               1000,
+    "fill_insert_chain_min_score": 5000,
+    "fill_gap_max_size_t":         20000,
+    "fill_gap_max_size_q":         20000,
+    "fill_gap_min_size_t":         30,
+    "fill_gap_min_size_q":         30,
+    "fill_lastz_k":                2000,
+    "fill_lastz_l":                3000,
+
+    "//6": "── Clean chains (set skip_clean_chain to true to disable this step) ────",
+    "skip_clean_chain":       false,
+    "clean_chain_parameters": "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 -maxSuspectScore=100000 -minBrokenChainScore=75000",
+
+    "//7": "── Tool paths (override if binaries are not in PATH) ────────────────────",
+    "lastz_path":      "lastz",
+    "axt_to_psl_path": "axtToPsl"
+}
