@@ -236,10 +236,10 @@ Jobs are automatically routed based on wall-time — no manual queue selection n
 
 | Label | Steps | Time | SLURM partition | QOS |
 |-------|-------|------|-----------------|-----|
-| `process_fast` | genome prep, partition, cat, bundle, filter | 2 h | `htc` | `public` |
-| `process_single` | LASTZ, repeat filler | 48 h | `public` | `public` |
-| `process_medium` | PSL sort, axtChain, merge | 48 h | `public` | `public` |
-| `process_high` | chainCleaner | 48 h | `public` | `public` |
+| `process_fast` | genome prep, partition, LASTZ, cat, bundle, filter | 0.5 h | `htc` | `public` |
+| `process_single` | repeat filler | 1 h | `htc` | `public` |
+| `process_medium` | PSL sort, axtChain, merge | 2 h | `public` | `public` |
+| `process_high` | chainCleaner | 3 h | `public` | `public` |
 
 ### SLURM job arrays
 
