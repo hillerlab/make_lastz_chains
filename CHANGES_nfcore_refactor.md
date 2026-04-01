@@ -15,18 +15,16 @@ The old Python entry point (`make_chains.py`) is **preserved** for backward comp
 
 ### Issue #56 — Large genome (>4 GB) `.2bit` file support
 
-**Root cause:** `twobitreader` (the previous Python dependency) only accepts version-0 `.2bit`
-files. `faToTwoBit -long` produces version-1 (64-bit) `.2bit` files required for genomes
-larger than 4 GB. This caused the pipeline to crash on large genomes (e.g. lungfish ~40 GB,
-salamander ~21 GB) during BULK partition LASTZ jobs.
+**Root cause:** `twobitreader` only accepts version-0 `.2bit` files. `faToTwoBit -long`
+produces version-1 (64-bit) `.2bit` files required for genomes larger than 4 GB. This caused
+crashes on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB) during BULK partition LASTZ jobs.
 
-**Fix:** Replaced `twobitreader` with `py2bit`, which supports both version-0 and version-1
-`.2bit` files.
+**Fix:** Replaced `twobitreader` with `py2bit`, which supports both version-0 and version-1 `.2bit` files.
 
 | File | Change |
 |------|--------|
 | `standalone_scripts/run_lastz.py` | `from twobitreader import TwoBitFile` → `import py2bit`; updated sequence extraction call |
-| `requirements.txt` | `twobitreader` → `py2bit` |
+| `requirements.txt` | Removed (`py2bit` is declared in `environment.yml` and `Dockerfile`) |
 | `environment.yml` | `twobitreader` → `py2bit` |
 
 ---
@@ -37,12 +35,10 @@ salamander ~21 GB) during BULK partition LASTZ jobs.
 
 | File | Description |
 |------|-------------|
-| `main.nf` | nf-core entry point; validates params, prints run summary |
-| `nextflow.config` | All pipeline parameters with defaults; execution profiles (local, slurm, sge, conda, apptainer, singularity, docker, test) |
+| `main.nf` | nf-core entry point; validates params, prints run summary, defines entry alias workflows |
+| `nextflow.config` | Single unified config: scientific params, compute resource tiers, per-step container/publishDir wiring, profiles, and reporting |
 | `nextflow_schema.json` | JSON Schema for parameter validation and documentation |
-| `conf/base.config` | Process resource labels: `process_single` (16 GB), `process_medium` (50 GB), `process_high` (100 GB) |
-| `conf/modules.config` | Per-step resource and environment config using `withName` selectors. Each step has individual `conda` and `container` directives. |
-| `Dockerfile` | Docker image with all Kent binaries (v482), LASTZ (v1.04.22), Python 3 + py2bit. Builds the apptainer-ready container. |
+| `Dockerfile` | Docker image with full UCSC Kent distribution (rsync), `NetFilterNonNested.perl` (pinned to commit fbdd299), LASTZ (v1.04.22), Python 3 + py2bit |
 
 ### Nextflow modules (`modules/local/*/main.nf`)
 
@@ -105,25 +101,87 @@ The old pipeline wrote a joblist file (one shell command per line) and fed it to
 Nextflow executor. The new pipeline uses Nextflow's `combine` channel operator to natively
 create the N×K target×query partition pairs, eliminating joblist files entirely.
 
-### Resume
-Nextflow's built-in `-resume` flag replaces `--continue_from_step`. Nextflow caches
-completed process outputs in the `work/` directory and skips them on re-runs.
+### Checkpoint entry points (replaces `--continue_from_step`)
+The old Python `StepManager` tracked named step states in a JSON file and supported
+`--continue_from_step` to resume from any named stage.
 
-### Config separation
-Each pipeline step has its own `withName` block in `conf/modules.config` with independent
-`memory`, `time`, `conda`, and `container` settings. Resources for the most expensive steps
-are also tunable at runtime via params:
+In the new pipeline, Nextflow's built-in `-resume` replaces this for mid-run recovery
+(it caches task outputs by content hash and skips completed tasks on re-run). For
+restarting from a published intermediate file, two named entry workflows are provided:
 
-| Param | Controls |
-|-------|---------|
-| `--chaining_memory` | Memory per `AXT_CHAIN` job |
-| `--fill_memory` | Memory per `REPEAT_FILLER` job |
-| `--chain_clean_memory` | Memory for `CHAIN_CLEANER` |
+| Entry alias | Starts from | Input param |
+|-------------|-------------|-------------|
+| `-entry FROM_FILL_CHAINS` | `results/chain_merge/*.all.chain.gz` | `--merged_chain` |
+| `-entry FROM_CLEAN_CHAINS` | `results/fill_chains/*.filled.chain.gz` | `--filled_chain` |
+
+Both aliases also require `--target_twobit`, `--query_twobit`, `--target_chrom_sizes`,
+`--query_chrom_sizes`, `--target_name`, `--query_name`.
+
+Validation functions (`validateFullRun`, `validateFromFillChains`, `validateFromCleanChains`)
+are defined inside each workflow block so that only the params relevant to the active entry
+point are checked.
+
+### Parameter file support
+The old `--params_from_file` flag is replaced by Nextflow's native `-params-file <json>`:
+```bash
+nextflow run main.nf -params-file my_params.json
+```
+
+### Config organisation
+Everything lives in a single `nextflow.config`, organised into five clearly labelled sections:
+
+| Section | Contains |
+|---------|----------|
+| 1. `params {}` | All scientific / I/O parameters |
+| 2. `withLabel` blocks | Compute resource tiers (cpus, memory, time) |
+| 3. `withName` blocks | Per-step container, conda, publishDir wiring |
+| 4. `profiles {}` | Executor and environment selection |
+| 5. Reporting | timeline, trace, DAG output |
+
+The old `conf/base.config` and `conf/modules.config` are removed — their content is now
+inlined into `nextflow.config`. Memory for each step is set by its `withLabel` tier and
+is not exposed as a user-facing param. To tune memory for a specific step, edit the
+`withName` block for that step and add a `memory` override.
 
 ### Containers
-`conf/modules.config` declares both `conda` and `container` per process. The active profile
-(`-profile conda` or `-profile apptainer`) determines which is used at runtime — they do
-not interfere with each other.
+All tools run inside a single container built from the `Dockerfile`. The image includes:
+- Full UCSC Kent binary distribution installed via `rsync` (replaces individual `wget` per binary)
+- `NetFilterNonNested.perl` pinned to commit `fbdd299` via the correct `raw.githubusercontent.com` URL — the `/blob/` HTML page URL used in some build scripts is a bug that silently downloads the wrong file
+- LASTZ v1.04.22 built from source
+- Python 3 + py2bit
+
+Each process in `nextflow.config` declares both `conda` and `container` directives. The active
+profile (`-profile conda` or `-profile apptainer`) determines which is used. Conda is disabled
+by default; apptainer is the intended production environment.
+
+### SLURM job arrays
+LASTZ, AXT_CHAIN, and REPEAT_FILLER use `process.array` (Nextflow ≥ 23.10.0) to submit
+tasks as SLURM job arrays rather than individual `sbatch` calls. This significantly reduces
+scheduler overhead and Fairshare score impact for runs with thousands of alignment jobs.
+
+### SLURM partition routing
+Jobs are automatically routed to the appropriate partition based on their wall-time request,
+without requiring the user to specify a queue:
+- `process_fast` (2 h) → `htc` partition, `public` QOS
+- All other labels (48 h+) → `public` partition, `public` QOS
+
+Resource requests are capped against `params.max_memory` and `params.max_time` via the
+`check_max()` helper function, preventing jobs from exceeding partition hard limits.
+
+---
+
+## Parameters removed vs old pipeline
+
+| Parameter | Reason removed |
+|-----------|---------------|
+| `--seq1_limit` / `--seq2_limit` | Accepted by old CLI but never applied in partitioning logic in either pipeline. Not implemented. |
+| `--fill_chain_min_score` | Stored in old `PipelineParameters` but never passed to any tool in either pipeline. Dead param. |
+| `--fill_prepare_memory` | Defined in old constants but hardcoded to 16 GB in practice; never user-configurable. Replaced by `process_single` label. |
+| `--chaining_memory` | Moved to `process_medium` label in `nextflow.config` (50 GB default). Override with a `memory` line in the `AXT_CHAIN` `withName` block if needed. |
+| `--fill_memory` | Moved to `process_single` label in `nextflow.config` (16 GB default). |
+| `--chain_clean_memory` | Moved to `process_high` label in `nextflow.config` (100 GB default). |
+
+All default values are preserved — only where they are defined has changed.
 
 ---
 
@@ -142,9 +200,10 @@ The following files are unchanged and the old `make_chains.py` CLI still works:
 
 ## TODO (before production use)
 
-- [ ] Fill in actual conda env path and container SIF path in `conf/modules.config`
-  (search for `/path/to/your/...` placeholders)
-- [ ] Build the Docker image and push to a registry (see `Dockerfile`)
-- [ ] Add `ucsc-twobitinfo` to `environment.yml` (currently missing)
-- [ ] Run `nextflow run main.nf -profile test` to validate end-to-end
+- [ ] Build the Docker image, push to a registry, and replace `docker://YOUR_REGISTRY/make_lastz_chains:latest` in `nextflow.config`
+- [x] Add `ucsc-twobitinfo` to `environment.yml`
+- [x] Switch Dockerfile to full Kent rsync distribution
+- [x] Fix `NetFilterNonNested.perl` URL to use `raw.githubusercontent.com` pinned to commit `fbdd299`
+- [ ] Run `nextflow run main.nf -profile test,apptainer` to validate end-to-end
+- [ ] Run `nextflow run main.nf -profile test,apptainer,slurm` to validate SLURM job array submission
 - [ ] Add nf-core linting (`nf-core lint`) and fix reported issues before nf-core submission

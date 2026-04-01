@@ -35,7 +35,14 @@ def read_chrom_sizes(path):
 
 
 def create_partition(chrom_sizes, chunk_size, overlap):
-    """Split chromosomes into overlapping chunks; collect small scaffolds separately."""
+    """Split chromosomes into overlapping chunks; collect small scaffolds separately.
+
+    Note: the old make_chains.py accepted --seq1_limit / --seq2_limit flags to filter
+    out sequences shorter than a minimum length before partitioning. That filtering was
+    never applied in the original partitioning logic and is not implemented here either.
+    Sequences below chunk_size * 0.45 are grouped into bulk LASTZ jobs instead of being
+    excluded entirely.
+    """
     partition_list = []
     little_scaffolds = []
     scaffold_size_threshold = chunk_size * 0.45

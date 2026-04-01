@@ -1,11 +1,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # make_lastz_chains container
-# Based on the approach in create_apptainer.sh (NilaBlueshirt/make_lastz_chains_onPhx)
 #
 # Includes:
-#   - All UCSC Kent binaries required by the pipeline (v482, June 2025)
-#   - NetFilterNonNested.perl (required by chainCleaner, kent commit fbdd299)
-#   - LASTZ aligner
+#   - Full UCSC Kent binary distribution (linux.x86_64, latest release)
+#   - NetFilterNonNested.perl (commit fbdd299 — same version pinned in repo)
+#   - LASTZ aligner (v1.04.22)
 #   - Python 3 + py2bit (supports 64-bit .2bit files, fixes issue #56)
 #
 # Build:
@@ -22,11 +21,11 @@ FROM ubuntu:22.04
 LABEL maintainer="Bogdan M. Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova"
 LABEL description="make_lastz_chains pipeline dependencies"
 
-# Avoid interactive prompts during apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ── System dependencies ───────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        rsync \
         wget \
         ca-certificates \
         gcc \
@@ -39,60 +38,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
-# ── UCSC Kent binaries ────────────────────────────────────────────────────────
-# Downloading v482 (June 2025) binaries individually.
-# Source: https://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/
-# To install the full Kent distribution instead, uncomment the rsync line below:
-#   RUN apt-get install -y rsync && \
-#       rsync -azvP rsync://hgdownload.soe.ucsc.edu/genome/admin/exe/linux.x86_64/ /usr/local/bin/
-
-ENV UCSC_BASE=https://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64
-
-RUN wget -q ${UCSC_BASE}/faToTwoBit      -O /usr/local/bin/faToTwoBit      && \
-    wget -q ${UCSC_BASE}/twoBitToFa      -O /usr/local/bin/twoBitToFa      && \
-    wget -q ${UCSC_BASE}/twoBitInfo      -O /usr/local/bin/twoBitInfo      && \
-    wget -q ${UCSC_BASE}/pslSortAcc      -O /usr/local/bin/pslSortAcc      && \
-    wget -q ${UCSC_BASE}/axtChain        -O /usr/local/bin/axtChain        && \
-    wget -q ${UCSC_BASE}/chainAntiRepeat -O /usr/local/bin/chainAntiRepeat && \
-    wget -q ${UCSC_BASE}/chainMergeSort  -O /usr/local/bin/chainMergeSort  && \
-    wget -q ${UCSC_BASE}/chainCleaner    -O /usr/local/bin/chainCleaner    && \
-    wget -q ${UCSC_BASE}/chainSort       -O /usr/local/bin/chainSort       && \
-    wget -q ${UCSC_BASE}/chainScore      -O /usr/local/bin/chainScore      && \
-    wget -q ${UCSC_BASE}/chainNet        -O /usr/local/bin/chainNet        && \
-    wget -q ${UCSC_BASE}/chainFilter     -O /usr/local/bin/chainFilter     && \
-    wget -q ${UCSC_BASE}/axtToPsl        -O /usr/local/bin/axtToPsl        && \
-    chmod +x \
-        /usr/local/bin/faToTwoBit \
-        /usr/local/bin/twoBitToFa \
-        /usr/local/bin/twoBitInfo \
-        /usr/local/bin/pslSortAcc \
-        /usr/local/bin/axtChain \
-        /usr/local/bin/chainAntiRepeat \
-        /usr/local/bin/chainMergeSort \
-        /usr/local/bin/chainCleaner \
-        /usr/local/bin/chainSort \
-        /usr/local/bin/chainScore \
-        /usr/local/bin/chainNet \
-        /usr/local/bin/chainFilter \
-        /usr/local/bin/axtToPsl
+# ── Full UCSC Kent binary distribution ───────────────────────────────────────
+# Pulls the complete linux.x86_64 release from UCSC.
+# This includes all tools required by the pipeline and any dependencies between
+# Kent tools, avoiding issues with missing binaries.
+RUN rsync -azvP --timeout=120 \
+        rsync://hgdownload.soe.ucsc.edu/genome/admin/exe/linux.x86_64/ \
+        /usr/local/bin/ \
+    && chmod -R +x /usr/local/bin/
 
 # ── NetFilterNonNested.perl (required by chainCleaner) ────────────────────────
-# Using kent commit fbdd299 — same version as in the make_lastz_chains repo.
-# NOTE: must use raw.githubusercontent.com, not the /blob/ HTML page URL.
+# Pinned to commit fbdd299 — the same version present in the make_lastz_chains
+# repo. Must use raw.githubusercontent.com (not the /blob/ HTML page URL).
 RUN wget -q \
     https://raw.githubusercontent.com/ucscGenomeBrowser/kent/fbdd299/src/hg/mouseStuff/chainCleaner/NetFilterNonNested.perl \
-    -O /usr/local/bin/NetFilterNonNested.perl && \
-    chmod +x /usr/local/bin/NetFilterNonNested.perl
+    -O /usr/local/bin/NetFilterNonNested.perl \
+    && chmod +x /usr/local/bin/NetFilterNonNested.perl
 
 # ── LASTZ ─────────────────────────────────────────────────────────────────────
-# Building from source (v1.04.22). To use a different version, change the tag.
+# Building from source (v1.04.22).
 RUN wget -q https://github.com/lastz/lastz/archive/refs/tags/1.04.22.tar.gz \
-        -O /tmp/lastz.tar.gz && \
-    tar -xzf /tmp/lastz.tar.gz -C /tmp && \
-    make -C /tmp/lastz-1.04.22 && \
-    cp /tmp/lastz-1.04.22/src/lastz /usr/local/bin/lastz && \
-    chmod +x /usr/local/bin/lastz && \
-    rm -rf /tmp/lastz.tar.gz /tmp/lastz-1.04.22
+        -O /tmp/lastz.tar.gz \
+    && tar -xzf /tmp/lastz.tar.gz -C /tmp \
+    && make -C /tmp/lastz-1.04.22 \
+    && cp /tmp/lastz-1.04.22/src/lastz /usr/local/bin/lastz \
+    && chmod +x /usr/local/bin/lastz \
+    && rm -rf /tmp/lastz.tar.gz /tmp/lastz-1.04.22
 
 # ── Python dependencies ───────────────────────────────────────────────────────
 # py2bit supports both standard (v0) and 64-bit (v1, faToTwoBit -long) .2bit files.
@@ -102,6 +73,7 @@ RUN pip3 install --no-cache-dir py2bit
 # ── Sanity check ─────────────────────────────────────────────────────────────
 RUN lastz --version && \
     faToTwoBit 2>&1 | head -1 && \
-    chainCleaner 2>&1 | head -1 || true
+    chainCleaner 2>&1 | head -1 && \
+    perl /usr/local/bin/NetFilterNonNested.perl 2>&1 | head -1 || true
 
 WORKDIR /data
