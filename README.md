@@ -13,6 +13,17 @@ Chain format specification: https://genome.ucsc.edu/goldenPath/help/chain.html
 
 ---
 
+## Table of Contents
+
+- [Proper RepeatMasking is crucial](#proper-repeatmasking-is-crucial)
+- [Input genomes](#input-genomes)
+- [1. Running the original Python pipeline](#1-running-the-original-python-pipeline-make_chainspy)
+- [2. Running the nf-core pipeline locally](#2-running-the-nf-core-pipeline-on-your-local-computer)
+- [3. Running the nf-core pipeline on HPC (SLURM)](#3-running-the-nf-core-pipeline-on-hpc-slurm)
+- [Citation](#citation)
+
+---
+
 ## Proper RepeatMasking is crucial
 
 Before running the pipeline, please make sure that $${\color{red}both \space reference}$$ and $${\color{red}query}$$ genome is properly repeatMasked. This is the most common problem that many users encountered. Masking that is produced by NCBI is $${\color{red}NOT}$$ sufficient.
@@ -44,6 +55,9 @@ If you wish to rename chromosomes back to their original names after the run, us
 ---
 
 ## 1. Running the original Python pipeline (`make_chains.py`)
+
+<details>
+<summary>Click to expand</summary>
 
 The original Python-orchestrated pipeline is preserved for backward compatibility.
 
@@ -87,9 +101,14 @@ Pass all parameters from a file:
 python make_chains.py --params_from_file my_params.yaml
 ```
 
+</details>
+
 ---
 
-## 2. Running the new nf-core pipeline on your local computer
+## 2. Running the nf-core pipeline on your local computer
+
+<details>
+<summary>Click to expand</summary>
 
 ### Requirements
 
@@ -102,6 +121,11 @@ python make_chains.py --params_from_file my_params.yaml
 ```bash
 git clone https://github.com/hillerlab/make_lastz_chains.git
 cd make_lastz_chains
+```
+
+The container image (`nilablueshirt/make_lastz_chains:latest-amd64`) includes all tools.
+To build it locally:
+```bash
 docker buildx build --platform linux/amd64 -t nilablueshirt/make_lastz_chains:latest-amd64 .
 ```
 
@@ -129,7 +153,7 @@ nextflow run main.nf -params-file params.json -profile apptainer
 nextflow run main.nf -profile test,apptainer
 ```
 
-### Checkpoint entry points (local)
+### Checkpoint entry points
 
 For mid-run recovery after a failure, Nextflow's built-in `-resume` is sufficient:
 ```bash
@@ -171,9 +195,14 @@ results/
 └── pipeline_info/    execution timeline, trace, DAG (HTML)
 ```
 
+</details>
+
 ---
 
-## 3. Running the new nf-core pipeline on HPC (SLURM)
+## 3. Running the nf-core pipeline on HPC (SLURM)
+
+<details>
+<summary>Click to expand</summary>
 
 ### Requirements
 
@@ -182,7 +211,7 @@ results/
 - Java runtime
 - SLURM scheduler
 
-### Quick start (SLURM + Apptainer)
+### Quick start
 
 ```bash
 # Edit params.json first, then:
@@ -212,21 +241,21 @@ Array sizes: LASTZ=500, AXT_CHAIN=100, REPEAT_FILLER=500.
 
 ### Resource limits
 
-The pipeline caps all resource requests against `params.max_memory`, `params.max_cpus`, and
-`params.max_time` via the `check_max()` helper. Defaults match the public partition:
+The pipeline caps all resource requests against `max_memory`, `max_cpus`, and `max_time`
+in `nextflow.config`. Defaults match the public partition:
 
 ```groovy
-params.max_memory = 248.GB
-params.max_cpus   = 52
-params.max_time   = 240.h
+max_memory = '248.GB'
+max_cpus   = 52
+max_time   = '240.h'
 ```
 
 Override on the command line if your cluster has different limits:
 ```bash
-nextflow run main.nf ... --max_memory 122.GB --max_cpus 28
+nextflow run main.nf -params-file params.json --max_memory 122.GB --max_cpus 28 -profile apptainer,slurm
 ```
 
-### Checkpoint entry points (HPC)
+### Checkpoint entry points
 
 ```bash
 # Resume from a failed run
@@ -266,6 +295,8 @@ nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
 5. Reporting — execution timeline, trace, DAG
 
 See `CHANGES_nfcore_refactor.md` for a full description of design decisions.
+
+</details>
 
 ---
 
