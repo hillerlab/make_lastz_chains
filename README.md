@@ -63,17 +63,17 @@ The original Python-orchestrated pipeline is preserved for backward compatibilit
 
 ### Requirements
 
-- Python 3
 - Nextflow (used as a generic parallel job runner)
-- UCSC Kent tools, LASTZ, RepeatFiller installed on `$PATH`
-- `py2bit` Python package (`pip install py2bit`)
+- mamba or conda
+- LASTZ installed on `$PATH` (or via the conda environment)
 
 ### Installation
 
 ```bash
 git clone https://github.com/hillerlab/make_lastz_chains.git
 cd make_lastz_chains
-pip install -r requirements.txt   # if present, otherwise: pip install py2bit
+mamba env create -f environment.yml
+mamba activate make_lastz_chains
 ```
 
 ### Usage
@@ -210,6 +210,16 @@ results/
 - Apptainer
 - Java runtime
 - SLURM HPC cluster, CPU-intensive
+
+### Installation
+
+```bash
+git clone https://github.com/hillerlab/make_lastz_chains.git
+cd make_lastz_chains
+```
+
+Apptainer will pull the container image automatically on first run.
+No conda environment is needed when using the `apptainer` profile.
 
 ### Quick start
 
