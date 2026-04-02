@@ -20,7 +20,7 @@ process FA_TO_TWO_BIT {
 
     script:
     """
-    faToTwoBit ${genome_fa} ${genome_name}.2bit
+    faToTwoBit -long ${genome_fa} ${genome_name}.2bit
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

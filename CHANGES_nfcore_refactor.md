@@ -15,14 +15,20 @@ The old Python entry point (`make_chains.py`) is **preserved** for backward comp
 
 ### Issue #56 — Large genome (>4 GB) `.2bit` file support
 
-**Root cause:** `twobitreader` only accepts version-0 `.2bit` files. `faToTwoBit -long`
-produces version-1 (64-bit) `.2bit` files required for genomes larger than 4 GB. This caused
-crashes on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB) during BULK partition LASTZ jobs.
+**Root cause:** Two separate tools are involved in `.2bit` handling, and both needed fixing:
 
-**Fix:** Replaced `twobitreader` with `py2bit`, which supports both version-0 and version-1 `.2bit` files.
+1. **Writer (`faToTwoBit`)** — without `-long`, the UCSC C tool uses 32-bit offsets and cannot
+   index sequences past 4 GB, aborting with *"index overflow … use -long option"*.
+2. **Reader (`twobitreader`)** — only accepts version-0 `.2bit` files; `faToTwoBit -long`
+   produces version-1 (64-bit) files that `twobitreader` cannot read.
+
+Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
+
+**Fix:**
 
 | File | Change |
 |------|--------|
+| `modules/local/fa_to_two_bit/main.nf` | Added `-long` flag to `faToTwoBit` call so 64-bit `.2bit` files are written correctly |
 | `standalone_scripts/run_lastz.py` | `from twobitreader import TwoBitFile` → `import py2bit`; updated sequence extraction call |
 | `requirements.txt` | Removed (`py2bit` is declared in `environment.yml` and `Dockerfile`) |
 | `environment.yml` | `twobitreader` → `py2bit` |
