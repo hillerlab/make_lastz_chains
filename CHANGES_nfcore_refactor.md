@@ -39,6 +39,8 @@ crashes on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB) during BULK p
 | `nextflow.config` | Single unified config: scientific params, compute resource tiers, per-step container/publishDir wiring, profiles, and reporting |
 | `nextflow_schema.json` | JSON Schema for parameter validation and documentation |
 | `Dockerfile` | Docker image with full UCSC Kent distribution (rsync), `NetFilterNonNested.perl` (pinned to commit fbdd299), LASTZ (v1.04.22), Python 3 + py2bit |
+| `params.json` | Template for scientific parameters; pass with `-params-file params.json` |
+| `run_nf_slurm_example.sh` | Example SLURM job array script for running many genome pairs in parallel; reads a tab-separated manifest (target_name, target_path, query_name, query_path) and launches one independent Nextflow run per pair |
 
 ### Nextflow modules (`modules/local/*/main.nf`)
 
@@ -155,7 +157,7 @@ profile (`-profile conda` or `-profile apptainer`) determines which is used. Con
 by default; apptainer is the intended production environment.
 
 ### SLURM job arrays
-LASTZ, AXT_CHAIN, and REPEAT_FILLER use `process.array` (Nextflow ≥ 23.10.0) to submit
+LASTZ, AXT_CHAIN, and REPEAT_FILLER use `process.array` (Nextflow ≥ 25.04.6) to submit
 tasks as SLURM job arrays rather than individual `sbatch` calls. This significantly reduces
 scheduler overhead and Fairshare score impact for runs with thousands of alignment jobs.
 
@@ -170,7 +172,23 @@ Resource requests are capped against `params.max_memory` and `params.max_time` v
 
 ---
 
-## Parameters removed vs old pipeline
+## Parameter audit — old pipeline vs params.json
+
+### Parameters actually used in tool commands
+
+All parameters that reach actual tool command lines are present in `params.json`:
+
+| Module | Parameters used |
+|--------|----------------|
+| PARTITION | `seq1/2_chunk`, `seq1/2_lap` |
+| LASTZ | `lastz_k`, `lastz_h`, `lastz_l`, `lastz_y`, `axt_to_psl_path` |
+| PSL_BUNDLE | `bundle_psl_max_bases` |
+| AXT_CHAIN | `min_chain_score`, `chain_linear_gap` |
+| REPEAT_FILLER | `min_chain_score`, `fill_gap_max/min_size_t/q`, `fill_insert_chain_min_score`, `fill_lastz_k/l`, `chain_linear_gap`, `skip_fill_unmask`, `lastz_path` |
+| CHAIN_CLEANER | `chain_linear_gap`, `clean_chain_parameters` |
+| CHAIN_FILTER | `min_chain_score` |
+
+### Parameters removed vs old pipeline
 
 | Parameter | Reason removed |
 |-----------|---------------|
@@ -182,6 +200,14 @@ Resource requests are capped against `params.max_memory` and `params.max_time` v
 | `--chain_clean_memory` | Moved to `process_high` label in `nextflow.config` (100 GB default). |
 
 All default values are preserved — only where they are defined has changed.
+
+### Dead parameters (never consumed by any tool)
+
+| Parameter | Old default | Finding |
+|-----------|-------------|---------|
+| `--seq1_limit` | 5000 | Parsed and stored in `PipelineParameters` but never read by any module or tool command in either pipeline |
+| `--seq2_limit` | 10000 | Same |
+| `--fill_chain_min_score` | 25000 | Same — distinct from `fill_insert_chain_min_score` which is active |
 
 ---
 

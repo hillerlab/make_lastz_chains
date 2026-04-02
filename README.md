@@ -112,7 +112,7 @@ python make_chains.py --params_from_file my_params.yaml
 
 ### Requirements
 
-- Nextflow ≥ 23.10.0
+- Nextflow ≥ 25.04.6
 - Docker or Apptainer/Singularity
 - Java runtime (required by Nextflow)
 
@@ -212,7 +212,7 @@ results/
 
 ### Requirements
 
-- Nextflow ≥ 23.10.0
+- Nextflow ≥ 25.04.6
 - Apptainer
 - Java runtime
 - SLURM HPC cluster, CPU-intensive
@@ -226,24 +226,19 @@ cd make_lastz_chains
 
 Apptainer will pull the container image automatically on first run.
 No conda environment is needed when using the `apptainer` profile.
-
-To pre-build the SIF with a clean name (recommended for shared HPC installs):
-```bash
-apptainer build /scratch/$USER/make_lastz_chains.sif \
-    docker://nilablueshirt/make_lastz_chains:latest-amd64
-export NXF_APPTAINER_CACHEDIR=/scratch/$USER/apptainer
-export NXF_CONTAINER_IMAGE=/scratch/$USER/make_lastz_chains.sif
-```
-Add both `export` lines to your sbatch submission script. If `NXF_CONTAINER_IMAGE` is unset, Nextflow pulls and caches automatically.
+See `run_nf_slurm_example.sh` for the recommended environment variable setup (`NXF_APPTAINER_CACHEDIR`, `NXF_CONTAINER_IMAGE`, `NXF_OPTS`).
 
 ### Quick start
 
+Scientific parameters (genome paths, alignment settings) are written per pair into `params.json` automatically by the example script — no manual editing needed.
+
+Edit the path variables in `run_nf_slurm_example.sh`, then submit:
+
 ```bash
-# Edit params.json first, then:
-nextflow run main.nf -params-file params.json -profile apptainer,slurm
+sbatch --array=1-<N> run_nf_slurm_example.sh
 ```
 
-Nextflow itself should be run in a long-running interactive session or sbatch job, with small amount of memory and CPU core, as this is the "main job" that doesn't carry out the actual computation. It submits all compute jobs as SLURM batch jobs.
+Each array task is a lightweight Nextflow process (`--mem=20G`) that submits all compute work as child SLURM jobs. See the script's header comments for manifest format details.
 
 ### SLURM partition routing
 
@@ -258,7 +253,7 @@ Jobs are automatically routed based on wall-time — no manual queue selection n
 
 ### SLURM job arrays
 
-LASTZ, AXT_CHAIN, and REPEAT_FILLER submit tasks as **SLURM job arrays** (Nextflow ≥ 23.10.0),
+LASTZ, AXT_CHAIN, and REPEAT_FILLER submit tasks as **SLURM job arrays** (Nextflow ≥ 25.04.6),
 reducing scheduler overhead for large genome pairs (thousands of individual jobs).
 
 Array sizes: LASTZ=500, AXT_CHAIN=100, REPEAT_FILLER=500. Modify the `nextflow.config` file to control the job array size.
@@ -294,21 +289,27 @@ nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
     -profile apptainer,slurm
 ```
 
+### Output structure
+
+```
+results/
+├── genome_prep/      target.2bit, query.2bit, *.chrom.sizes
+├── partition/        *_partitions.txt
+├── chain_merge/      *.all.chain.gz        ← checkpoint for FROM_FILL_CHAINS
+├── fill_chains/      *.filled.chain.gz     ← checkpoint for FROM_CLEAN_CHAINS
+├── final/            *.final.chain.gz      ← final output
+└── pipeline_info/    execution timeline, trace, DAG (HTML)
+```
+
 ### Configuration
 
 | File | Purpose |
 |------|---------|
 | `params.json` | Scientific parameters — edit this for every run |
 | `nextflow.config` | Infrastructure — compute tiers, SLURM settings, container image |
+| `run_nf_slurm_example.sh` | Example submission script for multi-pair SLURM array runs |
 
-`nextflow.config` is organised into four sections:
-1. `params {}` — output dir, nf-core boilerplate
-2. `withLabel` — compute resource tiers (memory, time per attempt)
-3. `withName` — per-step container, conda, publishDir
-4. `profiles {}` — executor and environment selection
-5. Reporting — execution timeline, trace, DAG
-
-See `CHANGES_nfcore_refactor.md` for a full description of design decisions.
+`nextflow.config` is self-documented with section headers. See `CHANGES_nfcore_refactor.md` for full design decisions.
 
 </details>
 
