@@ -178,7 +178,7 @@ def setup_genome_sequences(
             )
             os.remove(fasta_dump_path)
             # (2) create 2bit with renamed sequences
-            fa_to_two_bit_cmd = [executables.fa_to_two_bit, fixed_fasta_file, seq_dir]
+            fa_to_two_bit_cmd = [executables.fa_to_two_bit, "-long", fixed_fasta_file, seq_dir]
             call_convert_format_subprocess(fa_to_two_bit_cmd, fixed_fasta_file)
             to_log(f"Saving fixed fasta file {fixed_fasta_file} to {seq_dir}")
         else:
@@ -202,7 +202,7 @@ def setup_genome_sequences(
                 invalid_chrom_names,
             )
 
-        two_bit_to_fa_cmd = [executables.fa_to_two_bit, genome_seq_file, seq_dir]
+        two_bit_to_fa_cmd = [executables.fa_to_two_bit, "-long", genome_seq_file, seq_dir]
         call_convert_format_subprocess(two_bit_to_fa_cmd, genome_seq_file)
         to_log(f"Initial fasta file {genome_seq_file} saved to {seq_dir}")
 
