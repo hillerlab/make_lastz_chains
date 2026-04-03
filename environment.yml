@@ -1,0 +1,22 @@
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3
+  - py2bit
+  - ucsc-twobitinfo
+  - ucsc-twobittofa
+  - ucsc-fatotwobit
+  - ucsc-pslsortacc
+  - ucsc-axtchain
+  - ucsc-chainantirepeat
+  - ucsc-chainmergesort
+  - ucsc-chaincleaner
+  - ucsc-chainsort
+  - ucsc-chainscore
+  - ucsc-chainnet
+  - ucsc-axttopsl
+  - ucsc-chainfilter
+  - lastz
+  - libiconv
