@@ -13,7 +13,6 @@ import shutil
 import string
 import random
 import json
-import py2bit
 
 __author__ = "Bogdan M. Kirilenko"
 
@@ -273,11 +272,16 @@ def parse_seq_arg(arg, tmp_dir, v):
         path_specs_split = elem.split(":")
         path = path_specs_split[0]
         chrom = path_specs_split[1]
-        # extract the chrom sequence from 2bit (py2bit supports 64-bit .2bit files)
-        two_bit_conn = py2bit.open(path)
-        chrom_seq = two_bit_conn.sequence(chrom)
-        two_bit_conn.close()
-        f.write(f">{chrom}\n{chrom_seq}\n")
+        # extract the chrom sequence using twoBitToFa (supports v0 and v1/64-bit .2bit)
+        tmp_chrom_fa = os.path.join(tmp_dir, f"{_gen_random_string(8)}_chrom.fa")
+        result = subprocess.run(
+            ["twoBitToFa", f"-seq={chrom}", path, tmp_chrom_fa], stderr=PIPE
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"twoBitToFa failed: {result.stderr.decode()}")
+        with open(tmp_chrom_fa) as fh:
+            f.write(fh.read())
+        os.unlink(tmp_chrom_fa)
     f.close()
     return fasta_path
 
@@ -300,18 +304,19 @@ def check_if_output_is_non_empty(lastz_output):
 
 
 def extract_twobit_partition(two_bit_path, chrom, start, end, tmp_dir):
-    """Extract one partition from a .2bit file to a temp FASTA using py2bit.
+    """Extract one partition from a .2bit file to a temp FASTA using twoBitToFa.
 
     Supports both standard v0 and 64-bit v1 .2bit files (faToTwoBit -long),
-    since lastz only understands v0. py2bit uses 0-based half-open coordinates,
-    matching the start/end values from partition strings.
+    since lastz only understands v0. twoBitToFa uses 0-based half-open
+    coordinates for -start/-end, matching the start/end values from partition strings.
     """
     fasta_path = os.path.join(tmp_dir, f"{_gen_random_string(8)}_partition.fa")
-    tb = py2bit.open(two_bit_path)
-    seq = tb.sequence(chrom, start, end)
-    tb.close()
-    with open(fasta_path, "w") as f:
-        f.write(f">{chrom}\n{seq}\n")
+    result = subprocess.run(
+        ["twoBitToFa", f"-seq={chrom}", f"-start={start}", f"-end={end}", two_bit_path, fasta_path],
+        stderr=PIPE,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"twoBitToFa failed: {result.stderr.decode()}")
     return fasta_path
 
 
@@ -338,7 +343,7 @@ def main():
     query_specs = parse_file_spec(query_seqs)
     v(f"Target specs: {target_specs} | Query specs: {query_specs}")
 
-    # Extract .2bit partitions to temp FASTA via py2bit so lastz never has to
+    # Extract .2bit partitions to temp FASTA via twoBitToFa so lastz never has to
     # read .2bit files directly. This is required for 64-bit v1 .2bit files
     # produced by faToTwoBit -long (large genomes >4 GB), which lastz cannot read.
     if target_specs[1] is not None:

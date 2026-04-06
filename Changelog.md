@@ -20,7 +20,7 @@ but a bit better)
 - All tools run inside a single Docker/Apptainer container (`nilablueshirt/make_lastz_chains:latest-amd64`)
 - LASTZ, AXT_CHAIN, and REPEAT_FILLER submit as SLURM job arrays (`process.array`) to reduce scheduler overhead
 - Added `FROM_FILL_CHAINS` and `FROM_CLEAN_CHAINS` entry alias workflows for checkpoint restarts
-- Fixed issue #56: replaced `twobitreader` with `py2bit` to support 64-bit `.2bit` files (genomes >4 GB); `run_lastz.py` now extracts `.2bit` partitions to temp FASTA via `py2bit` before calling lastz (lastz cannot read v1/64-bit `.2bit` files); temp files written to the task work directory instead of `/tmp`
+- Fixed issue #56: `run_lastz.py` now extracts `.2bit` partitions to temp FASTA via `twoBitToFa` before calling lastz; this supports both v0 and v1/64-bit `.2bit` files (genomes >4 GB produced by `faToTwoBit -long`), which lastz cannot read directly; removed `py2bit`/`twobitreader` Python dependencies entirely
 - All module process labels aligned with `nextflow.config` `withLabel` blocks (was causing jobs to get no container or memory allocation)
 - `run_lastz.py` and `run_lastz_intermediate_layer.py` added to `bin/` for automatic Nextflow staging
 - Container image selectable via `NXF_CONTAINER_IMAGE` env var; falls back to Docker Hub pull
