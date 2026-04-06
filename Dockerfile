@@ -5,7 +5,7 @@
 #   - Full UCSC Kent binary distribution (linux.x86_64, latest release)
 #   - NetFilterNonNested.perl (commit fbdd299 — same version pinned by Dr. Hiller)
 #   - LASTZ aligner (v1.04.22)
-#   - Python 3 + py2bit (supports 64-bit .2bit files, fixes issue #56)
+#   - Python 3 (no .2bit Python library; .2bit reading done via twoBitToFa/twoBitInfo)
 #
 # Build:
 #   docker build -t make_lastz_chains:latest .
@@ -63,11 +63,6 @@ RUN wget -q https://github.com/lastz/lastz/archive/refs/tags/1.04.22.tar.gz \
     && cp /tmp/lastz-1.04.22/src/lastz /usr/local/bin/lastz \
     && chmod +x /usr/local/bin/lastz \
     && rm -rf /tmp/lastz.tar.gz /tmp/lastz-1.04.22
-
-# ── Python dependencies ───────────────────────────────────────────────────────
-# py2bit supports both standard (v0) and 64-bit (v1, faToTwoBit -long) .2bit files.
-# This fixes issue #56 (large genomes >4 GB).
-RUN pip3 install --no-cache-dir py2bit
 
 # ── Sanity check ─────────────────────────────────────────────────────────────
 RUN lastz --version && \

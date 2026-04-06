@@ -13,7 +13,7 @@
 - [x] `process.array` job arrays for LASTZ, AXT_CHAIN, REPEAT_FILLER
 - [x] Conda disabled by default; apptainer is the intended production profile
 - [x] Dockerfile: full Kent distribution via rsync; `NetFilterNonNested.perl` pinned to commit `fbdd299` via correct raw URL
-- [x] `environment.yml`: `twobitreader` → `py2bit`; added `ucsc-twobitinfo`
+- [x] `environment.yml`: removed `twobitreader`/`py2bit`; added `ucsc-twobitinfo`; `.2bit` reading now via `twoBitToFa`
 - [x] Removed dead params: `fill_chain_min_score`, `seq1_limit`, `seq2_limit`, `fill_prepare_memory`, `--chaining_memory`, `--fill_memory`, `--chain_clean_memory`
 - [x] `-params-file` documented as replacement for old `--params_from_file`
 - [x] `bin/partition.py`, `bin/psl_bundle.py`, `bin/split_chains.py` extracted for Nextflow work dirs

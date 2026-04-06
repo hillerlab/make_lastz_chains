@@ -19,8 +19,8 @@ The old Python entry point (`make_chains.py`) is **preserved** for backward comp
 
 1. **Writer (`faToTwoBit`)** — without `-long`, the UCSC C tool uses 32-bit offsets and cannot
    index sequences past 4 GB, aborting with *"index overflow … use -long option"*.
-2. **Reader (`twobitreader`)** — only accepts version-0 `.2bit` files; `faToTwoBit -long`
-   produces version-1 (64-bit) files that `twobitreader` cannot read.
+2. **Reader (`twobitreader` / `py2bit`)** — both libraries only accept version-0 `.2bit` files; `faToTwoBit -long`
+   produces version-1 (64-bit) files that neither library can read.
 
 Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
 
@@ -29,10 +29,13 @@ Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
 | File | Change |
 |------|--------|
 | `modules/local/fa_to_two_bit/main.nf` | Added `-long` flag to `faToTwoBit` call so 64-bit `.2bit` files are written correctly |
-| `standalone_scripts/run_lastz.py` | `from twobitreader import TwoBitFile` → `import py2bit`; updated sequence extraction call; added `extract_twobit_partition()` to extract `.2bit` partitions to temp FASTA before calling lastz (lastz cannot read v1/64-bit `.2bit`); temp files written to task work dir instead of `/tmp` |
+| `standalone_scripts/run_lastz.py` | Removed `twobitreader`/`py2bit`; added `extract_twobit_partition()` to extract `.2bit` partitions to temp FASTA using `twoBitToFa` before calling lastz (`twoBitToFa` supports both v0 and v1 files; lastz cannot read either); temp files written to task work dir instead of `/tmp` |
 | `bin/run_lastz.py` | Same fix as `standalone_scripts/run_lastz.py` applied to the Nextflow-staged copy |
-| `requirements.txt` | Removed (`py2bit` is declared in `environment.yml` and `Dockerfile`) |
-| `environment.yml` | `twobitreader` → `py2bit` |
+| `requirements.txt` | Removed (no Python `.2bit` library needed; `twoBitToFa` is a UCSC tool already in the container) |
+| `environment.yml` | Removed `py2bit`; `ucsc-twobittofa` already present |
+| `pyproject.toml` | Removed `py2bit`/`twobitreader` from `dependencies` |
+| `modules/project_setup_procedures.py` | Removed `twobitreader` imports; replaced `TwoBitFile` usage with `twoBitInfo` subprocess calls (chrom names, chrom sizes, and `.2bit` format check) |
+| `Dockerfile` | Removed `pip3 install py2bit`; no Python `.2bit` library needed |
 
 ---
 
@@ -45,7 +48,7 @@ Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
 | `main.nf` | nf-core entry point; validates params, prints run summary, defines entry alias workflows |
 | `nextflow.config` | Single unified config: scientific params, compute resource tiers, per-step container/publishDir wiring, profiles, and reporting |
 | `nextflow_schema.json` | JSON Schema for parameter validation and documentation |
-| `Dockerfile` | Docker image with full UCSC Kent distribution (rsync), `NetFilterNonNested.perl` (pinned to commit fbdd299), LASTZ (v1.04.22), Python 3 + py2bit |
+| `Dockerfile` | Docker image with full UCSC Kent distribution (rsync), `NetFilterNonNested.perl` (pinned to commit fbdd299), LASTZ (v1.04.22), Python 3 (no py2bit; `.2bit` reading via `twoBitToFa`) |
 | `params.json` | Template for scientific parameters; pass with `-params-file params.json` |
 | `run_nf_slurm_example.sh` | Example SLURM job array script for running many genome pairs in parallel; reads a tab-separated manifest (target_name, target_path, query_name, query_path) and launches one independent Nextflow run per pair |
 
@@ -157,7 +160,7 @@ All tools run inside a single container built from the `Dockerfile`. The image i
 - Full UCSC Kent binary distribution installed via `rsync` (replaces individual `wget` per binary)
 - `NetFilterNonNested.perl` pinned to commit `fbdd299` via the correct `raw.githubusercontent.com` URL — the `/blob/` HTML page URL used in some build scripts is a bug that silently downloads the wrong file
 - LASTZ v1.04.22 built from source
-- Python 3 + py2bit
+- Python 3 (no `.2bit` Python library; reading is done via `twoBitToFa`)
 
 Each process in `nextflow.config` declares both `conda` and `container` directives. The active
 profile (`-profile conda` or `-profile apptainer`) determines which is used. Conda is disabled
@@ -234,7 +237,7 @@ The following files are unchanged and the old `make_chains.py` CLI still works:
 ## TODO (before production use)
 
 - [x] Build the Docker image (`nilablueshirt/make_lastz_chains:latest-amd64`) and update `nextflow.config`
-- [x] Add `ucsc-twobitinfo` to `environment.yml`
+- [x] Add `ucsc-twobitinfo` to `environment.yml`; remove `py2bit` (replaced by `twoBitToFa`)
 - [x] Switch Dockerfile to full Kent rsync distribution
 - [x] Fix `NetFilterNonNested.perl` URL to use `raw.githubusercontent.com` pinned to commit `fbdd299`
 - [ ] Run `nextflow run main.nf -profile test,apptainer` to validate end-to-end
