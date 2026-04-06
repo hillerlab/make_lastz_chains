@@ -245,8 +245,13 @@ workflow FROM_CLEAN_CHAINS {
 
 workflow.onComplete {
     if (workflow.success) {
+        def final_chain = file("${params.outdir}/final/${params.target_name}.${params.query_name}.final.chain.gz")
         log.info "Pipeline completed successfully!"
-        log.info "Final chain: ${params.outdir}/final/${params.target_name}.${params.query_name}.final.chain.gz"
+        if (final_chain.exists()) {
+            log.info "Final chain: ${final_chain}"
+        } else {
+            log.warn "Pipeline reported success but final chain file was not produced — check that all steps ran"
+        }
         log.info "Run time   : ${workflow.duration}"
     } else {
         log.error "Pipeline FAILED — check logs in ${params.outdir}/pipeline_info/"
