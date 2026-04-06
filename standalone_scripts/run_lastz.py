@@ -135,7 +135,7 @@ def get_temp_dir(tmp_dir_param):
             raise ValueError(f"TMPDIR parameter {tmp_dir_param} not a dir")
         tmp_path = os.path.abspath(os.path.join(tmp_dir_param, tmp_dirname))
     else:
-        tmp_path = os.path.abspath(os.path.join("/tmp", tmp_dirname))
+        tmp_path = os.path.abspath(os.path.join(".", tmp_dirname))
     os.mkdir(tmp_path) if not os.path.isdir(tmp_path) else None
     return tmp_path
 
@@ -298,6 +298,22 @@ def check_if_output_is_non_empty(lastz_output):
     return False
 
 
+def extract_twobit_partition(two_bit_path, chrom, start, end, tmp_dir):
+    """Extract one partition from a .2bit file to a temp FASTA using py2bit.
+
+    Supports both standard v0 and 64-bit v1 .2bit files (faToTwoBit -long),
+    since lastz only understands v0. py2bit uses 0-based half-open coordinates,
+    matching the start/end values from partition strings.
+    """
+    fasta_path = os.path.join(tmp_dir, f"{_gen_random_string(8)}_partition.fa")
+    tb = py2bit.open(two_bit_path)
+    seq = tb.sequence(chrom, start, end)
+    tb.close()
+    with open(fasta_path, "w") as f:
+        f.write(f">{chrom}\n{seq}\n")
+    return fasta_path
+
+
 def main():
     """Entry point."""
     args = parse_args()
@@ -320,6 +336,24 @@ def main():
     target_specs = parse_file_spec(target_seqs)
     query_specs = parse_file_spec(query_seqs)
     v(f"Target specs: {target_specs} | Query specs: {query_specs}")
+
+    # Extract .2bit partitions to temp FASTA via py2bit so lastz never has to
+    # read .2bit files directly. This is required for 64-bit v1 .2bit files
+    # produced by faToTwoBit -long (large genomes >4 GB), which lastz cannot read.
+    if target_specs[1] is not None:
+        if tmp_dir is None:
+            tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
+            temp_is_needed = True
+        target_fasta = extract_twobit_partition(*target_specs, tmp_dir)
+        v(f"Extracted target partition to: {target_fasta}")
+        target_specs = (target_fasta, None, None, None)
+    if query_specs[1] is not None:
+        if tmp_dir is None:
+            tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
+            temp_is_needed = True
+        query_fasta = extract_twobit_partition(*query_specs, tmp_dir)
+        v(f"Extracted query partition to: {query_fasta}")
+        query_specs = (query_fasta, None, None, None)
 
     define_if_not(pipeline_params, "lastz_h", 2000)
     blastz_options = get_blastz_params(pipeline_params)
