@@ -29,7 +29,8 @@ Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
 | File | Change |
 |------|--------|
 | `modules/local/fa_to_two_bit/main.nf` | Added `-long` flag to `faToTwoBit` call so 64-bit `.2bit` files are written correctly |
-| `standalone_scripts/run_lastz.py` | `from twobitreader import TwoBitFile` → `import py2bit`; updated sequence extraction call |
+| `standalone_scripts/run_lastz.py` | `from twobitreader import TwoBitFile` → `import py2bit`; updated sequence extraction call; added `extract_twobit_partition()` to extract `.2bit` partitions to temp FASTA before calling lastz (lastz cannot read v1/64-bit `.2bit`); temp files written to task work dir instead of `/tmp` |
+| `bin/run_lastz.py` | Same fix as `standalone_scripts/run_lastz.py` applied to the Nextflow-staged copy |
 | `requirements.txt` | Removed (`py2bit` is declared in `environment.yml` and `Dockerfile`) |
 | `environment.yml` | `twobitreader` → `py2bit` |
 
