@@ -12,4 +12,4 @@ but a bit better)
 # 2.0.9 (in progress)
 
 - added executor.queueSize parameter to the NF config (default to 1000)
-- Fixed issue #56 (reader side): `run_lastz.py` now extracts `.2bit` partitions to temp FASTA via `py2bit` before calling lastz, since lastz cannot read v1 (64-bit) `.2bit` files produced by `faToTwoBit -long`; temp files written to task work directory instead of `/tmp`
+- Fixed issue #56: use `twoBitToFa` to extract `.2bit` partitions to temp FASTA before calling lastz (supports v0 and v1/64-bit files); use `twoBitInfo` for chrom name listing and chrom sizes generation; removed `twobitreader`/`py2bit` Python dependencies entirely

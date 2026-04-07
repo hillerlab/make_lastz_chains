@@ -3,8 +3,6 @@
 import sys
 import os
 import subprocess
-from twobitreader import TwoBitFile
-from twobitreader import TwoBitFileError
 from modules.make_chains_logging import to_log
 from constants import Constants
 from modules.project_paths import ProjectPaths
@@ -14,13 +12,12 @@ from modules.parameters import PipelineParameters
 
 
 def check_if_twobit(genome_seq_file):
-    try:
-        two_bit_reader = TwoBitFile(genome_seq_file)
-        del two_bit_reader
-        return True
-    except TwoBitFileError:
-        # not a twobit, likely a fasta
-        return False
+    result = subprocess.run(
+        ["twoBitInfo", genome_seq_file, "/dev/null"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
 
 
 def check_and_fix_chrom_names(chrom_names, path):
@@ -148,8 +145,13 @@ def setup_genome_sequences(
         # two bit -> if chrom names are intact, just use this file without
         # creating any intermediate files
         # otherwise, create intermediate fasta with fixed chrom names
-        two_bit_reader = TwoBitFile(genome_seq_file)
-        two_bit_chrom_names = list(two_bit_reader.sequence_sizes().keys())
+        result = subprocess.run(
+            ["twoBitInfo", genome_seq_file, "stdout"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+        )
+        two_bit_chrom_names = [
+            line.split("\t")[0] for line in result.stdout.decode().splitlines() if line
+        ]
         invalid_chrom_names = check_and_fix_chrom_names(
             two_bit_chrom_names, genome_seq_file
         )
@@ -210,14 +212,11 @@ def setup_genome_sequences(
     chrom_sizes_filename = f"{label}.chrom.sizes"
     chrom_sizes_path = os.path.join(project_paths.project_dir, chrom_sizes_filename)
 
-    # must be without errors now
-    two_bit_reader = TwoBitFile(seq_dir)
-    twobit_seq_to_size = two_bit_reader.sequence_sizes()
-
-    f = open(chrom_sizes_path, "w")
-    for k, v in twobit_seq_to_size.items():
-        f.write(f"{k}\t{v}\n")
-    f.close()
+    # must be without errors now; write chrom.sizes via twoBitInfo
+    result = subprocess.run(
+        ["twoBitInfo", seq_dir, chrom_sizes_path],
+        stderr=subprocess.PIPE, check=True
+    )
 
     to_log(
         f"For {genome_id} ({label}) sequence file: {seq_dir}; chrom sizes saved to: {chrom_sizes_path}"
