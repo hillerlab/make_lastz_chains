@@ -23,7 +23,6 @@ process execute_jobs {
 
     // allow each process to fail 3 times
     errorStrategy 'retry'
-    maxRetries 3
 
     input:
     val line
