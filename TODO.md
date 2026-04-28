@@ -25,6 +25,10 @@
 - [ ] Run `nextflow run main.nf -profile test,apptainer` to validate end-to-end locally
 - [ ] Run `nextflow run main.nf -profile test,apptainer,slurm` on HPC to validate SLURM job array submission for LASTZ, AXT_CHAIN, REPEAT_FILLER
 - [ ] Run `nf-core lint` and fix reported issues before nf-core submission
+- [ ] Test checkpoint entry workflows (`FROM_FILL_CHAINS`, `FROM_CLEAN_CHAINS`) — not covered by full-run tests
+- [ ] Validate issue #56 fix end-to-end on a genome >4 GB (confirm twoBitToFa path works in production)
+- [ ] Output parity check — diff final `.chain.gz` from old pipeline vs new on the same genome pair
+- [ ] Smoke test `make_chains.py` backward-compat entry point still launches correctly
 
 ---
 

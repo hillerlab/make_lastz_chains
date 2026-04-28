@@ -19,18 +19,37 @@ The old Python entry point (`make_chains.py`) is **preserved** for backward comp
 
 1. **Writer (`faToTwoBit`)** — without `-long`, the UCSC C tool uses 32-bit offsets and cannot
    index sequences past 4 GB, aborting with *"index overflow … use -long option"*.
-2. **Reader (`twobitreader` / `py2bit`)** — both libraries only accept version-0 `.2bit` files; `faToTwoBit -long`
-   produces version-1 (64-bit) files that neither library can read.
+2. **Reader (`lastz`)** — lastz can read v0 (32-bit) `.2bit` files natively but cannot read v1
+   (64-bit) `.2bit` files produced by `faToTwoBit -long`.
 
 Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
 
-**Fix:**
+**Fix:** version-aware dispatch in `run_lastz.py`:
+
+- **v0 `.2bit` (≤4 GB, the common case):** pass through to lastz unchanged with
+  `<file>/<chrom>[start+1,end][multiple]` — byte-identical behaviour to upstream, no
+  extraction overhead.
+- **v1 `.2bit` (>4 GB):** extract the **whole chromosome** (not just the partition) to a
+  temp FASTA via `twoBitToFa -seq=<chrom>`. This yields a bare `>chrom` header. lastz then
+  applies the subrange itself on the FASTA, so output sequence names and absolute
+  coordinates match what native `.2bit` reading would have produced.
+
+The version is detected by reading the 8-byte `.2bit` header (4-byte magic `0x1A412743`
+followed by 4-byte version field).
+
+> **Why not always extract?** An earlier version of the fix unconditionally extracted each
+> partition to a FASTA via `twoBitToFa -seq=<chrom> -start=<S> -end=<E>`. The kent
+> `twoBitReadSeqFrag` helper writes the FASTA header as `>chrom:start-end` whenever the
+> requested range is not the full chromosome, and the resulting FASTA forces lastz to emit
+> 0-based partition-relative coordinates. Both effects break downstream parsing
+> (`bin/psl_bundle.py` looks for `<chrom>.psl` from `chrom.sizes` and silently skips files
+> named `<chrom>:start-end.psl`), producing a much smaller `.all.chain.gz` than upstream.
 
 | File | Change |
 |------|--------|
 | `modules/local/fa_to_two_bit/main.nf` | Added `-long` flag to `faToTwoBit` call so 64-bit `.2bit` files are written correctly |
-| `standalone_scripts/run_lastz.py` | Removed `twobitreader`/`py2bit`; added `extract_twobit_partition()` to extract `.2bit` partitions to temp FASTA using `twoBitToFa` before calling lastz (`twoBitToFa` supports both v0 and v1 files; lastz cannot read either); temp files written to task work dir instead of `/tmp` |
-| `bin/run_lastz.py` | Same fix as `standalone_scripts/run_lastz.py` applied to the Nextflow-staged copy |
+| `bin/run_lastz.py` | Detects `.2bit` version. v0: lastz reads `.2bit` directly (upstream parity). v1: extract whole chromosome to temp FASTA, then call lastz with subrange syntax on the FASTA |
+| `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
 | `requirements.txt` | Removed (no Python `.2bit` library needed; `twoBitToFa` is a UCSC tool already in the container) |
 | `environment.yml` | Removed `py2bit`; `ucsc-twobittofa` already present |
 | `pyproject.toml` | Removed `py2bit`/`twobitreader` from `dependencies` |

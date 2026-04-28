@@ -302,16 +302,35 @@ def check_if_output_is_non_empty(lastz_output):
     return False
 
 
-def extract_twobit_partition(two_bit_path, chrom, start, end, tmp_dir):
-    """Extract one partition from a .2bit file to a temp FASTA using twoBitToFa.
+def is_2bit_v1(path):
+    """Detect a v1 (64-bit) .2bit file by reading its 8-byte header.
 
-    Supports both standard v0 and 64-bit v1 .2bit files (faToTwoBit -long),
-    since lastz only understands v0. twoBitToFa uses 0-based half-open
-    coordinates for -start/-end, matching the start/end values from partition strings.
+    Layout: 4-byte magic 0x1A412743 followed by 4-byte version field.
+    Version 0 = standard (≤4 GB total); version 1 = 64-bit, written by
+    `faToTwoBit -long` and unreadable by lastz.
     """
-    fasta_path = os.path.join(tmp_dir, f"{_gen_random_string(8)}_partition.fa")
+    with open(path, "rb") as f:
+        header = f.read(8)
+    if header[:4] == b"\x43\x27\x41\x1A":
+        version = int.from_bytes(header[4:8], "little")
+    elif header[:4] == b"\x1A\x41\x27\x43":
+        version = int.from_bytes(header[4:8], "big")
+    else:
+        raise ValueError(f"Not a .2bit file: {path}")
+    return version == 1
+
+
+def extract_chrom_to_fasta(two_bit_path, chrom, tmp_dir):
+    """Extract one whole chromosome from a .2bit file to a temp FASTA.
+
+    Used only for v1 .2bit files (lastz can't read them). Whole-chromosome
+    extraction (no -start/-end) yields a bare ">chrom" header from twoBitToFa,
+    so lastz subrange syntax on the FASTA produces the same chromosome names
+    and absolute coordinates as native .2bit subrange.
+    """
+    fasta_path = os.path.join(tmp_dir, f"{_gen_random_string(8)}_{chrom}.fa")
     result = subprocess.run(
-        ["twoBitToFa", f"-seq={chrom}", f"-start={start}", f"-end={end}", two_bit_path, fasta_path],
+        ["twoBitToFa", f"-seq={chrom}", two_bit_path, fasta_path],
         stderr=PIPE,
     )
     if result.returncode != 0:
@@ -342,23 +361,26 @@ def main():
     query_specs = parse_file_spec(query_seqs)
     v(f"Target specs: {target_specs} | Query specs: {query_specs}")
 
-    # Extract .2bit partitions to temp FASTA via twoBitToFa so lastz never has to
-    # read .2bit files directly. This is required for 64-bit v1 .2bit files
-    # produced by faToTwoBit -long (large genomes >4 GB), which lastz cannot read.
-    if target_specs[1] is not None:
+    # v0 .2bit (≤4 GB): lastz reads natively via "<file>/<chrom>[start,end][multiple]".
+    # v1 .2bit (>4 GB, faToTwoBit -long): lastz can't read it, so extract the whole
+    # chromosome to a temp FASTA with a bare ">chrom" header, then keep the same
+    # subrange spec so lastz produces identical names and absolute coordinates.
+    for label, specs in (("target", target_specs), ("query", query_specs)):
+        path, chrom, start, end = specs
+        if chrom is None or not path.endswith(".2bit"):
+            continue
+        if not is_2bit_v1(path):
+            continue
         if tmp_dir is None:
             tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
             temp_is_needed = True
-        target_fasta = extract_twobit_partition(*target_specs, tmp_dir)
-        v(f"Extracted target partition to: {target_fasta}")
-        target_specs = (target_fasta, None, None, None)
-    if query_specs[1] is not None:
-        if tmp_dir is None:
-            tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
-            temp_is_needed = True
-        query_fasta = extract_twobit_partition(*query_specs, tmp_dir)
-        v(f"Extracted query partition to: {query_fasta}")
-        query_specs = (query_fasta, None, None, None)
+        fasta_path = extract_chrom_to_fasta(path, chrom, tmp_dir)
+        v(f"Extracted v1 {label} chrom to FASTA: {fasta_path}")
+        new_specs = (fasta_path, chrom, start, end)
+        if label == "target":
+            target_specs = new_specs
+        else:
+            query_specs = new_specs
 
     define_if_not(pipeline_params, "lastz_h", 2000)
     blastz_options = get_blastz_params(pipeline_params)
