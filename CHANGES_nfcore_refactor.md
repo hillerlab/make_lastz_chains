@@ -24,7 +24,13 @@ The old Python entry point (`make_chains.py`) is **preserved** for backward comp
 
 Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
 
-**Fix:** version-aware dispatch in `run_lastz.py`:
+**Fix:** size-aware writer + version-aware reader.
+
+Writer (`modules/local/fa_to_two_bit/main.nf`): `faToTwoBit -long` is now only enabled when
+the input FASTA exceeds 4 GB. Smaller genomes get a v0 `.2bit` (upstream's default);
+larger ones get v1.
+
+Reader (`bin/run_lastz.py`, `standalone_scripts/run_lastz.py`):
 
 - **v0 `.2bit` (≤4 GB, the common case):** pass through to lastz unchanged with
   `<file>/<chrom>[start+1,end][multiple]` — byte-identical behaviour to upstream, no
@@ -35,7 +41,9 @@ Both issues surfaced on large genomes (e.g. lungfish ~40 GB, salamander ~21 GB).
   coordinates match what native `.2bit` reading would have produced.
 
 The version is detected by reading the 8-byte `.2bit` header (4-byte magic `0x1A412743`
-followed by 4-byte version field).
+followed by 4-byte version field). The two halves must stay in sync: if the writer
+unconditionally produced v1, the reader's v0 fast-path would be dead code and every run
+would pay the FASTA-extraction cost (and lose the byte-identical parity guarantee).
 
 > **Why not always extract?** An earlier version of the fix unconditionally extracted each
 > partition to a FASTA via `twoBitToFa -seq=<chrom> -start=<S> -end=<E>`. The kent
@@ -47,7 +55,7 @@ followed by 4-byte version field).
 
 | File | Change |
 |------|--------|
-| `modules/local/fa_to_two_bit/main.nf` | Added `-long` flag to `faToTwoBit` call so 64-bit `.2bit` files are written correctly |
+| `modules/local/fa_to_two_bit/main.nf` | `-long` flag added but conditional on FASTA size > 4 GB. Smaller genomes get v0 (upstream default); only large genomes get v1 |
 | `bin/run_lastz.py` | Detects `.2bit` version. v0: lastz reads `.2bit` directly (upstream parity). v1: extract whole chromosome to temp FASTA, then call lastz with subrange syntax on the FASTA |
 | `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
 | `requirements.txt` | Removed (no Python `.2bit` library needed; `twoBitToFa` is a UCSC tool already in the container) |

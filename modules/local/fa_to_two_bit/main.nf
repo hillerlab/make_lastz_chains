@@ -19,8 +19,14 @@ process FA_TO_TWO_BIT {
     path "versions.yml",                                  emit: versions
 
     script:
+    // -long writes a 64-bit v1 .2bit (required for genomes whose .2bit would
+    // exceed the 32-bit offset limit, ~4 GB file ≈ 16 Gbp). lastz cannot read
+    // v1 directly, so we only enable -long for large genomes; smaller ones get
+    // v0 and bin/run_lastz.py reads the .2bit natively (matches upstream).
+    // Threshold: 4 GB of FASTA (~1 GB v0 .2bit) leaves a wide safety margin.
+    def use_long = genome_fa.size() > 4L * 1024 * 1024 * 1024 ? '-long' : ''
     """
-    faToTwoBit -long ${genome_fa} ${genome_name}.2bit
+    faToTwoBit ${use_long} ${genome_fa} ${genome_name}.2bit
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
