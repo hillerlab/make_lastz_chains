@@ -47,6 +47,11 @@
                     "description": "Method used to save pipeline results to --outdir.",
                     "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
                     "fa_icon": "fas fa-copy"
+                },
+                "force_long_2bit": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Always pass -long to faToTwoBit, producing a v1 (64-bit) .2bit file regardless of FASTA size. Forces lastz to take the v1 FASTA-extraction path. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs."
                 }
             }
         },

@@ -24,7 +24,10 @@ process FA_TO_TWO_BIT {
     // v1 directly, so we only enable -long for large genomes; smaller ones get
     // v0 and bin/run_lastz.py reads the .2bit natively (matches upstream).
     // Threshold: 4 GB of FASTA (~1 GB v0 .2bit) leaves a wide safety margin.
-    def use_long = genome_fa.size() > 4L * 1024 * 1024 * 1024 ? '-long' : ''
+    // params.force_long_2bit overrides the size check so the v1 path can be
+    // exercised on small genomes for parity testing.
+    def need_long = params.force_long_2bit || genome_fa.size() > 4L * 1024 * 1024 * 1024
+    def use_long = need_long ? '-long' : ''
     """
     faToTwoBit ${use_long} ${genome_fa} ${genome_name}.2bit
 

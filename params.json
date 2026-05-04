@@ -53,5 +53,9 @@
 
     "//7": "── Tool paths (override if binaries are not in PATH) ────────────────────",
     "lastz_path":      "lastz",
-    "axt_to_psl_path": "axtToPsl"
+    "axt_to_psl_path": "axtToPsl",
+
+    "//8": "── Debug ───────────────────────────────────────────────────────────────",
+    "//8a": "Force faToTwoBit -long (always v1 .2bit). For parity-testing the v1 path on small genomes.",
+    "force_long_2bit": false
 }
