@@ -96,6 +96,55 @@ its own work directory.
 |------|--------|
 | `modules/local/lastz/main.nf` | Replaced `replaceAll('[:/]', '_')` on the full partition string with a `safe_part` closure that emits `BULK_<n>` for bulk partitions and `<chrom>_<start>-<end>` for regular ones |
 
+### v1 path: lastz `file/seqname` syntax is `.2bit`-only (FASTA inputs failed)
+
+**Symptom (caught by `--force_long_2bit` parity test):** every v1-path LASTZ task crashed
+with:
+
+```
+FAILURE: fopen_or_die failed to open ".../<random>_<chrom>.fa/<chrom>" for "rb"
+```
+
+The task then thrashed through `errorStrategy = 'retry'` retries until SLURM SIGTERM'd
+it (exit 143), and the cycle repeated. No `.psl` was produced for any v1 partition pair.
+
+**Root cause:** lastz's `<file>/<seqname>` selector is documented and implemented as
+**`.2bit`-only** — it relies on the `.2bit` index. For FASTA inputs lastz takes the
+string literally and tries to open it as a filesystem path. Our v1 fix in
+[bin/run_lastz.py](bin/run_lastz.py) `main()` extracts the whole chromosome to FASTA but
+left `chrom` set in the specs, so `build_lastz_command` emitted
+`<extracted.fa>/<chrom>[start,end][multiple]`. lastz tried to `fopen` the literal path
+`<extracted.fa>/<chrom>` and failed.
+
+**Fix:** route the lastz argument construction through a small `_seq_arg` helper that
+checks the file extension. `.2bit` → keep `<file>/<chrom>[start+1,end][multiple]`. FASTA
+→ `<file>[start+1,end][multiple]` (no `/seqname` selector). The extracted FASTA contains
+only the requested chromosome, so the subrange applies unambiguously to that one
+sequence and lastz emits absolute coordinates the same way it does for `.2bit` subrange.
+
+| File | Change |
+|------|--------|
+| `bin/run_lastz.py` | Refactored `build_lastz_command` to dispatch on file extension via `_seq_arg`. `.2bit` keeps `file/chrom[range][multi]`; FASTA uses `file[range][multi]` (the `/seqname` selector is `.2bit`-only and lastz reads it as a literal path on FASTA, causing `fopen` to fail) |
+| `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
+
+### Debug affordance — `--force_long_2bit`
+
+Added a CLI/params flag that overrides the FASTA-size threshold and always passes
+`-long` to `faToTwoBit`. This produces a v1 `.2bit` regardless of genome size, so the
+v1 FASTA-extraction path can be exercised on small genomes for parity testing against
+the v0 path. Default is `false` — production runs are unaffected.
+
+```bash
+nextflow run main.nf -params-file params.json --outdir results_v1 --force_long_2bit
+```
+
+| File | Change |
+|------|--------|
+| `nextflow.config` | Added `params.force_long_2bit = false` default |
+| `nextflow_schema.json` | Added schema entry so `--force_long_2bit` is a recognised CLI flag |
+| `params.json` | Added `force_long_2bit: false` (debug section) |
+| `modules/local/fa_to_two_bit/main.nf` | `need_long = params.force_long_2bit \|\| genome_fa.size() > 4 GB` — flag bypasses the size check |
+
 ---
 
 ## New Files

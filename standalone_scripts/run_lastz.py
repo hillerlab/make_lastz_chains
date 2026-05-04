@@ -175,28 +175,30 @@ def parse_file_spec(filename):
     return path_bare, seq_id, start, end
 
 
-def build_lastz_command(t_specs, q_specs, blastz_options):
-    t_path, t_chrom, t_start, t_end = t_specs
-    q_path, q_chrom, q_start, q_end = q_specs
-    """http://www.bx.psu.edu/miller_lab/dist/README.lastz-1.02.00/
-    README.lastz-1.02.00a.html#options_where
-    
-    Subrange indices begin with 1 and are inclusive
-    (i.e., they use the origin-one, closed position numbering system).
-    For example, 201..300 is a 100-bp subrange that skips the first 200 bp in the sequence.
+def _seq_arg(path, chrom, start, end):
+    """Build one lastz sequence argument.
 
-    Whatever it means.
+    .2bit:  "<file>/<chrom>[start+1,end][multiple]"  — file/seqname is a
+            .2bit-only selector that uses the .2bit index.
+    FASTA:  "<file>[start+1,end][multiple]"          — file/seqname does NOT
+            work for FASTA (lastz reads it as a literal path and fails). Our
+            v1 path extracts a single chromosome per FASTA via extract_chrom_to_fasta,
+            so the subrange applies unambiguously to that one sequence and lastz
+            emits absolute coordinates the same way it does for .2bit subrange.
+    No subrange given (chrom is None): pass the whole file.
+
+    Subrange indices are 1-based inclusive (lastz convention), hence `start + 1`.
     """
-    if all(x is not None for x in t_specs):
-        # if specs (chrom, start and end) are specified: feed them to lastz
-        target_arg = f'"{t_path}/{t_chrom}[{t_start + 1},{t_end}][multiple]"'
-    else:  # not specified: do not add, quite simple
-        target_arg = f'"{t_path}[multiple]"'
-    if all(x is not None for x in q_specs):
-        # the same applies to query sequences
-        query_arg = f'"{q_path}/{q_chrom}[{q_start + 1},{q_end }][multiple]"'
-    else:  # no specs: get entire file
-        query_arg = f'"{q_path}[multiple]"'
+    if chrom is None or start is None or end is None:
+        return f'"{path}[multiple]"'
+    if path.endswith(".2bit"):
+        return f'"{path}/{chrom}[{start + 1},{end}][multiple]"'
+    return f'"{path}[{start + 1},{end}][multiple]"'
+
+
+def build_lastz_command(t_specs, q_specs, blastz_options):
+    target_arg = _seq_arg(*t_specs)
+    query_arg  = _seq_arg(*q_specs)
     fields = ("lastz", target_arg, query_arg, blastz_options, ALLOC_ARG, FORMAT_ARG)
     return " ".join(fields)
 
