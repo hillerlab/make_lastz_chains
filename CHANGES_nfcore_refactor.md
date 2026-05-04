@@ -64,6 +64,38 @@ would pay the FASTA-extraction cost (and lose the byte-identical parity guarante
 | `modules/project_setup_procedures.py` | Removed `twobitreader` imports; replaced `TwoBitFile` usage with `twoBitInfo` subprocess calls (chrom names, chrom sizes, and `.2bit` format check) |
 | `Dockerfile` | Removed `pip3 install py2bit`; no Python `.2bit` library needed |
 
+### BULK partition output silently dropped (filename-too-long)
+
+**Symptom:** `*.all.chain.gz` significantly smaller than upstream output for genomes with
+many small scaffolds (e.g. ~20 MB vs ~26 MB). Per-target-chromosome chain counts revealed
+that chains for thousands of small scaffolds were missing while the few large
+chromosomes were present.
+
+**Root cause:** [modules/local/lastz/main.nf](modules/local/lastz/main.nf) built the LASTZ
+output filename from the full partition string via
+`target_part.replaceAll('[:/]', '_')`. For BULK partitions — which can list up to 100
+scaffold names ([bin/partition.py](bin/partition.py) `MAX_CHROM_IN_BULK = 100`) — the
+resulting filename ran 800+ characters, well past the 255-byte filesystem cap. When
+[bin/run_lastz.py](bin/run_lastz.py) tried `open(args.output, "a")` it raised
+`OSError: [Errno 36] File name too long`. That error was silently swallowed by
+[bin/run_lastz_intermediate_layer.py](bin/run_lastz_intermediate_layer.py) because
+`subprocess.call(lastz_cmd)` doesn't raise on non-zero exit — every BULK chrom in the
+loop hit the same too-long path, the wrapper exited 0, and Nextflow recorded the task
+as successful with no `.psl` (allowed by `optional: true`). Every BULK partition's
+alignments were lost.
+
+**Fix:** mirror the old pipeline's
+[steps_implementations/lastz_step.py](steps_implementations/lastz_step.py)
+`_get_lastz_out_fname_part`: shorten the partition string to a stable identifier
+**before** putting it in the filename. BULK partitions become `BULK_<n>`; regular
+partitions become `<chrom>_<start>-<end>`. Filenames now stay under ~80 chars even
+in the worst case. No need for a per-job uniqueness counter — each Nextflow task has
+its own work directory.
+
+| File | Change |
+|------|--------|
+| `modules/local/lastz/main.nf` | Replaced `replaceAll('[:/]', '_')` on the full partition string with a `safe_part` closure that emits `BULK_<n>` for bulk partitions and `<chrom>_<start>-<end>` for regular ones |
+
 ---
 
 ## New Files

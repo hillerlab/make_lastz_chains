@@ -31,9 +31,20 @@ process LASTZ {
     path  "versions.yml",                                   emit: versions
 
     script:
-    // Derive a safe output filename from the partition strings
-    def t_safe = target_part.replaceAll('[:/]', '_')
-    def q_safe = query_part.replaceAll('[:/]', '_')
+    // Build a short, stable identifier from each partition string. BULK partitions
+    // can list up to 100 scaffold names — using the full string as a filename
+    // overflows the 255-byte filesystem limit and run_lastz.py crashes with
+    // "OSError: [Errno 36] File name too long". Mirror the old pipeline's
+    // _get_lastz_out_fname_part: BULK → "BULK_<n>"; regular → "<chrom>_<start>-<end>".
+    def safe_part = { String p ->
+        if (p.startsWith("BULK")) {
+            return p.split(":")[0]
+        }
+        def parts = p.split(":")
+        return "${parts[1]}_${parts[2]}"
+    }
+    def t_safe = safe_part(target_part)
+    def q_safe = safe_part(query_part)
     def out_psl = "${t_safe}__${q_safe}.psl"
     """
     # Write minimal pipeline params JSON so run_lastz* scripts can read chrom.sizes

@@ -13,7 +13,7 @@ import shutil
 import string
 import random
 import json
-__author__ = "Bogdan M. Kirilenko"
+__author__ = "Bogdan M. Kirilenko, Nil Tianchen Mu"
 
 
 BLASTZ_PREFIX = "lastz_"
