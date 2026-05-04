@@ -49,13 +49,5 @@
 
     "//6": "── Clean chains (set skip_clean_chain to true to disable this step) ────",
     "skip_clean_chain":       false,
-    "clean_chain_parameters": "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 -maxSuspectScore=100000 -minBrokenChainScore=75000",
-
-    "//7": "── Tool paths (override if binaries are not in PATH) ────────────────────",
-    "lastz_path":      "lastz",
-    "axt_to_psl_path": "axtToPsl",
-
-    "//8": "── Debug ───────────────────────────────────────────────────────────────",
-    "//8a": "Force faToTwoBit -long (always v1 .2bit). For parity-testing the v1 path on small genomes.",
-    "force_long_2bit": false
+    "clean_chain_parameters": "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 -maxSuspectScore=100000 -minBrokenChainScore=75000"
 }

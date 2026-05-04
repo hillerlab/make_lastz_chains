@@ -127,6 +127,30 @@ sequence and lastz emits absolute coordinates the same way it does for `.2bit` s
 | `bin/run_lastz.py` | Refactored `build_lastz_command` to dispatch on file extension via `_seq_arg`. `.2bit` keeps `file/chrom[range][multi]`; FASTA uses `file[range][multi]` (the `/seqname` selector is `.2bit`-only and lastz reads it as a literal path on FASTA, causing `fopen` to fail) |
 | `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
 
+### v1 path: cache whole-chromosome FASTA extractions per task
+
+**Symptom:** for v1 BULK partitions with many scaffolds (e.g. BULK_16 with 60
+scaffolds), the LASTZ task hit the `process_fast` 30-min time limit and got SIGTERM'd
+(exit 143) by SLURM. Nextflow retried, but the wasted work added up across runs.
+
+**Root cause:** `extract_chrom_to_fasta` ran `twoBitToFa` to a fresh randomly-named
+temp file on every invocation. [bin/run_lastz_intermediate_layer.py](bin/run_lastz_intermediate_layer.py)
+unfolds a BULK partition into one `run_lastz.py` call per target scaffold. Every call
+re-extracted the **query** chromosome — which is identical across the whole BULK loop —
+from scratch. For a 60-scaffold BULK against a tens-of-MB chicken chromosome, that's
+60 redundant extractions of the same query data.
+
+**Fix:** make `extract_chrom_to_fasta` cache to a deterministic path
+`./_v1_chrom_cache/<basename.2bit>_<chrom>.fa` in the Nextflow work directory. Subsequent
+calls within the same task hit the cache. For a 60-scaffold BULK, 60 query extractions
+collapse into 1; target extractions stay 60 (unique scaffolds). Cache is per-task (lives
+in the work dir, cleaned up with the task), so no cross-run state.
+
+| File | Change |
+|------|--------|
+| `bin/run_lastz.py` | `extract_chrom_to_fasta` writes to `./_v1_chrom_cache/<basename.2bit>_<chrom>.fa` and reuses on cache hit. Eliminates redundant query-chrom extractions in BULK loops |
+| `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
+
 ### Debug affordance — `--force_long_2bit`
 
 Added a CLI/params flag that overrides the FASTA-size threshold and always passes
@@ -140,9 +164,8 @@ nextflow run main.nf -params-file params.json --outdir results_v1 --force_long_2
 
 | File | Change |
 |------|--------|
-| `nextflow.config` | Added `params.force_long_2bit = false` default |
+| `nextflow.config` | Added `params.force_long_2bit = false` default (debug, not exposed in `params.json` since that file is reserved for scientific parameters) |
 | `nextflow_schema.json` | Added schema entry so `--force_long_2bit` is a recognised CLI flag |
-| `params.json` | Added `force_long_2bit: false` (debug section) |
 | `modules/local/fa_to_two_bit/main.nf` | `need_long = params.force_long_2bit \|\| genome_fa.size() > 4 GB` — flag bypasses the size check |
 
 ---

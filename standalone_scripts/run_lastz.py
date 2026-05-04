@@ -329,8 +329,25 @@ def extract_chrom_to_fasta(two_bit_path, chrom, tmp_dir):
     extraction (no -start/-end) yields a bare ">chrom" header from twoBitToFa,
     so lastz subrange syntax on the FASTA produces the same chromosome names
     and absolute coordinates as native .2bit subrange.
+
+    Cached: filename is deterministic on (.2bit basename, chrom), so multiple
+    run_lastz.py invocations within the same Nextflow task share a single
+    extraction. The big win is BULK partitions in run_lastz_intermediate_layer.py:
+    the query chrom is identical across every iteration of the BULK loop, so
+    without caching it gets re-extracted up to 100 times per task.
+
+    Cache lives under ./_v1_chrom_cache/ in the Nextflow work directory, which
+    Nextflow cleans up with the task. The tmp_dir argument is kept for API
+    compatibility but is no longer used as the destination — anything written
+    inside `tmp_dir` gets `shutil.rmtree`'d at end of main(), which would defeat
+    the cache when run_lastz.py is invoked repeatedly within one task.
     """
-    fasta_path = os.path.join(tmp_dir, f"{_gen_random_string(8)}_{chrom}.fa")
+    cache_dir = os.path.abspath("./_v1_chrom_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    twobit_basename = os.path.basename(two_bit_path)
+    fasta_path = os.path.join(cache_dir, f"{twobit_basename}_{chrom}.fa")
+    if os.path.exists(fasta_path):
+        return fasta_path
     result = subprocess.run(
         ["twoBitToFa", f"-seq={chrom}", two_bit_path, fasta_path],
         stderr=PIPE,
