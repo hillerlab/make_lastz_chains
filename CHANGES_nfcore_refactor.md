@@ -127,29 +127,95 @@ sequence and lastz emits absolute coordinates the same way it does for `.2bit` s
 | `bin/run_lastz.py` | Refactored `build_lastz_command` to dispatch on file extension via `_seq_arg`. `.2bit` keeps `file/chrom[range][multi]`; FASTA uses `file[range][multi]` (the `/seqname` selector is `.2bit`-only and lastz reads it as a literal path on FASTA, causing `fopen` to fail) |
 | `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
 
-### v1 path: cache whole-chromosome FASTA extractions per task
+### v1 path: cache whole-chromosome FASTA extractions
 
-**Symptom:** for v1 BULK partitions with many scaffolds (e.g. BULK_16 with 60
+**Symptom 1 (slow):** for v1 BULK partitions with many scaffolds (e.g. BULK_16 with 60
 scaffolds), the LASTZ task hit the `process_fast` 30-min time limit and got SIGTERM'd
 (exit 143) by SLURM. Nextflow retried, but the wasted work added up across runs.
 
-**Root cause:** `extract_chrom_to_fasta` ran `twoBitToFa` to a fresh randomly-named
-temp file on every invocation. [bin/run_lastz_intermediate_layer.py](bin/run_lastz_intermediate_layer.py)
-unfolds a BULK partition into one `run_lastz.py` call per target scaffold. Every call
-re-extracted the **query** chromosome — which is identical across the whole BULK loop —
-from scratch. For a 60-scaffold BULK against a tens-of-MB chicken chromosome, that's
-60 redundant extractions of the same query data.
+**Symptom 2 (large work dir):** v1 runs ballooned to many GB of cached FASTA across
+~50k LASTZ task work dirs — every task was extracting its own copy of the same
+chromosomes from the v1 `.2bit`.
 
-**Fix:** make `extract_chrom_to_fasta` cache to a deterministic path
-`./_v1_chrom_cache/<basename.2bit>_<chrom>.fa` in the Nextflow work directory. Subsequent
-calls within the same task hit the cache. For a 60-scaffold BULK, 60 query extractions
-collapse into 1; target extractions stay 60 (unique scaffolds). Cache is per-task (lives
-in the work dir, cleaned up with the task), so no cross-run state.
+Both stem from the same root cause: redundant `twoBitToFa` extractions.
+[bin/run_lastz_intermediate_layer.py](bin/run_lastz_intermediate_layer.py) unfolds a
+BULK partition into one `run_lastz.py` call per target scaffold; every call re-extracted
+the **query** chromosome (shared across the whole BULK loop) from scratch. And every
+LASTZ task — BULK or regular — extracted its own copy of the chromosomes it touched,
+even though tens of thousands of tasks all referenced the same handful of chromosomes.
+
+**Fix:** two-layer cache.
+
+1. **Pipeline-level (preferred):** new `EXTRACT_CHROMS` process runs **once per genome**
+   in the prepare-genomes stage. For v1 `.2bit` it extracts every chromosome to its own
+   FASTA in a directory; for v0 it emits an empty directory. The
+   [PREPARE_GENOMES](subworkflows/local/prepare_genomes/main.nf) subworkflow now emits
+   a `chroms_dir` channel alongside `prepared`. The
+   [main workflow](workflows/make_lastz_chains.nf) forwards both target and query
+   `chroms_dir` to [LASTZ_ALIGNMENT](subworkflows/local/lastz_alignment/main.nf), which
+   passes them as `path` inputs to [LASTZ](modules/local/lastz/main.nf). Nextflow
+   symlinks the directories into every LASTZ task work dir — one extraction per genome
+   instead of one per task. Storage drops from O(N tasks × genome) to O(1 × genome).
+
+2. **Per-task fallback:** `extract_chrom_to_fasta` in `run_lastz.py` still falls back to
+   `./_v1_chrom_cache/` in the task work dir when the shared dir doesn't contain the
+   chromosome (e.g. legacy `make_chains.py` flow that doesn't supply the new
+   `--target_chrom_dir`/`--query_chrom_dir` args). The fallback still deduplicates within
+   a single BULK loop, so the BULK-task timeout is fixed even without the pipeline-level
+   shared cache.
 
 | File | Change |
 |------|--------|
-| `bin/run_lastz.py` | `extract_chrom_to_fasta` writes to `./_v1_chrom_cache/<basename.2bit>_<chrom>.fa` and reuses on cache hit. Eliminates redundant query-chrom extractions in BULK loops |
-| `standalone_scripts/run_lastz.py` | Same fix as `bin/run_lastz.py` |
+| `modules/local/extract_chroms/main.nf` | **New module.** Detects `.2bit` version; for v1, extracts every chromosome to `<genome_name>_chroms/<chrom>.fa` via `twoBitToFa -seq=<chrom>`; for v0, emits an empty directory (no-op) |
+| `subworkflows/local/prepare_genomes/main.nf` | Calls `EXTRACT_CHROMS` after `TWO_BIT_INFO`; adds `chroms_dir` output channel |
+| `workflows/make_lastz_chains.nf` | Forwards `target_chroms_dir` and `query_chroms_dir` from `PREPARE_GENOMES` to `LASTZ_ALIGNMENT` |
+| `subworkflows/local/lastz_alignment/main.nf` | Accepts `target_chroms_dir`/`query_chroms_dir` and passes them as `path` inputs to `LASTZ` |
+| `modules/local/lastz/main.nf` | Adds `target_chroms_dir`/`query_chroms_dir` `path` inputs; forwards them to `run_lastz_intermediate_layer.py` via `--target_chrom_dir`/`--query_chrom_dir` |
+| `bin/run_lastz_intermediate_layer.py` | Accepts `--target_chrom_dir`/`--query_chrom_dir` and forwards them to `run_lastz.py` |
+| `standalone_scripts/run_lastz_intermediate_layer.py` | Same as the `bin/` copy |
+| `bin/run_lastz.py` | `extract_chrom_to_fasta` checks the shared dir first (`<dir>/<chrom>.fa`); falls back to per-task `./_v1_chrom_cache/` extraction. Args `--target_chrom_dir`/`--query_chrom_dir` added to CLI |
+| `standalone_scripts/run_lastz.py` | Same as the `bin/` copy |
+
+### Strict error handling + LASTZ integrity check
+
+**Symptom (latent):** the previous config (`errorStrategy = 'retry'`, `maxRetries = 8`,
+`maxErrors = '-1'`) tolerated unlimited permanently-failed tasks. After a task exhausted
+its 8 retries it was simply marked FAILED and the workflow continued without its output.
+The BULK filename-too-long bug rode on this — every BULK LASTZ task failed silently and
+the run completed "successfully" with a `.all.chain.gz` ~23% smaller than upstream's,
+with no error to flag the loss.
+
+**Fix:** two layers of defence.
+
+1. **`errorStrategy` now terminates after retries.** Replaced the static
+   `errorStrategy = 'retry'` + unlimited `maxErrors` with a dynamic strategy:
+   ```groovy
+   errorStrategy = { task.attempt <= 8 ? 'retry' : 'terminate' }
+   maxRetries    = 8
+   ```
+   A task that can't recover after 8 attempts now aborts the entire workflow loudly,
+   not silently. `maxErrors` is removed (no longer needed; the dynamic strategy is
+   unambiguous).
+
+2. **Post-LASTZ integrity check** in
+   [subworkflows/local/lastz_alignment/main.nf](subworkflows/local/lastz_alignment/main.nf).
+   Before the LASTZ stage runs, the (target × query) pair list is materialised and its
+   length recorded as `expected_n`. After LASTZ, `LASTZ.out.versions` (which every
+   successful task always emits) is counted as `actual_n`. If they don't match, the
+   workflow aborts with a message like:
+   ```
+   LASTZ integrity check failed: expected 49410 alignment tasks, only 49382 produced
+   output. 28 pair(s) were lost silently. Aborting before downstream chain building
+   reads incomplete data.
+   ```
+   This is belt-and-braces — the strict `errorStrategy` should already prevent silent
+   loss, but the assertion catches anything the error strategy misses (Nextflow channel
+   bugs, processes that exit 0 without writing expected outputs, etc.).
+
+| File | Change |
+|------|--------|
+| `nextflow.config` | Replaced `errorStrategy = 'retry'`/`maxErrors = '-1'` with `errorStrategy = { task.attempt <= 8 ? 'retry' : 'terminate' }` so permanently-failed tasks abort the workflow instead of being silently dropped |
+| `subworkflows/local/lastz_alignment/main.nf` | Added post-LASTZ integrity check: counts expected pairs (target × query) vs. actual `LASTZ.out.versions` count and aborts if they differ |
 
 ### Debug affordance — `--force_long_2bit`
 
@@ -192,6 +258,7 @@ and `versions.yml` emission.
 |--------|---------|
 | `fa_to_two_bit` | `faToTwoBit` |
 | `two_bit_info` | `twoBitInfo` → chrom.sizes |
+| `extract_chroms` | `twoBitToFa` per chrom (v1 .2bit only; no-op for v0) |
 | `partition` | `bin/partition.py` |
 | `lastz` | `run_lastz_intermediate_layer.py` + `run_lastz.py` |
 | `cat_psl` | `cat` + `gzip` (strips PSL headers, compresses) |
@@ -209,7 +276,7 @@ and `versions.yml` emission.
 
 | Subworkflow | Steps |
 |-------------|-------|
-| `prepare_genomes` | FASTA→2bit (conditional) + chrom.sizes |
+| `prepare_genomes` | FASTA→2bit (conditional) + chrom.sizes + per-chrom FASTAs (v1 only) |
 | `lastz_alignment` | Partition → LASTZ (N×K via `combine`) → CAT_PSL |
 | `chain_build` | PSL_SORT_ACC → PSL_BUNDLE → AXT_CHAIN → CHAIN_MERGE_SORT |
 | `fill_clean_chains` | FILL_CHAIN_SPLIT → REPEAT_FILLER → FILL_CHAIN_MERGE → CHAIN_CLEANER → CHAIN_FILTER |

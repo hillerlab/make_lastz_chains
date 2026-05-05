@@ -47,10 +47,16 @@ workflow MAKE_LASTZ_CHAINS {
         // (target_name, target_twobit, target_chrom_sizes)
     query_prepared  = PREPARE_QUERY_GENOME.out.prepared
 
+    target_chroms_dir = PREPARE_GENOMES.out.chroms_dir
+        // (target_name, dir/) — populated for v1 .2bit, empty for v0
+    query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir
+
     // ── 2. LASTZ alignment ─────────────────────────────────────────────────
     LASTZ_ALIGNMENT (
         target_prepared,
-        query_prepared
+        query_prepared,
+        target_chroms_dir,
+        query_chroms_dir
     )
     ch_versions = ch_versions.mix(LASTZ_ALIGNMENT.out.versions)
 

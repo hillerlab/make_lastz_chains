@@ -62,6 +62,17 @@ def parse_args():
         help="If axtToPst is not in the path, use this"
         "argument to provide path to this binary, if needed",
     )
+    app.add_argument(
+        "--target_chrom_dir",
+        default=None,
+        help="Optional directory of pre-extracted <chrom>.fa files for the target genome. "
+        "Used to skip per-task v1 .2bit extraction in run_lastz.py.",
+    )
+    app.add_argument(
+        "--query_chrom_dir",
+        default=None,
+        help="Optional directory of pre-extracted <chrom>.fa files for the query genome.",
+    )
 
     if len(sys.argv) < 5:
         app.print_help()
@@ -119,6 +130,12 @@ def main():
         if args.axt_to_psl:
             lastz_cmd.append(f"--axt_to_psl")
             lastz_cmd.append(args.axt_to_psl)
+        if args.target_chrom_dir:
+            lastz_cmd.append("--target_chrom_dir")
+            lastz_cmd.append(args.target_chrom_dir)
+        if args.query_chrom_dir:
+            lastz_cmd.append("--query_chrom_dir")
+            lastz_cmd.append(args.query_chrom_dir)
         subprocess.call(lastz_cmd)
 
 

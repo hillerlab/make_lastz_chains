@@ -20,6 +20,8 @@ process LASTZ {
     path  query_twobit
     path  target_chrom_sizes
     path  query_chrom_sizes
+    path  target_chroms_dir                 // dir of pre-extracted <chrom>.fa (v1) or empty (v0)
+    path  query_chroms_dir
     val   lastz_k
     val   lastz_h
     val   lastz_l
@@ -66,7 +68,9 @@ process LASTZ {
         ${out_psl} \\
         run_lastz.py \\
         --output_format psl \\
-        --axt_to_psl ${axt_to_psl_path}
+        --axt_to_psl ${axt_to_psl_path} \\
+        --target_chrom_dir ${target_chroms_dir} \\
+        --query_chrom_dir ${query_chroms_dir}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

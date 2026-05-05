@@ -93,6 +93,18 @@ def parse_args():
         help="If axtToPst is not in the path, use this"
         "argument to provide path to this binary, if needed",
     )
+    app.add_argument(
+        "--target_chrom_dir",
+        default=None,
+        help="Optional directory of pre-extracted <chrom>.fa files for the target genome. "
+        "When set, the v1 path uses these instead of extracting per-task. "
+        "Empty / non-existent dir → fall back to per-task extraction.",
+    )
+    app.add_argument(
+        "--query_chrom_dir",
+        default=None,
+        help="Optional directory of pre-extracted <chrom>.fa files for the query genome.",
+    )
 
     if len(sys.argv) < 5:
         app.print_help()
@@ -322,26 +334,35 @@ def is_2bit_v1(path):
     return version == 1
 
 
-def extract_chrom_to_fasta(two_bit_path, chrom, tmp_dir):
-    """Extract one whole chromosome from a .2bit file to a temp FASTA.
+def extract_chrom_to_fasta(two_bit_path, chrom, tmp_dir, shared_chrom_dir=None):
+    """Return a FASTA file path containing one whole chromosome.
 
-    Used only for v1 .2bit files (lastz can't read them). Whole-chromosome
-    extraction (no -start/-end) yields a bare ">chrom" header from twoBitToFa,
-    so lastz subrange syntax on the FASTA produces the same chromosome names
+    Used only for v1 .2bit files (lastz can't read them). The FASTA has a bare
+    ">chrom" header (twoBitToFa default when no -start/-end is given), so
+    lastz subrange syntax on the FASTA produces the same chromosome names
     and absolute coordinates as native .2bit subrange.
 
-    Cached: filename is deterministic on (.2bit basename, chrom), so multiple
-    run_lastz.py invocations within the same Nextflow task share a single
-    extraction. The big win is BULK partitions in run_lastz_intermediate_layer.py:
-    the query chrom is identical across every iteration of the BULK loop, so
-    without caching it gets re-extracted up to 100 times per task.
+    Two cache layers:
 
-    Cache lives under ./_v1_chrom_cache/ in the Nextflow work directory, which
-    Nextflow cleans up with the task. The tmp_dir argument is kept for API
-    compatibility but is no longer used as the destination — anything written
-    inside `tmp_dir` gets `shutil.rmtree`'d at end of main(), which would defeat
-    the cache when run_lastz.py is invoked repeatedly within one task.
+    1. **Shared (preferred):** if `shared_chrom_dir` is set and contains
+       `<chrom>.fa`, return that path directly. The pipeline pre-extracts every
+       chromosome once per genome via the EXTRACT_CHROMS process, then symlinks
+       the directory into every LASTZ task — so all tasks share one extraction.
+
+    2. **Per-task fallback:** if no shared FASTA is available, extract to
+       `./_v1_chrom_cache/` in the current Nextflow work dir. This still
+       deduplicates within a single BULK loop (where the query chrom is
+       repeated across iterations) but not across tasks. Used when the
+       pipeline doesn't supply --target_chrom_dir / --query_chrom_dir
+       (e.g. legacy `make_chains.py` flow).
     """
+    # Fast path: shared, pre-extracted FASTA.
+    if shared_chrom_dir:
+        shared_path = os.path.join(shared_chrom_dir, f"{chrom}.fa")
+        if os.path.exists(shared_path):
+            return shared_path
+
+    # Fallback: per-task cache in the work dir.
     cache_dir = os.path.abspath("./_v1_chrom_cache")
     os.makedirs(cache_dir, exist_ok=True)
     twobit_basename = os.path.basename(two_bit_path)
@@ -381,9 +402,12 @@ def main():
     v(f"Target specs: {target_specs} | Query specs: {query_specs}")
 
     # v0 .2bit (≤4 GB): lastz reads natively via "<file>/<chrom>[start,end][multiple]".
-    # v1 .2bit (>4 GB, faToTwoBit -long): lastz can't read it, so extract the whole
-    # chromosome to a temp FASTA with a bare ">chrom" header, then keep the same
-    # subrange spec so lastz produces identical names and absolute coordinates.
+    # v1 .2bit (>4 GB, faToTwoBit -long): lastz can't read it. Use a pre-extracted
+    # per-chrom FASTA from --target_chrom_dir / --query_chrom_dir if provided
+    # (shared across tasks via EXTRACT_CHROMS) and fall back to a per-task
+    # extraction otherwise. Either way the resulting FASTA has a bare ">chrom"
+    # header, so lastz produces identical names and absolute coordinates.
+    side_chrom_dirs = {"target": args.target_chrom_dir, "query": args.query_chrom_dir}
     for label, specs in (("target", target_specs), ("query", query_specs)):
         path, chrom, start, end = specs
         if chrom is None or not path.endswith(".2bit"):
@@ -393,8 +417,10 @@ def main():
         if tmp_dir is None:
             tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
             temp_is_needed = True
-        fasta_path = extract_chrom_to_fasta(path, chrom, tmp_dir)
-        v(f"Extracted v1 {label} chrom to FASTA: {fasta_path}")
+        fasta_path = extract_chrom_to_fasta(
+            path, chrom, tmp_dir, shared_chrom_dir=side_chrom_dirs[label]
+        )
+        v(f"Resolved v1 {label} chrom to FASTA: {fasta_path}")
         new_specs = (fasta_path, chrom, start, end)
         if label == "target":
             target_specs = new_specs
