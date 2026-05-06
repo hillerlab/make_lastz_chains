@@ -234,6 +234,64 @@ nextflow run main.nf -params-file params.json --outdir results_v1 --force_long_2
 | `nextflow_schema.json` | Added schema entry so `--force_long_2bit` is a recognised CLI flag |
 | `modules/local/fa_to_two_bit/main.nf` | `need_long = params.force_long_2bit \|\| genome_fa.size() > 4 GB` — flag bypasses the size check |
 
+### Module process labels aligned with `withLabel` blocks
+
+Earlier iterations had module process labels that didn't match the `withLabel` blocks in
+`nextflow.config`, so affected jobs fell through to defaults — no container assignment and
+no memory allocation. All module labels now match their config blocks.
+
+### SLURM RPC pressure mitigations
+
+**Symptom (from a ~40k-task amphibian run):** 48 LASTZ tasks across two array jobs were
+submitted and then disappeared from SLURM (not in `squeue`, not in `sacct -S now-1hour`)
+without ever writing `.command.begin` / `.exitcode`. Nextflow's task monitor never
+reconciled them, so the head JVM kept logging the same `tasks to be completed: 48` block
+every `dumpInterval` and the run wedged with `errorStrategy='retry'` unable to fire (no
+failure was ever detected). Matches Nextflow issues
+[#5276](https://github.com/nextflow-io/nextflow/issues/5276) (NODE_FAIL ghost tasks) and
+[#2696](https://github.com/nextflow-io/nextflow/issues/2696) (slurm_load_jobs socket
+timeouts under controller pressure).
+
+**Fix:** three knobs added to the `slurm` profile `executor` block, without touching
+`queueSize` or `submitRateLimit` (so steady-state throughput is unchanged):
+
+- `pollInterval` 5 s → 30 s — internal task-monitor tick on the head JVM, no SLURM RPC;
+  lowers head-job CPU.
+- `queueStatInterval = '2 min'` (was implicit 1-min default) — halves the `squeue` poll
+  rate against `slurmctld`.
+- `exitReadTimeout = '15 min'` (default 270 s) — patience window for `.exitcode` to
+  appear after a job leaves the queue. The default is too short to outlast slow scratch-FS
+  propagation; lengthening it lets the task transition cleanly to "failed" instead of
+  stalling forever, so `errorStrategy='retry'` actually fires on ghosts.
+
+| File | Change |
+|------|--------|
+| `nextflow.config` | Added `pollInterval`, `queueStatInterval`, and `exitReadTimeout` to the `slurm` profile `executor` block |
+
+### Out-of-band watchdog — `standalone_scripts/nf_watchdog.sh`
+
+Belt-and-braces complement to the SLURM RPC mitigations: detects a wedged head job and
+forces a `-resume` restart from outside the workflow.
+
+Detection signal is content-based, not file-mtime: it `md5sum`s the most recent
+`tasks to be completed: N` block from `.nextflow.log` (which gets rewritten verbatim by
+the head JVM every `dumpInterval` while it's stuck), and treats `STALL_THRESHOLD` seconds
+(default 1800 = 30 min) of unchanged signature as a stall.
+
+On stall: `scancel` the head, then `sbatch $NF_RESUME_SBATCH` (which the user supplies —
+must invoke `nextflow run ... -resume`). Capped at `MAX_RESTARTS=5` to prevent infinite
+resubmit loops if the cluster is genuinely sick. Looks up the head job by `--job-name`
+so it survives across resubmits without tracking IDs.
+
+Designed to run on the login node (tmux/screen) or as a tiny separate SLURM job — never
+as part of the head job, since `scancel` would kill it. Configured by env: `NF_RUN_DIR`,
+`NF_RESUME_SBATCH`, `NF_MAIN_JOB_NAME`. Writes its own audit trail to
+`$NF_RUN_DIR/nf_watchdog.log`.
+
+| File | Change |
+|------|--------|
+| `standalone_scripts/nf_watchdog.sh` | New script |
+
 ---
 
 ## New Files
@@ -363,6 +421,10 @@ All tools run inside a single container built from the `Dockerfile`. The image i
 Each process in `nextflow.config` declares both `conda` and `container` directives. The active
 profile (`-profile conda` or `-profile apptainer`) determines which is used. Conda is disabled
 by default; apptainer is the intended production environment.
+
+The container image is selectable via the `NXF_CONTAINER_IMAGE` environment variable (falls
+back to the Docker Hub default if unset), so a locally-built or alternative image can be
+swapped in without editing the config.
 
 ### SLURM job arrays
 LASTZ, AXT_CHAIN, and REPEAT_FILLER use `process.array` (Nextflow ≥ 25.04.6) to submit
