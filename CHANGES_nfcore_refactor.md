@@ -419,6 +419,38 @@ All default values are preserved — only where they are defined has changed.
 
 ---
 
+## Result publication
+
+`publishDir` directives in [nextflow.config](nextflow.config) expose the per-step
+outputs under `${params.outdir}/`. Intermediates that are large but useful for
+inspection (per-pair PSLs, concat PSLs, per-bundle chains, the merged chain
+before filling, and the pre-cleaning chain) are **symlinked** rather than
+copied — they live in `work/` and `nextflow clean` will dangle the links.
+Final/durable outputs are **copied** so they survive cache cleanup.
+
+| Process | Output dir | Format |
+|---------|-----------------------------------------|---------|
+| `FA_TO_TWO_BIT` | `${params.outdir}/genome_prep/` | copy |
+| `TWO_BIT_INFO` | `${params.outdir}/genome_prep/` | copy |
+| `PARTITION` | `${params.outdir}/partition/` | copy |
+| `LASTZ` | `${params.outdir}/lastz_psl/` | symlink |
+| `CAT_PSL` | `${params.outdir}/concat_lastz_output/` | symlink |
+| `AXT_CHAIN` | `${params.outdir}/chain_run/` | symlink |
+| `CHAIN_MERGE_SORT` | `${params.outdir}/chain_merge/` | symlink |
+| `FILL_CHAIN_MERGE` | `${params.outdir}/fill_chains/` | copy |
+| `CHAIN_CLEANER` | `${params.outdir}/chain_cleaner/` | symlink |
+| `CHAIN_FILTER` | `${params.outdir}/final/` | copy |
+
+`PSL_SORT_ACC`, `PSL_BUNDLE`, `EXTRACT_CHROMS`, `FILL_CHAIN_SPLIT`, and
+`REPEAT_FILLER` are pure intermediates with `publishDir = [ enabled: false ]`;
+their outputs only live in `work/`. Use `nextflow log <run> -F "process == '<NAME>'" -f workdir`
+to locate them.
+
+The global default `params.publish_dir_mode = 'copy'` is preserved; the symlinked
+entries above hardcode `mode: 'symlink'` on the individual `withName` blocks.
+
+---
+
 ## What Was Preserved (Backward Compatibility)
 
 The following files are unchanged and the old `make_chains.py` CLI still works:

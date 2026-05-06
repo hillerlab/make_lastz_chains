@@ -22,9 +22,9 @@
 
 set -uo pipefail
 
-NF_RUN_DIR="${NF_RUN_DIR:?set NF_RUN_DIR to the Nextflow run directory}"
-NF_RESUME_SBATCH="${NF_RESUME_SBATCH:?set NF_RESUME_SBATCH to the sbatch wrapper that runs nextflow with -resume}"
-NF_MAIN_JOB_NAME="${NF_MAIN_JOB_NAME:?set NF_MAIN_JOB_NAME to the head job's --job-name}"
+export NF_RUN_DIR=/scratch/tianche5/amphibian_nf/Ascaphus_truei_Gallus_gallus_chains
+export NF_RESUME_SBATCH=/path/to/your_resume_wrapper.sbatch   # must run nextflow with -resume
+export NF_MAIN_JOB_NAME=test_v1path
 STALL_THRESHOLD="${STALL_THRESHOLD:-1800}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-300}"
 MAX_RESTARTS="${MAX_RESTARTS:-5}"
