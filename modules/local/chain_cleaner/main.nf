@@ -3,7 +3,6 @@
     CHAIN_CLEANER — Remove weak and suspicious chains using chainCleaner.
     chainCleaner requires additional Kent binaries (chainNet, NetFilterNonNested.perl)
     in PATH; these are handled by the container/conda environment.
-    Note: on macOS, chainCleaner always returns non-zero — the script accounts for this.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -38,7 +37,6 @@ process CHAIN_CLEANER {
     # Re-compress for reference output
     gzip -k before_cleaning.chain
 
-    # Run chainCleaner (may return non-zero on macOS — tolerated)
     chainCleaner \\
         before_cleaning.chain \\
         ${target_twobit} \\
@@ -48,8 +46,7 @@ process CHAIN_CLEANER {
         -linearGap=${chain_linear_gap} \\
         -tSizes=${target_chrom_sizes} \\
         -qSizes=${query_chrom_sizes} \\
-        ${clean_chain_parameters} \\
-        || true   # tolerate non-zero on macOS
+        ${clean_chain_parameters}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

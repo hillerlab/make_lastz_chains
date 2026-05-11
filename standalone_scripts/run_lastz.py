@@ -13,7 +13,9 @@ import shutil
 import string
 import random
 import json
-__author__ = "Bogdan M. Kirilenko, Nil Tianchen Mu"
+import py2bit
+
+__author__ = "Bogdan M. Kirilenko"
 
 
 BLASTZ_PREFIX = "lastz_"
@@ -92,18 +94,6 @@ def parse_args():
         default="axtToPsl",
         help="If axtToPst is not in the path, use this"
         "argument to provide path to this binary, if needed",
-    )
-    app.add_argument(
-        "--target_chrom_dir",
-        default=None,
-        help="Optional directory of pre-extracted <chrom>.fa files for the target genome. "
-        "When set, the v1 path uses these instead of extracting per-task. "
-        "Empty / non-existent dir → fall back to per-task extraction.",
-    )
-    app.add_argument(
-        "--query_chrom_dir",
-        default=None,
-        help="Optional directory of pre-extracted <chrom>.fa files for the query genome.",
     )
 
     if len(sys.argv) < 5:
@@ -187,30 +177,28 @@ def parse_file_spec(filename):
     return path_bare, seq_id, start, end
 
 
-def _seq_arg(path, chrom, start, end):
-    """Build one lastz sequence argument.
-
-    .2bit:  "<file>/<chrom>[start+1,end][multiple]"  — file/seqname is a
-            .2bit-only selector that uses the .2bit index.
-    FASTA:  "<file>[start+1,end][multiple]"          — file/seqname does NOT
-            work for FASTA (lastz reads it as a literal path and fails). Our
-            v1 path extracts a single chromosome per FASTA via extract_chrom_to_fasta,
-            so the subrange applies unambiguously to that one sequence and lastz
-            emits absolute coordinates the same way it does for .2bit subrange.
-    No subrange given (chrom is None): pass the whole file.
-
-    Subrange indices are 1-based inclusive (lastz convention), hence `start + 1`.
-    """
-    if chrom is None or start is None or end is None:
-        return f'"{path}[multiple]"'
-    if path.endswith(".2bit"):
-        return f'"{path}/{chrom}[{start + 1},{end}][multiple]"'
-    return f'"{path}[{start + 1},{end}][multiple]"'
-
-
 def build_lastz_command(t_specs, q_specs, blastz_options):
-    target_arg = _seq_arg(*t_specs)
-    query_arg  = _seq_arg(*q_specs)
+    t_path, t_chrom, t_start, t_end = t_specs
+    q_path, q_chrom, q_start, q_end = q_specs
+    """http://www.bx.psu.edu/miller_lab/dist/README.lastz-1.02.00/
+    README.lastz-1.02.00a.html#options_where
+    
+    Subrange indices begin with 1 and are inclusive
+    (i.e., they use the origin-one, closed position numbering system).
+    For example, 201..300 is a 100-bp subrange that skips the first 200 bp in the sequence.
+
+    Whatever it means.
+    """
+    if all(x is not None for x in t_specs):
+        # if specs (chrom, start and end) are specified: feed them to lastz
+        target_arg = f'"{t_path}/{t_chrom}[{t_start + 1},{t_end}][multiple]"'
+    else:  # not specified: do not add, quite simple
+        target_arg = f'"{t_path}[multiple]"'
+    if all(x is not None for x in q_specs):
+        # the same applies to query sequences
+        query_arg = f'"{q_path}/{q_chrom}[{q_start + 1},{q_end }][multiple]"'
+    else:  # no specs: get entire file
+        query_arg = f'"{q_path}[multiple]"'
     fields = ("lastz", target_arg, query_arg, blastz_options, ALLOC_ARG, FORMAT_ARG)
     return " ".join(fields)
 
@@ -285,16 +273,10 @@ def parse_seq_arg(arg, tmp_dir, v):
         path_specs_split = elem.split(":")
         path = path_specs_split[0]
         chrom = path_specs_split[1]
-        # extract the chrom sequence using twoBitToFa (supports v0 and v1/64-bit .2bit)
-        tmp_chrom_fa = os.path.join(tmp_dir, f"{_gen_random_string(8)}_chrom.fa")
-        result = subprocess.run(
-            ["twoBitToFa", f"-seq={chrom}", path, tmp_chrom_fa], stderr=PIPE
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"twoBitToFa failed: {result.stderr.decode()}")
-        with open(tmp_chrom_fa) as fh:
-            f.write(fh.read())
-        os.unlink(tmp_chrom_fa)
+        # extract the chrom sequence from 2bit
+        two_bit_conn = py2bit.open(path)
+        chrom_seq = two_bit_conn.sequence(chrom)
+        f.write(f">{chrom}\n{chrom_seq}\n")
     f.close()
     return fasta_path
 
@@ -316,65 +298,19 @@ def check_if_output_is_non_empty(lastz_output):
     return False
 
 
-def is_2bit_v1(path):
-    """Detect a v1 (64-bit) .2bit file by reading its 8-byte header.
+def extract_twobit_partition(two_bit_path, chrom, start, end, tmp_dir):
+    """Extract one partition from a .2bit file to a temp FASTA using py2bit.
 
-    Layout: 4-byte magic 0x1A412743 followed by 4-byte version field.
-    Version 0 = standard (≤4 GB total); version 1 = 64-bit, written by
-    `faToTwoBit -long` and unreadable by lastz.
+    Supports both standard v0 and 64-bit v1 .2bit files (faToTwoBit -long),
+    since lastz only understands v0. py2bit uses 0-based half-open coordinates,
+    matching the start/end values from partition strings.
     """
-    with open(path, "rb") as f:
-        header = f.read(8)
-    if header[:4] == b"\x43\x27\x41\x1A":
-        version = int.from_bytes(header[4:8], "little")
-    elif header[:4] == b"\x1A\x41\x27\x43":
-        version = int.from_bytes(header[4:8], "big")
-    else:
-        raise ValueError(f"Not a .2bit file: {path}")
-    return version == 1
-
-
-def extract_chrom_to_fasta(two_bit_path, chrom, tmp_dir, shared_chrom_dir=None):
-    """Return a FASTA file path containing one whole chromosome.
-
-    Used only for v1 .2bit files (lastz can't read them). The FASTA has a bare
-    ">chrom" header (twoBitToFa default when no -start/-end is given), so
-    lastz subrange syntax on the FASTA produces the same chromosome names
-    and absolute coordinates as native .2bit subrange.
-
-    Two cache layers:
-
-    1. **Shared (preferred):** if `shared_chrom_dir` is set and contains
-       `<chrom>.fa`, return that path directly. The pipeline pre-extracts every
-       chromosome once per genome via the EXTRACT_CHROMS process, then symlinks
-       the directory into every LASTZ task — so all tasks share one extraction.
-
-    2. **Per-task fallback:** if no shared FASTA is available, extract to
-       `./_v1_chrom_cache/` in the current Nextflow work dir. This still
-       deduplicates within a single BULK loop (where the query chrom is
-       repeated across iterations) but not across tasks. Used when the
-       pipeline doesn't supply --target_chrom_dir / --query_chrom_dir
-       (e.g. legacy `make_chains.py` flow).
-    """
-    # Fast path: shared, pre-extracted FASTA.
-    if shared_chrom_dir:
-        shared_path = os.path.join(shared_chrom_dir, f"{chrom}.fa")
-        if os.path.exists(shared_path):
-            return shared_path
-
-    # Fallback: per-task cache in the work dir.
-    cache_dir = os.path.abspath("./_v1_chrom_cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    twobit_basename = os.path.basename(two_bit_path)
-    fasta_path = os.path.join(cache_dir, f"{twobit_basename}_{chrom}.fa")
-    if os.path.exists(fasta_path):
-        return fasta_path
-    result = subprocess.run(
-        ["twoBitToFa", f"-seq={chrom}", two_bit_path, fasta_path],
-        stderr=PIPE,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"twoBitToFa failed: {result.stderr.decode()}")
+    fasta_path = os.path.join(tmp_dir, f"{_gen_random_string(8)}_partition.fa")
+    tb = py2bit.open(two_bit_path)
+    seq = tb.sequence(chrom, start, end)
+    tb.close()
+    with open(fasta_path, "w") as f:
+        f.write(f">{chrom}\n{seq}\n")
     return fasta_path
 
 
@@ -401,31 +337,23 @@ def main():
     query_specs = parse_file_spec(query_seqs)
     v(f"Target specs: {target_specs} | Query specs: {query_specs}")
 
-    # v0 .2bit (≤4 GB): lastz reads natively via "<file>/<chrom>[start,end][multiple]".
-    # v1 .2bit (>4 GB, faToTwoBit -long): lastz can't read it. Use a pre-extracted
-    # per-chrom FASTA from --target_chrom_dir / --query_chrom_dir if provided
-    # (shared across tasks via EXTRACT_CHROMS) and fall back to a per-task
-    # extraction otherwise. Either way the resulting FASTA has a bare ">chrom"
-    # header, so lastz produces identical names and absolute coordinates.
-    side_chrom_dirs = {"target": args.target_chrom_dir, "query": args.query_chrom_dir}
-    for label, specs in (("target", target_specs), ("query", query_specs)):
-        path, chrom, start, end = specs
-        if chrom is None or not path.endswith(".2bit"):
-            continue
-        if not is_2bit_v1(path):
-            continue
+    # Extract .2bit partitions to temp FASTA via py2bit so lastz never has to
+    # read .2bit files directly. This is required for 64-bit v1 .2bit files
+    # produced by faToTwoBit -long (large genomes >4 GB), which lastz cannot read.
+    if target_specs[1] is not None:
         if tmp_dir is None:
             tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
             temp_is_needed = True
-        fasta_path = extract_chrom_to_fasta(
-            path, chrom, tmp_dir, shared_chrom_dir=side_chrom_dirs[label]
-        )
-        v(f"Resolved v1 {label} chrom to FASTA: {fasta_path}")
-        new_specs = (fasta_path, chrom, start, end)
-        if label == "target":
-            target_specs = new_specs
-        else:
-            query_specs = new_specs
+        target_fasta = extract_twobit_partition(*target_specs, tmp_dir)
+        v(f"Extracted target partition to: {target_fasta}")
+        target_specs = (target_fasta, None, None, None)
+    if query_specs[1] is not None:
+        if tmp_dir is None:
+            tmp_dir = get_temp_dir(pipeline_params.get("temp_dir"))
+            temp_is_needed = True
+        query_fasta = extract_twobit_partition(*query_specs, tmp_dir)
+        v(f"Extracted query partition to: {query_fasta}")
+        query_specs = (query_fasta, None, None, None)
 
     define_if_not(pipeline_params, "lastz_h", 2000)
     blastz_options = get_blastz_params(pipeline_params)
