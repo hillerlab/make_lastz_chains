@@ -25,6 +25,19 @@
 - [ ] Run `nextflow run main.nf -profile test,apptainer` to validate end-to-end locally
 - [ ] Run `nextflow run main.nf -profile test,apptainer,slurm` on HPC to validate SLURM job array submission for LASTZ, AXT_CHAIN, REPEAT_FILLER
 - [ ] Run `nf-core lint` and fix reported issues before nf-core submission
+  - [ ] Decide scope: full `nf-core/<name>` submission vs. lint-hygiene-only (latter → use `.nf-core.yml` `lint:` skips to opt out of irrelevant checks)
+  - [ ] **Manifest** ([nextflow.config](nextflow.config) lines 27-35): rename `manifest.name` from bare `make_lastz_chains` to `<org>/<pipeline>` form (e.g. `hillerlab/make_lastz_chains`) — fails `pipeline_name_conventions`
+  - [ ] **Required top-level files**: add `.nf-core.yml`, `.editorconfig`, `.gitattributes`, `.prettierrc.yml`, `.prettierignore`, `.pre-commit-config.yaml`, `modules.json`, `CITATIONS.md`, `CODE_OF_CONDUCT.md`
+  - [ ] **Filename casing**: rename git-tracked `Changelog.md` → `CHANGELOG.md` (use `git mv` so it survives case-insensitive macOS)
+  - [ ] **`.github/` scaffolding**: `workflows/ci.yml`, `workflows/linting.yml`, `workflows/linting_comment.yml`, `workflows/branch.yml`, issue/PR templates, `CONTRIBUTING.md`
+  - [ ] **`conf/` split**: extract `base.config`, `modules.config`, `test.config`, `test_full.config` out of the unified [nextflow.config](nextflow.config)
+  - [ ] **`assets/`**: email templates, `nf-core-<pipeline>_logo_light.png`, `schema_input.json` for samplesheet
+  - [ ] **`docs/`**: `usage.md`, `output.md`, `docs/README.md`
+  - [ ] **Profiles**: add the standard set lint expects — `docker`, `singularity`, `conda`, `mamba`, `podman`, `test`, `test_full`
+  - [ ] **`params.input`**: declare in `params {}` + schema (nf-core assumes samplesheet entrypoint)
+  - [ ] **Module layout**: each [modules/local/*/main.nf](modules/local/) needs sibling `environment.yml` + `meta.yml` (currently main.nf only) — fails `modules_structure`
+  - [ ] **Legacy Python files**: decide fate of top-level legacy pipeline (`make_chains.py`, `constants.py`, `install_dependencies.py`, `version.py`, `parallelization/`, `steps_implementations/`) — lint will flag as unexpected files
+  - [ ] **Bootstrap step**: `pip install nf-core && nf-core pipelines lint` to get the authoritative report; cross-reference against an `nf-core pipelines create` throwaway dir for canonical template files
 - [ ] Test checkpoint entry workflows (`FROM_FILL_CHAINS`, `FROM_CLEAN_CHAINS`) — not covered by full-run tests
 - [ ] Validate issue #56 fix end-to-end on a genome >4 GB (confirm twoBitToFa path works in production)
 - [ ] Output parity check — diff final `.chain.gz` from old pipeline vs new on the same genome pair
