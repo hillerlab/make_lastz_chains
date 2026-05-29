@@ -9,7 +9,19 @@ also considers a maximum chromosome count per bucket.
 - bulky nextflow classes cooperation is wrapped into `execute_nextflow_step` (bulky as well,
 but a bit better) 
 
-# 2.0.9 (in progress)
+# 3.0.0 — nf-core DSL2 refactor
 
-- added executor.queueSize parameter to the NF config (default to 1000)
-- Fixed issue #56 (reader side): `run_lastz.py` now extracts `.2bit` partitions to temp FASTA via `py2bit` before calling lastz, since lastz cannot read v1 (64-bit) `.2bit` files produced by `faToTwoBit -long`; temp files written to task work directory instead of `/tmp`
+Full pipeline refactor. See [CHANGES_nfcore_refactor.md](CHANGES_nfcore_refactor.md) for detailed root-cause writeups, file-change tables, design rationale, and parameter audit.
+
+Highlights:
+
+- Pipeline logic moved from Python orchestration into native Nextflow DSL2 modules, subworkflows, and channels; old `make_chains.py` entry point preserved for backward compatibility
+- Scientific parameters separated into `params.json`; `nextflow.config` covers infrastructure (compute tiers, profiles, per-step wiring) and default param values
+- Single Docker/Apptainer container for all tools (`nilablueshirt/make_lastz_chains:latest-amd64`); image overridable via `NXF_CONTAINER_IMAGE` env var, falls back to Docker Hub
+- LASTZ, AXT_CHAIN, REPEAT_FILLER submit as SLURM job arrays (`process.array`); added `FROM_FILL_CHAINS` / `FROM_CLEAN_CHAINS` entry aliases for checkpoint restarts
+- `run_lastz.py` and `run_lastz_intermediate_layer.py` added to `bin/` for automatic Nextflow staging
+- All module process labels aligned with `nextflow.config` `withLabel` blocks (a previous mismatch caused jobs to get no container or memory allocation)
+- Bug fixes: large-genome (>4 GB) `.2bit` support (issue #56), BULK-partition silent data loss (filename too long), v1 `.2bit` lastz invocation, redundant chromosome FASTA extraction
+- Reliability: strict `errorStrategy` + post-LASTZ integrity check, SLURM RPC pressure mitigations (`pollInterval`, `queueStatInterval`, `exitReadTimeout`), `standalone_scripts/nf_watchdog.sh` to detect and recover from wedged head jobs
+- Debug affordance: `--force_long_2bit` flag to exercise the v1 path on small genomes, `standalone_scripts/compare_chains.py` to exam final output files
+- Result publication: per-step intermediates symlinked under `${params.outdir}/`; durable outputs (genome_prep, partition, fill_chains, final) copied

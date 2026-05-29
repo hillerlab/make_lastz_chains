@@ -17,9 +17,7 @@ authors = [
 ]
 dynamic = ["version"]
 
-dependencies = [
-    "py2bit",
-]
+dependencies = []
 
 [tool.setuptools]
 package-dir = {"" = "."}
