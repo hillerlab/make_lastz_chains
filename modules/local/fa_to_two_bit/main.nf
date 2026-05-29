@@ -8,8 +8,10 @@ process FA_TO_TWO_BIT {
     tag "$genome_name"
     label 'process_fast'
 
-    // TODO: conda "bioconda::ucsc-fatotwobit=377"
-    // TODO: container 'path/to/ucsc_tools.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ucsc-fatotwobit:482--hdc0a859_0' :
+        'quay.io/biocontainers/ucsc-fatotwobit:482--hdc0a859_0' }"
 
     input:
     tuple val(genome_name), path(genome_fa)

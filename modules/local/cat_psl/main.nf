@@ -10,8 +10,10 @@ process CAT_PSL {
     tag "$bucket_key"
     label 'process_fast'
 
-    // TODO: conda "conda-forge::gzip=1.12"
-    // TODO: container 'path/to/coreutils.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/coreutils:9.5' :
+        'quay.io/biocontainers/coreutils:9.5' }"
 
     input:
     tuple val(bucket_key), path(psl_files)  // psl_files is a list of .psl files

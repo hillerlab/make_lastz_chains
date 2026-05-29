@@ -8,8 +8,10 @@
 process CHAIN_MERGE_SORT {
     label 'process_medium'
 
-    // TODO: conda "bioconda::ucsc-chainmergesort=377 conda-forge::gzip=1.12"
-    // TODO: container 'path/to/ucsc_tools.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
+        'quay.io/biocontainers/ucsc_tools:332--1' }"
 
     input:
     path chain_files    // list of all .chain files from AXT_CHAIN

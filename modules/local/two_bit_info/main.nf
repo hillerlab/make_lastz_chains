@@ -8,8 +8,10 @@ process TWO_BIT_INFO {
     tag "$genome_name"
     label 'process_fast'
 
-    // TODO: conda "bioconda::ucsc-twobitinfo=377"
-    // TODO: container 'path/to/ucsc_tools.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ucsc-twobitinfo:482--hdc0a859_0' :
+        'quay.io/biocontainers/ucsc-twobitinfo:482--hdc0a859_0' }"
 
     input:
     tuple val(genome_name), path(twobit)

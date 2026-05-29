@@ -9,8 +9,10 @@ process CHAIN_FILTER {
     tag "$cleaned_chain.name"
     label 'process_fast'
 
-    // TODO: conda "bioconda::ucsc-chainfilter=377 conda-forge::gzip=1.12"
-    // TODO: container 'path/to/ucsc_tools.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
+        'quay.io/biocontainers/ucsc_tools:332--1' }"
 
     input:
     path cleaned_chain     // cleaned_intermediate.chain from CHAIN_CLEANER

@@ -10,8 +10,10 @@ process CHAIN_CLEANER {
     tag "$input_chain_gz.name"
     label 'process_medium'
 
-    // TODO: conda "bioconda::ucsc-chaincleaner bioconda::ucsc-chainnet bioconda::ucsc-chainfilter"
-    // TODO: container 'path/to/ucsc_tools.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
+        'quay.io/biocontainers/ucsc_tools:332--1' }"
 
     input:
     path input_chain_gz      // filled.chain.gz or all.chain.gz

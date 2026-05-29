@@ -254,7 +254,7 @@ workflow.onComplete {
         }
         log.info "Run time   : ${workflow.duration}"
     } else {
-        log.error "Pipeline FAILED — check logs in ${params.outdir}/pipeline_info/"
+        log.error "Pipeline FAILED — ${workflow.errorMessage}"
     }
 }
 

@@ -10,9 +10,10 @@ process LASTZ {
     tag "${target_part} vs ${query_part}"
     label 'process_fast'
 
-
-    // TODO: conda "bioconda::lastz=1.04.22 bioconda::ucsc-axttopsl=377 conda-forge::python=3.10"
-    // TODO: container 'path/to/lastz.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/lastz:1.04.52--h7b50bb2_1' :
+        'quay.io/biocontainers/lastz:1.04.52--h7b50bb2_1' }"
 
     input:
     tuple val(target_part), val(query_part)

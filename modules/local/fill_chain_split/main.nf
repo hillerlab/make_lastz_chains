@@ -9,8 +9,10 @@
 process FILL_CHAIN_SPLIT {
     label 'process_fast'
 
-    // TODO: conda "conda-forge::python=3.10 conda-forge::gzip=1.12"
-    // TODO: container 'path/to/python.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/python:3.10.2' :
+        'biocontainers/python:3.10.2' }"
 
     input:
     path merged_chain_gz   // *.all.chain.gz

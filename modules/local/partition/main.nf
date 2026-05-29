@@ -10,8 +10,10 @@ process PARTITION {
     tag "${genome_name} (${genome_label})"
     label 'process_fast'
 
-    // TODO: conda "conda-forge::python=3.10"
-    // TODO: container 'path/to/python.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/python:3.10.2' :
+        'biocontainers/python:3.10.2' }"
 
     input:
     tuple val(genome_name), path(twobit), path(chrom_sizes)

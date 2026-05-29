@@ -10,9 +10,10 @@ process REPEAT_FILLER {
     tag "$chain_chunk.name"
     label 'process_fast'
 
-
-    // TODO: conda "bioconda::lastz bioconda::ucsc-axtchain bioconda::ucsc-chainscore bioconda::ucsc-chainsort conda-forge::python=3.10"
-    // TODO: container 'path/to/repeat_filler.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        '' : 
+        'ghcr.io/hillerlab/repeat_filler:latest' }"
 
     input:
     path chain_chunk         // one infill_chain_N file
@@ -38,7 +39,7 @@ process REPEAT_FILLER {
     def unmask_arg = skip_fill_unmask ? '' : '--unmask'
     def out_chain  = "${chain_chunk.name}.filled.chain"
     """
-    chain_gap_filler.py \\
+    repeat_filler \\
         --chain ${chain_chunk} \\
         --T2bit ${target_twobit} \\
         --Q2bit ${query_twobit} \\

@@ -9,8 +9,10 @@
 process PSL_SORT_ACC {
     label 'process_medium'
 
-    // TODO: conda "bioconda::ucsc-pslsortacc=377"
-    // TODO: container 'path/to/ucsc_tools.sif'
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
+        'quay.io/biocontainers/ucsc_tools:332--1' }"
 
     input:
     path psl_gz_files   // list of all .psl.gz files from CAT_PSL
