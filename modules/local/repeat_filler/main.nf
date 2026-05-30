@@ -11,9 +11,6 @@ process REPEAT_FILLER {
     label 'process_fast'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        '' : 
-        'ghcr.io/hillerlab/repeat_filler:latest' }"
 
     input:
     path chain_chunk         // one infill_chain_N file
@@ -39,7 +36,7 @@ process REPEAT_FILLER {
     def unmask_arg = skip_fill_unmask ? '' : '--unmask'
     def out_chain  = "${chain_chunk.name}.filled.chain"
     """
-    repeat_filler \\
+    chain_gap_filler.py \\
         --chain ${chain_chunk} \\
         --T2bit ${target_twobit} \\
         --Q2bit ${query_twobit} \\
