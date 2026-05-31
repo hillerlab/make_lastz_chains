@@ -1,6 +1,6 @@
 <p align="center">
   <p align="center">
-    <img width=300 align="center" src="./assets/figures/logo.png" >
+    <img width=250 align="center" src="./assets/figures/logo.png" >
   </p>
 
   <span>
@@ -22,7 +22,7 @@
         <span> The Hiller Lab at the Senckenberg Research Institute </span>
         <br>
         <br>
-        <a href=" https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
+        <a href="https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
         <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
         <a href="https://github.com/hillerlab/make_lastz_chains/">pipeline</a> 
     </samp>
@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <img width=200 align="center" src="./assets/figures/abstract_chains.png" >
+  <img align="center" src="./assets/figures/abstract_chains.png" >
 </p>
 
 
