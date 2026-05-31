@@ -1,10 +1,15 @@
 /*
+Copyright (c) 2026 The Hiller Lab at the Senckenberg Gessellschaft für Naturforschung
+Distributed under the terms of the Apache License, Version 2.0.
+*/
+
+/*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     make_lastz_chains — main pipeline workflow (nf-core style)
 
     Steps:
     0. Validate required parameters
-    1. Prepare target and query genomes (FASTA→2bit if needed, chrom.sizes)
+    1. Prepare reference and query genomes (FASTA→2bit if needed, chrom.sizes)
     2. LASTZ alignment (partition → align → concatenate PSL files)
     3. Chain building (sort → bundle → axtChain → merge)
     4. Fill chains (optional)
@@ -12,7 +17,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { PREPARE_GENOMES                      } from '../subworkflows/local/prepare_genomes/main'
+include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from '../subworkflows/local/prepare_genomes/main'
 include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from '../subworkflows/local/prepare_genomes/main'
 include { LASTZ_ALIGNMENT    } from '../subworkflows/local/lastz_alignment/main'
 include { CHAIN_BUILD        } from '../subworkflows/local/chain_build/main'
@@ -20,57 +25,59 @@ include { FILL_CLEAN_CHAINS  } from '../subworkflows/local/fill_clean_chains/mai
 
 workflow MAKE_LASTZ_CHAINS {
     take:
-    target_name     // val
+    reference_name     // val
     query_name      // val
-    target_genome   // val: path string
+    reference_genome   // val: path string
     query_genome    // val: path string
 
     main:
     ch_versions = Channel.empty()
 
     // ── 1. Prepare genomes ─────────────────────────────────────────────────
-    PREPARE_GENOMES (
-        target_name,
-        target_genome
+    PREPARE_REFERENCE_GENOME (
+        reference_name,
+        reference_genome,
+        true
     )
     PREPARE_QUERY_GENOME (
         query_name,
-        query_genome
+        query_genome,
+        true
     )
 
     ch_versions = ch_versions.mix(
-        PREPARE_GENOMES.out.versions,
+        PREPARE_REFERENCE_GENOME.out.versions,
         PREPARE_QUERY_GENOME.out.versions
     )
 
-    target_prepared = PREPARE_GENOMES.out.prepared
-        // (target_name, target_twobit, target_chrom_sizes)
+    // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
+    reference_prepared = PREPARE_REFERENCE_GENOME.out.prepared
     query_prepared  = PREPARE_QUERY_GENOME.out.prepared
 
-    target_chroms_dir = PREPARE_GENOMES.out.chroms_dir
-        // (target_name, dir/) — populated for v1 .2bit, empty for v0
+    // INFO: (reference_name, dir/) — populated for v1 .2bit, empty for v0
+    reference_chroms_dir = PREPARE_REFERENCE_GENOME.out.chroms_dir
     query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir
 
     // ── 2. LASTZ alignment ─────────────────────────────────────────────────
     LASTZ_ALIGNMENT (
-        target_prepared,
+        reference_prepared,
         query_prepared,
-        target_chroms_dir,
+        reference_chroms_dir,
         query_chroms_dir
     )
     ch_versions = ch_versions.mix(LASTZ_ALIGNMENT.out.versions)
 
     // ── 3. Chain building ──────────────────────────────────────────────────
-    target_twobit_val     = target_prepared.map { _n, tb, _cs -> tb }.first()
+    reference_twobit_val     = reference_prepared.map { _n, tb, _cs -> tb }.first()
     query_twobit_val      = query_prepared.map  { _n, tb, _cs -> tb }.first()
-    target_chrom_sz_val   = target_prepared.map { _n, _tb, cs -> cs }.first()
+    reference_chrom_sz_val   = reference_prepared.map { _n, _tb, cs -> cs }.first()
 
     CHAIN_BUILD (
         LASTZ_ALIGNMENT.out.psl_gz,
-        target_twobit_val,
+        reference_twobit_val,
         query_twobit_val,
-        target_chrom_sz_val,
-        target_name,
+        reference_chrom_sz_val,
+        reference_name,
         query_name
     )
     ch_versions = ch_versions.mix(CHAIN_BUILD.out.versions)
@@ -80,11 +87,11 @@ workflow MAKE_LASTZ_CHAINS {
 
     FILL_CLEAN_CHAINS (
         CHAIN_BUILD.out.merged_chain,
-        target_twobit_val,
+        reference_twobit_val,
         query_twobit_val,
-        target_chrom_sz_val,
+        reference_chrom_sz_val,
         query_chrom_sz_val,
-        target_name,
+        reference_name,
         query_name
     )
     ch_versions = ch_versions.mix(FILL_CLEAN_CHAINS.out.versions)

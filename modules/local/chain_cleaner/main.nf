@@ -12,11 +12,11 @@ process CHAIN_CLEANER {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
-        'quay.io/biocontainers/ucsc_tools:332--1' }"
+        'https://depot.galaxyproject.org/singularity/ucsc-chaincleaner:455--h1536b3f_1' :
+        'ghcr.io/hillerlab/chaincleaner:latest' }"
 
     input:
-    path input_chain_gz      // filled.chain.gz or all.chain.gz
+    tuple val(meta), path(input_chain_gz) // filled.chain.gz or all.chain.gz
     path target_twobit
     path query_twobit
     path target_chrom_sizes
@@ -25,22 +25,17 @@ process CHAIN_CLEANER {
     val  clean_chain_parameters
 
     output:
-    path "before_cleaning.chain.gz",   emit: before_clean   // kept for reference
-    path "cleaned_intermediate.chain", emit: cleaned_chain
-    path "removed_suspects.bed",       emit: suspects_bed
+    tuple val(meta), path("cleaned_intermediate.chain"), emit: cleaned_chain
+    tuple val(meta), path("removed_suspects.bed"),       emit: suspects_bed
     path "versions.yml",               emit: versions
 
     script:
     def clean_args = clean_chain_parameters.split()
+
+    meta.id = input_chain_gz.baseName + '.cleaned'
     """
-    # Decompress input chain
-    gunzip -c ${input_chain_gz} > before_cleaning.chain
-
-    # Re-compress for reference output
-    gzip -k before_cleaning.chain
-
     chainCleaner \\
-        before_cleaning.chain \\
+        ${input_chain_gz} \\
         ${target_twobit} \\
         ${query_twobit} \\
         cleaned_intermediate.chain \\

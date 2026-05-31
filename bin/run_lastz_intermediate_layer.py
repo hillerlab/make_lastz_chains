@@ -59,7 +59,7 @@ def parse_args():
     app.add_argument(
         "--axt_to_psl",
         default="axtToPsl",
-        help="If axtToPst is not in the path, use this"
+        help="If axtToPsl is not in the path, use this"
         "argument to provide path to this binary, if needed",
     )
     app.add_argument(

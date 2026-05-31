@@ -1,11 +1,17 @@
 #!/usr/bin/env nextflow
+
+/*
+Copyright (c) 2026 The Hiller Lab at the Senckenberg Gessellschaft für Naturforschung
+Distributed under the terms of the Apache License, Version 2.0.
+*/
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     make_lastz_chains
     nf-core style entry point
 
     Pipeline to create chain-formatted pairwise genome alignments.
-    Authors: Bogdan M. Kirilenko, Michael Hiller, Virag Sharma, Ekaterina Osipova
+    Authors: Bogdan M. Kirilenko, Alejandro Gonzales-Irribarren, Nil Mu, Virag Sharma, Ekaterina Osipova, Michael Hiller
     GitHub:  https://github.com/hillerlab/make_lastz_chains
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
@@ -23,12 +29,14 @@ if (params.help) {
     make_lastz_chains v${workflow.manifest.version}
     Pipeline to create chain-formatted pairwise genome alignments.
 
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
 
     Usage (full run):
         nextflow run main.nf \\
-            --target_name   hg38 \\
-            --query_name    mm39 \\
-            --target_genome /path/to/hg38.fa \\
+            --reference_name  hg38 \\
+            --query_name  mm39 \\
+            --reference_genome /path/to/hg38.fa \\
             --query_genome  /path/to/mm39.fa \\
             --outdir        results/ \\
             -profile        apptainer,slurm
@@ -37,32 +45,25 @@ if (params.help) {
         -entry FROM_FILL_CHAINS   Start from *.all.chain.gz  (skips LASTZ + chain building)
         -entry FROM_CLEAN_CHAINS  Start from *.filled.chain.gz (skips fill step)
 
-        Required extra params for FROM_FILL_CHAINS:
-            --merged_chain        PATH  Path to *.all.chain.gz
-            --target_twobit       PATH  Path to target .2bit
-            --query_twobit        PATH  Path to query .2bit
-            --target_chrom_sizes  PATH  Path to target chrom.sizes
-            --query_chrom_sizes   PATH  Path to query chrom.sizes
+        Required extra params for FROM_FILL_CHAINS (--from fill_chains):
+            --merged_chain           PATH  Path to *.all.chain.gz
 
-        Required extra params for FROM_CLEAN_CHAINS:
-            --filled_chain        PATH  Path to *.filled.chain.gz
-            --target_twobit       PATH  (same as above)
-            --query_twobit        PATH
-            --target_chrom_sizes  PATH
-            --query_chrom_sizes   PATH
+        Required extra params for FROM_CLEAN_CHAINS (--from clean_chains):
+            --filled_chain           PATH  Path to *.filled.chain.gz
+
 
     Pass all parameters from a JSON file (replaces old --params_from_file):
         nextflow run main.nf -params-file my_params.json
 
-    Required parameters (full run):
-        --target_name     STRING  Target genome identifier (e.g. hg38)
-        --query_name      STRING  Query genome identifier (e.g. mm39)
-        --target_genome   PATH    Target genome file (FASTA or .2bit)
-        --query_genome    PATH    Query genome file (FASTA or .2bit)
+    Required parameters (full run + fill/clean):
+        --reference_name     STRING  Reference genome identifier (e.g. hg38)
+        --query_name         STRING  Query genome identifier (e.g. mm39)
+        --reference_genome   PATH    Reference genome file (FASTA or .2bit)
+        --query_genome       PATH    Query genome file (FASTA or .2bit)
 
     Optional parameters (common):
         --outdir              PATH    Output directory [default: ./results]
-        --seq1_chunk          INT     Target chunk size in bp [default: 175000000]
+        --seq1_chunk          INT     reference chunk size in bp [default: 175000000]
         --seq2_chunk          INT     Query chunk size in bp  [default: 50000000]
         --lastz_y             INT     LASTZ gap extension penalty [default: 9400]
         --lastz_h             INT     LASTZ seed hit count [default: 2000]
@@ -93,10 +94,12 @@ if (params.help) {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { MAKE_LASTZ_CHAINS } from './workflows/make_lastz_chains'
+include { MAKE_LASTZ_CHAINS as CHAINS } from './workflows/make_lastz_chains'
 include { FILL_CLEAN_CHAINS } from './subworkflows/local/fill_clean_chains/main'
 include { CHAIN_CLEANER     } from './modules/local/chain_cleaner/main'
-include { CHAIN_FILTER      } from './modules/local/chain_filter/main'
+include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from './modules/local/chaintools/filter/main'
+include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from './subworkflows/local/prepare_genomes/main'
+include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from './subworkflows/local/prepare_genomes/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -106,9 +109,9 @@ include { CHAIN_FILTER      } from './modules/local/chain_filter/main'
 
 def validateFullRun() {
     def errors = []
-    if (!params.target_name)   errors << "  --target_name is required"
+    if (!params.reference_name)   errors << "  --reference_name is required"
     if (!params.query_name)    errors << "  --query_name is required"
-    if (!params.target_genome) errors << "  --target_genome is required"
+    if (!params.reference_genome) errors << "  --reference_genome is required"
     if (!params.query_genome)  errors << "  --query_genome is required"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
@@ -121,12 +124,10 @@ def validateFullRun() {
 def validateAliasBase() {
     // Shared required params for all entry alias workflows
     def errors = []
-    if (!params.target_name)        errors << "  --target_name is required"
+    if (!params.reference_name)        errors << "  --reference_name is required"
     if (!params.query_name)         errors << "  --query_name is required"
-    if (!params.target_twobit)      errors << "  --target_twobit is required (path to target .2bit)"
-    if (!params.query_twobit)       errors << "  --query_twobit is required (path to query .2bit)"
-    if (!params.target_chrom_sizes) errors << "  --target_chrom_sizes is required"
-    if (!params.query_chrom_sizes)  errors << "  --query_chrom_sizes is required"
+    if (!params.reference_genome)      errors << "  --reference_twobit is required (path to reference .2bit)"
+    if (!params.query_genome)       errors << "  --query_twobit is required (path to query .2bit)"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     return errors
@@ -134,7 +135,7 @@ def validateAliasBase() {
 
 def validateFromFillChains() {
     def errors = validateAliasBase()
-    if (!params.merged_chain) errors << "  --merged_chain is required (path to *.all.chain.gz)"
+    if (!params.merged_chain_path) errors << "  --merged_chain is required (path to *.all.chain.gz)"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
         System.exit(1)
@@ -143,11 +144,37 @@ def validateFromFillChains() {
 
 def validateFromCleanChains() {
     def errors = validateAliasBase()
-    if (!params.filled_chain) errors << "  --filled_chain is required (path to *.filled.chain.gz)"
+    if (!params.filled_chain_path) errors << "  --filled_chain is required (path to *.filled.chain.gz)"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
         System.exit(1)
     }
+}
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    RUN MAIN WORKFLOW
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+workflow MAKE_LASTZ_CHAINS {
+    if (params.from == "fill_chains") {
+        // ── Checkpoint: start from merged chain (skip LASTZ + chain building) ──────
+        log.info "Resuming from ${params.from} checkpoint — skipping LASTZ + chain building"
+        FROM_FILL_CHAINS()
+    } else if (params.from == "clean_chains") {
+        // ── Checkpoint: start from filled chain (skip LASTZ + chain build + fill) ──
+        log.info "Resuming from ${params.from} checkpoint — skipping LASTZ + fill step"
+        FROM_CLEAN_CHAINS()
+    } else {
+        // ── Default: full pipeline ─────────────────────────────────────────────────
+        log.info "Starting full pipeline — skipping checkpoints"
+        FULL_RUN()
+    }
+}
+
+workflow {
+    MAKE_LASTZ_CHAINS()
 }
 
 /*
@@ -157,12 +184,16 @@ def validateFromCleanChains() {
 */
 
 // ── Default: full pipeline ─────────────────────────────────────────────────
-workflow {
+workflow FULL_RUN {
     validateFullRun()
 
     log.info """
     make_lastz_chains v${workflow.manifest.version}
-      Target : ${params.target_name}  (${params.target_genome})
+  
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
+
+      Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.query_name}   (${params.query_genome})
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
@@ -170,10 +201,10 @@ workflow {
       Profile: ${workflow.profile}
     """.stripIndent()
 
-    MAKE_LASTZ_CHAINS(
-        params.target_name,
+    CHAINS(
+        params.reference_name,
         params.query_name,
-        params.target_genome,
+        params.reference_genome,
         params.query_genome
     )
 }
@@ -185,22 +216,51 @@ workflow FROM_FILL_CHAINS {
 
     log.info """
     make_lastz_chains v${workflow.manifest.version} — FROM_FILL_CHAINS
-      Target : ${params.target_name}
+
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
+
+      Reference : ${params.reference_name}
       Query  : ${params.query_name}
-      Input  : ${params.merged_chain}
+      Input  : ${params.merged_chain_path}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
       Profile: ${workflow.profile}
     """.stripIndent()
 
+    // ── 1. Prepare genomes ─────────────────────────────────────────────────
+    PREPARE_REFERENCE_GENOME (
+        params.reference_name,
+        params.reference_genome,
+        false
+    )
+    PREPARE_QUERY_GENOME (
+        params.query_name,
+        params.query_genome,
+        false
+    )
+
+    // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
+    reference_prepared    = PREPARE_REFERENCE_GENOME.out.prepared
+    reference_twobit      = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
+
+    query_prepared    = PREPARE_QUERY_GENOME.out.prepared
+    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
+    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+
+    Channel.fromPath(params.merged_chain_path)
+        .map { chain -> [ [ id: params.reference_name + '.' + params.query_name ], chain ] }
+        .set { ch_merged_chain }
+
     FILL_CLEAN_CHAINS(
-        file(params.merged_chain),
-        file(params.target_twobit),
-        file(params.query_twobit),
-        file(params.target_chrom_sizes),
-        file(params.query_chrom_sizes),
-        params.target_name,
+        ch_merged_chain,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        query_chrom_sizes,
+        params.reference_name,
         params.query_name
     )
 }
@@ -212,28 +272,55 @@ workflow FROM_CLEAN_CHAINS {
 
     log.info """
     make_lastz_chains v${workflow.manifest.version} — FROM_CLEAN_CHAINS
-      Target : ${params.target_name}
+
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
+
+      Reference : ${params.reference_name}
       Query  : ${params.query_name}
-      Input  : ${params.filled_chain}
+      Input  : ${params.filled_chain_path}
       Outdir : ${params.outdir}
       Profile: ${workflow.profile}
     """.stripIndent()
 
+    // ── 1. Prepare genomes ─────────────────────────────────────────────────
+    PREPARE_REFERENCE_GENOME (
+        params.reference_name,
+        params.reference_genome,
+        false
+    )
+    PREPARE_QUERY_GENOME (
+        params.query_name,
+        params.query_genome,
+        false
+    )
+
+    // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
+    reference_prepared = PREPARE_REFERENCE_GENOME.out.prepared
+    reference_twobit      = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
+
+    query_prepared  = PREPARE_QUERY_GENOME.out.prepared
+    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
+    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+
+    Channel.fromPath(params.filled_chain_path)
+        .map { chain -> [ [ id: params.reference_name + '.' + params.query_name ], chain ] }
+        .set { ch_filled_chain }
+
     CHAIN_CLEANER(
-        file(params.filled_chain),
-        file(params.target_twobit),
-        file(params.query_twobit),
-        file(params.target_chrom_sizes),
-        file(params.query_chrom_sizes),
+        ch_filled_chain,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        query_chrom_sizes,
         params.chain_linear_gap,
         params.clean_chain_parameters
     )
 
-    CHAIN_FILTER(
+    CHAINTOOLS_FILTER_CLEANED_CHAINS(
         CHAIN_CLEANER.out.cleaned_chain,
         params.min_chain_score,
-        params.target_name,
-        params.query_name
     )
 }
 
@@ -245,7 +332,7 @@ workflow FROM_CLEAN_CHAINS {
 
 workflow.onComplete {
     if (workflow.success) {
-        def final_chain = file("${params.outdir}/final/${params.target_name}.${params.query_name}.final.chain.gz")
+        def final_chain = file("${params.outdir}/07_final/${params.reference_name}.${params.query_name}.allfilled.chain.gz")
         log.info "Pipeline completed successfully!"
         if (final_chain.exists()) {
             log.info "Final chain: ${final_chain}"

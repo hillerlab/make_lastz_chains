@@ -1,0 +1,129 @@
+flowchart TD
+  START["main.nf: MAKE_LASTZ_CHAINS"] --> MODE{"params.from?"}
+
+  MODE -- "unset / full run" --> FULL_VALIDATE["validateFullRun: require reference_name, query_name, reference_genome, query_genome"]
+  MODE -- "fill_chains" --> FILL_VALIDATE["validateFromFillChains: require merged_chain_path + genomes"]
+  MODE -- "clean_chains" --> CLEAN_VALIDATE["validateFromCleanChains: require filled_chain_path + genomes"]
+
+  %% -------------------------
+  %% Shared genome prep logic
+  %% -------------------------
+  subgraph PREP_LOGIC["PREPARE_GENOMES(name, genome_path, extract_chroms)"]
+    GP_IN["Input genome: FASTA or .2bit"] --> CHROMSIZE["CHROMSIZE: chromsize -s genome → name.chrom.sizes"]
+    GP_IN --> IS2BIT{"genome_path endsWith .2bit?"}
+    IS2BIT -- "yes" --> STAGE2BIT["Stage existing .2bit"]
+    IS2BIT -- "no" --> FA2BIT["FA_TO_TWO_BIT: faToTwoBit; uses -long if forced or FASTA > 4 GB"]
+    STAGE2BIT --> JOIN_PREP["Join .2bit + chrom.sizes by genome_name"]
+    FA2BIT --> JOIN_PREP
+    CHROMSIZE --> JOIN_PREP
+
+    JOIN_PREP --> PREPARED["Emit prepared = (name, twobit, chrom.sizes)"]
+    JOIN_PREP --> EXTRACT_GATE{"extract_chroms?"}
+    EXTRACT_GATE -- "true" --> EXTRACT["EXTRACT_CHROMS: inspect .2bit version; v1 → twoBitToFa per chromosome; v0 → empty sentinel dir"]
+    EXTRACT_GATE -- "false" --> NOEXTRACT["No chromosome FASTA extraction"]
+    EXTRACT --> CHROMS_DIR["Emit chroms_dir = (name, dir/)"]
+    NOEXTRACT --> CHROMS_DIR
+  end
+
+  %% -------------------------
+  %% Full run
+  %% -------------------------
+  FULL_VALIDATE --> PREP_REF["PREPARE_REFERENCE_GENOME(reference_name, reference_genome, extract_chroms=true)"]
+  FULL_VALIDATE --> PREP_QUERY["PREPARE_QUERY_GENOME(query_name, query_genome, extract_chroms=true)"]
+
+  PREP_REF --> REF_PREP["reference_prepared: reference_name, reference_twobit, reference_chrom_sizes"]
+  PREP_REF --> REF_CHROMS["reference_chroms_dir"]
+  PREP_QUERY --> QUERY_PREP["query_prepared: query_name, query_twobit, query_chrom_sizes"]
+  PREP_QUERY --> QUERY_CHROMS["query_chroms_dir"]
+
+  REF_PREP --> PART_REF["PARTITION_TARGET: partition reference as genome_label='target' using seq1_chunk, seq1_lap"]
+  QUERY_PREP --> PART_QUERY["PARTITION_QUERY: partition query using seq2_chunk, seq2_lap"]
+
+  PART_REF --> REF_PARTS["splitText target_partitions.txt → target_parts_ch"]
+  PART_QUERY --> QUERY_PARTS["splitText query_partitions.txt → query_parts_ch"]
+
+  REF_PARTS --> CROSS["combine target_parts_ch × query_parts_ch"]
+  QUERY_PARTS --> CROSS
+  CROSS --> PAIRS_LIST["collect pair list"]
+  PAIRS_LIST --> EXPECTED_N["expected_n = number of target-query partition pairs"]
+  PAIRS_LIST --> PAIRS_CH["flatMap pair list → one pair per LASTZ task"]
+
+  PAIRS_CH --> LASTZ["LASTZ: run_lastz_intermediate_layer.py for each target_part × query_part; outputs *.psl"]
+  REF_PREP --> LASTZ
+  QUERY_PREP --> LASTZ
+  REF_CHROMS --> LASTZ
+  QUERY_CHROMS --> LASTZ
+
+  LASTZ --> ACTUAL_N["actual_n = count LASTZ versions.yml"]
+  EXPECTED_N --> LASTZ_CHECK["Integrity check: expected_n must equal actual_n"]
+  ACTUAL_N --> LASTZ_CHECK
+
+  LASTZ --> BUCKET["Bucket PSLs by reference/target partition key"]
+  BUCKET --> CAT_PSL["CAT_PSL: concatenate PSLs per bucket, strip # headers, gzip"]
+  CAT_PSL --> PSL_GZ["Bucketed *.psl.gz"]
+
+  PSL_GZ --> PSL_SORT["PSL_SORT_ACC: pslSortAcc nohead; sort all PSLs by target/reference chromosome"]
+  PSL_SORT --> PSL_BUNDLE["PSL_BUNDLE: group sorted PSLs into bundle.N.psl by chromosome/base count"]
+  REF_PREP --> PSL_BUNDLE
+
+  PSL_BUNDLE --> AXT_CHAIN["AXT_CHAIN: axtChain -psl with min_chain_score, chain_linear_gap, optional lastz_q"]
+  REF_PREP --> AXT_CHAIN
+  QUERY_PREP --> AXT_CHAIN
+
+  AXT_CHAIN --> ANTIREPEAT["CHAINTOOLS_ANTIREPEAT: chaintools antirepeat on each bundle chain"]
+  REF_PREP --> ANTIREPEAT
+  QUERY_PREP --> ANTIREPEAT
+
+  ANTIREPEAT --> MERGE_CHAIN["CHAINTOOLS_MERGE: merge clean bundle chains, sort by id, gzip"]
+  MERGE_CHAIN --> ALL_CHAIN["merged_chain: *.all.chain.gz"]
+
+  ALL_CHAIN --> SKIP_FILL{"params.skip_fill_chains?"}
+  SKIP_FILL -- "false / default" --> SPLIT_FILL["CHAINTOOLS_SPLIT: split merged chain into num_fill_jobs chunks"]
+  SPLIT_FILL --> FILL_CHUNKS["Flatten split chain chunks"]
+  FILL_CHUNKS --> REPEAT_FILLER["REPEAT_FILLER: repeat_filler gap filling per chunk"]
+  REF_PREP --> REPEAT_FILLER
+  QUERY_PREP --> REPEAT_FILLER
+
+  REPEAT_FILLER --> SCORE["CHAINTOOLS_SCORE: chaintools score; sort by score"]
+  REF_PREP --> SCORE
+  QUERY_PREP --> SCORE
+
+  SCORE --> MERGE_FILLED["CHAINTOOLS_MERGE_FILLED_CHAINS: merge scored filled chunks"]
+  MERGE_FILLED --> CHAIN_FOR_CLEAN["chain_for_clean = filled merged chain"]
+
+  SKIP_FILL -- "true" --> CHAIN_FOR_CLEAN
+
+  CHAIN_FOR_CLEAN --> SKIP_CLEAN{"params.skip_clean_chain?"}
+  SKIP_CLEAN -- "false / default" --> CLEANER["CHAIN_CLEANER: chainCleaner with tSizes, qSizes, linearGap, clean_chain_parameters"]
+  REF_PREP --> CLEANER
+  QUERY_PREP --> CLEANER
+
+  CLEANER --> FILTER["CHAINTOOLS_FILTER: filter by min_chain_score and gzip"]
+  FILTER --> FINAL["Emit final_chain"]
+
+  SKIP_CLEAN -- "true" --> FINAL
+
+  %% -------------------------
+  %% Checkpoint from merged chain
+  %% -------------------------
+  FILL_VALIDATE --> CP_FILL_PREP_REF["PREPARE_REFERENCE_GENOME(..., extract_chroms=false)"]
+  FILL_VALIDATE --> CP_FILL_PREP_QUERY["PREPARE_QUERY_GENOME(..., extract_chroms=false)"]
+  FILL_VALIDATE --> EXISTING_ALL["Channel.fromPath(params.merged_chain_path): existing *.all.chain.gz"]
+  EXISTING_ALL --> CP_FILL_META["Attach meta id = reference.query"]
+  CP_FILL_PREP_REF --> CP_FILL_CLEAN["FILL_CLEAN_CHAINS from existing merged chain"]
+  CP_FILL_PREP_QUERY --> CP_FILL_CLEAN
+  CP_FILL_META --> CP_FILL_CLEAN
+  CP_FILL_CLEAN -. "reuses skip_fill / skip_clean branches above" .-> SKIP_FILL
+
+  %% -------------------------
+  %% Checkpoint from filled chain
+  %% -------------------------
+  CLEAN_VALIDATE --> CP_CLEAN_PREP_REF["PREPARE_REFERENCE_GENOME(..., extract_chroms=false)"]
+  CLEAN_VALIDATE --> CP_CLEAN_PREP_QUERY["PREPARE_QUERY_GENOME(..., extract_chroms=false)"]
+  CLEAN_VALIDATE --> EXISTING_FILLED["Channel.fromPath(params.filled_chain_path): existing *.filled.chain.gz"]
+  EXISTING_FILLED --> CP_CLEAN_META["Attach meta id = reference.query"]
+  CP_CLEAN_PREP_REF --> CP_CLEANER["CHAIN_CLEANER directly on filled chain"]
+  CP_CLEAN_PREP_QUERY --> CP_CLEANER
+  CP_CLEAN_META --> CP_CLEANER
+  CP_CLEANER --> CP_FILTER["CHAINTOOLS_FILTER_CLEANED_CHAINS"]
+  CP_FILTER --> FINAL

@@ -1,0 +1,7 @@
+name: chromsize
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - chromsize=0.0.34

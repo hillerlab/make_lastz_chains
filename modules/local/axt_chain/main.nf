@@ -12,8 +12,8 @@ process AXT_CHAIN {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
-        'quay.io/biocontainers/ucsc_tools:332--1' }"
+        'https://depot.galaxyproject.org/singularity/ucsc-axtchain:482--h0b57e2e_2' :
+        'quay.io/biocontainers/ucsc-axtchain:482--h0b57e2e_2' }"
 
     input:
     path bundle_psl          // one bundle.N.psl file
@@ -40,11 +40,6 @@ process AXT_CHAIN {
         ${bundle_psl} \\
         ${target_twobit} \\
         ${query_twobit} \\
-        stdout \\
-    | chainAntiRepeat \\
-        ${target_twobit} \\
-        ${query_twobit} \\
-        stdin \\
         ${out_chain}
 
     cat <<-END_VERSIONS > versions.yml
