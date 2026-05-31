@@ -1,65 +1,58 @@
-# Make Lastz Chains
+<p align="center">
+  <p align="center">
+    <img width=300 align="center" src="./assets/figures/logo.png" >
+  </p>
 
-[![made-with-Nextflow](https://img.shields.io/badge/Made%20with-Nextflow-23aa62.svg)](https://www.nextflow.io/)
+  <span>
+    <h1 align="center">
+        make_lastz_chains
+    </h1>
+  </span>
 
-Pairwise genome alignment chains. Inputs to [TOGA](https://github.com/hillerlab/TOGA) and multiz.
+  <p align="center">
+    <a href="https://github.com/hillerlab/make_lastz_chains" reference="_blank">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/hillerlab/containers?color=blue">
+    </a>
+  </p>
 
-![Abstract Chains](readme_images/abstract_chains.png)
+  <p align="center">
+    <samp>
+        <span> portable solution for generating pairwise genome alignment chains  </span>
+        <br>
+        <span> The Hiller Lab at the Senckenberg Research Institute </span>
+        <br>
+        <br>
+        <a href=" https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
+        <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
+        <a href="https://github.com/hillerlab/make_lastz_chains/">pipeline</a> 
+    </samp>
+  </p>
 
-- Chain format: https://genome.ucsc.edu/goldenPath/help/chain.html
-- Chains overview: http://genomewiki.ucsc.edu/index.php/Chains_Nets
+</p>
 
----
+<p align="center">
+  <img width=200 align="center" src="./assets/figures/abstract_chains.png" >
+</p>
 
-## Before you run
 
-- **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes.
-- **Scaffold names**: no spaces; avoid dots (rename `NC_00000.1` → `NC_00000`). Restore originals with `standalone_scripts/rename_chromosomes_back.py`.
-- Inputs accepted: `.fasta` or `.2bit`.
-
----
-
-## 1. Original Python pipeline (`make_chains.py`)
-
-<details>
-<summary>Click to expand</summary>
-
-```bash
-git clone https://github.com/hillerlab/make_lastz_chains.git
-cd make_lastz_chains
-mamba env create -f environment.yml
-mamba activate make_lastz_chains
-
-python make_chains.py \
-    --project_dir    /path/to/output \
-    --target_genome  /path/to/target.fa \
-    --query_genome   /path/to/query.fa \
-    --target_name    hg38 \
-    --query_name     mm39
-```
-
-Or pass all parameters from a file:
-```bash
-python make_chains.py --params_from_file my_params.yaml
-```
-
-</details>
+> [!IMPORTANT]
+> - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes.
+> - **Scaffold names**: no spaces; avoid dots (rename `NC_00000.1` → `NC_00000`)
+> - Inputs accepted: `.fasta` or `.2bit`.
 
 ---
 
-## 2. nf-core pipeline — local (Docker / Apptainer)
+## Usage
 
-<details>
-<summary>Click to expand</summary>
-
-Requirements: Nextflow ≥ 25.04.6, Docker or Apptainer, Java.
+> [!NOTE]
+> Requirements: Nextflow ≥ 25.04.6, Docker or Apptainer, Java.
 
 ```bash
 git clone https://github.com/hillerlab/make_lastz_chains.git
 cd make_lastz_chains
 ```
 
-Edit `params.json` (set `target_name`, `query_name`, `target_genome`, `query_genome`), then:
+Edit `params.json` (set `reference_name`, `query_name`, `reference_genome`, `query_genome`), then:
 
 ```bash
 # Docker
@@ -69,39 +62,35 @@ nextflow run main.nf -params-file params.json -profile docker
 nextflow run main.nf -params-file params.json -profile apptainer
 ```
 
-Build the image locally (optional):
-```bash
-docker buildx build --platform linux/amd64 -t nilablueshirt/make_lastz_chains:latest-amd64 .
-```
-
-Use a pre-built Apptainer SIF (optional):
-```bash
-apptainer build make_lastz_chains.sif docker://nilablueshirt/make_lastz_chains:latest-amd64
-export NXF_CONTAINER_IMAGE=/path/to/make_lastz_chains.sif
-```
-
 Smoke test:
 ```bash
 nextflow run main.nf -profile test,apptainer
 ```
 
-</details>
+Resume runs from checkpoints [fill_chains, clean_chains]:
+```bash
 
----
+# Restart after alignment but before filling chains [ 04_axtchain/merged_chains ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from fill_chains \
+    --merged_chain_path  results/04_axtchain/merged_chains/<CHAIN> 
 
-## 3. nf-core pipeline — HPC (SLURM)
+# Restart afterf filling chains but before cleaning them [ 05_filled_chains ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from clean_chains \
+    --filled_chain_path  results/fill_chains/hg38.mm39.filled.chain.gz 
+```
+
+> [!NOTE]
+> You can also specify these options directly in `params.json`.
+
+A helper sh script is provided to run the pipeline on a SLURM cluster. See details below.
 
 <details>
 <summary>Click to expand</summary>
 
-Requirements: Nextflow ≥ 25.04.6, Apptainer, Java, SLURM cluster.
 
-```bash
-git clone https://github.com/hillerlab/make_lastz_chains.git
-cd make_lastz_chains
-```
-
-Edit the path variables at the top of `run_nf_slurm_example.sh` (cache dir, container image, manifest path), then submit:
+Edit the path variables at the top of `assets/scripts/run_nf_slurm_example.sh` (cache dir, container image, manifest path), then submit:
 
 ```bash
 sbatch --array=1-<N> run_nf_slurm_example.sh
@@ -115,44 +104,20 @@ LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, 
 
 ---
 
-## Checkpoint resumes
-
-```bash
-# Resume from failure
-nextflow run main.nf -params-file params.json -profile apptainer -resume
-
-# Restart from *.all.chain.gz
-nextflow run main.nf -entry FROM_FILL_CHAINS -params-file params.json \
-    --merged_chain       results/chain_merge/hg38.mm39.all.chain.gz \
-    --target_twobit      results/genome_prep/target.2bit \
-    --query_twobit       results/genome_prep/query.2bit \
-    --target_chrom_sizes results/genome_prep/target.chrom.sizes \
-    --query_chrom_sizes  results/genome_prep/query.chrom.sizes \
-    -profile apptainer
-
-# Restart from *.filled.chain.gz
-nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
-    --filled_chain       results/fill_chains/hg38.mm39.filled.chain.gz \
-    --target_twobit      results/genome_prep/target.2bit \
-    --query_twobit       results/genome_prep/query.2bit \
-    --target_chrom_sizes results/genome_prep/target.chrom.sizes \
-    --query_chrom_sizes  results/genome_prep/query.chrom.sizes \
-    -profile apptainer
-```
-
-For SLURM, add `,slurm` to the `-profile` flag.
-
----
-
 ## Output
 
 ```
 results/
-├── genome_prep/      target.2bit, query.2bit, *.chrom.sizes
-├── partition/        *_partitions.txt
-├── chain_merge/      *.all.chain.gz        ← checkpoint for FROM_FILL_CHAINS
-├── fill_chains/      *.filled.chain.gz     ← checkpoint for FROM_CLEAN_CHAINS
-├── final/            *.final.chain.gz      ← final output
+├── 00_genome_prep/      reference.2bit, query.2bit, *.chrom.sizes
+├── 01_partition/        *_partitions.txt
+├── 02_lastz_psl/        *.psl 
+├── 03_concat_lastz_output/    *.psl.gz 
+├── 04_axtchain/         *.chain
+├─── • chain_antirepeat/ *.chain.gz
+├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains
+├── 05_filled_chains/    *.filled.chain.gz  ← checkpoint for --from clean_chains
+├── 06_cleaned_chains/   *.final.chain.gz
+├── 07_final/            *.final.chain.gz   ← final output
 └── pipeline_info/    timeline, trace, DAG
 ```
 
@@ -162,11 +127,8 @@ results/
 
 | File | What |
 |------|------|
-| `params.json` | Genome paths, alignment settings — per run |
+| `params.json` | Genome paths, alignment settings, checkpoints — per run |
 | `nextflow.config` | Compute resources, profiles, container, SLURM — rarely |
-| `run_nf_slurm_example.sh` | SLURM submission wrapper for multi-pair runs |
-
-Design rationale and root-cause writeups: [CHANGES_nfcore_refactor.md](CHANGES_nfcore_refactor.md).
 
 ---
 
