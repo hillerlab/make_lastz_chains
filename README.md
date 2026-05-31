@@ -21,7 +21,7 @@
         <br>
         <a href="https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
         <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
-        <a href="https://github.com/hillerlab/make_lastz_chains/">pipeline</a> 
+        <a href="https://https://github.com/hillerlab/make_lastz_chains/blob/master/assets/pipeline/make_lastz_chains.mermaid">pipeline</a> 
     </samp>
   </p>
 
