@@ -13,7 +13,8 @@
 include { PSL_SORT_ACC     } from '../../../modules/local/psl_sort_acc/main'
 include { PSL_BUNDLE       } from '../../../modules/local/psl_bundle/main'
 include { AXT_CHAIN        } from '../../../modules/local/axt_chain/main'
-include { CHAIN_MERGE_SORT } from '../../../modules/local/chain_merge_sort/main'
+include { CHAINTOOLS_ANTIREPEAT } from '../../../modules/local/chaintools/antirepeat/main'
+include { CHAINTOOLS_MERGE } from '../../../modules/local/chaintools/merge/main'
 
 workflow CHAIN_BUILD {
     take:
@@ -47,17 +48,25 @@ workflow CHAIN_BUILD {
         params.lastz_q ?: ''
     )
 
-    // ── Merge all chain files into one ─────────────────────────────────────
-    CHAIN_MERGE_SORT (
-        AXT_CHAIN.out.chain.collect(),
-        target_name,
-        query_name
+    // ── Run anti repeat on each chain ─────────────────────────────────────────
+    CHAINTOOLS_ANTIREPEAT (
+      AXT_CHAIN.out.chain,
+      target_twobit,
+      query_twobit,
+    )
+
+    // ── Merge all chain files into one ────────────────────────────────────────
+    CHAINTOOLS_MERGE (
+        CHAINTOOLS_ANTIREPEAT.out.chain
+          .collect()
+          .map { chains -> [ [ id: target_name + '.' + query_name ], chains ] }
     )
 
     emit:
-    merged_chain = CHAIN_MERGE_SORT.out.merged_chain
+    merged_chain = CHAINTOOLS_MERGE.out.chain_gz
     versions     = PSL_SORT_ACC.out.versions
                      .mix( PSL_BUNDLE.out.versions,
                            AXT_CHAIN.out.versions,
-                           CHAIN_MERGE_SORT.out.versions )
+                           CHAINTOOLS_ANTIREPEAT.out.versions,
+                           CHAINTOOLS_MERGE.out.versions )
 }

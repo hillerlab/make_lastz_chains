@@ -95,7 +95,6 @@ workflow LASTZ_ALIGNMENT {
         params.lastz_h,
         params.lastz_l,
         params.lastz_y,
-        params.axt_to_psl_path
     )
 
     // ── Integrity check: every expected pair must have completed ───────────

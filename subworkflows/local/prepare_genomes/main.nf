@@ -13,7 +13,7 @@
 */
 
 include { FA_TO_TWO_BIT  } from '../../../modules/local/fa_to_two_bit/main'
-include { TWO_BIT_INFO   } from '../../../modules/local/two_bit_info/main'
+include { CHROMSIZE      } from '../../../modules/local/chromsize/main'
 include { EXTRACT_CHROMS } from '../../../modules/local/extract_chroms/main'
 
 workflow PREPARE_GENOMES {
@@ -22,6 +22,9 @@ workflow PREPARE_GENOMES {
     genome_path    // val: path to genome file (FASTA or .2bit)
 
     main:
+    // Generate chrom.sizes format agnostic
+    CHROMSIZE ( Channel.of( [ genome_name, genome_path ] ) )
+
     // Determine if the input is already a .2bit file
     def is_twobit = genome_path.endsWith('.2bit')
 
@@ -35,11 +38,8 @@ workflow PREPARE_GENOMES {
         twobit_ch = FA_TO_TWO_BIT.out.twobit
     }
 
-    // Generate chrom.sizes
-    TWO_BIT_INFO ( twobit_ch )
-
     // Join twobit and chrom_sizes on genome_name
-    prepared_ch = twobit_ch.join( TWO_BIT_INFO.out.chrom_sizes )
+    prepared_ch = twobit_ch.join( CHROMSIZE.out.chrom_sizes )
 
     // Pre-extract chromosomes once per genome (v1 only; no-op for v0).
     // Downstream LASTZ tasks symlink this directory instead of each task
@@ -50,7 +50,7 @@ workflow PREPARE_GENOMES {
     prepared   = prepared_ch                      // (genome_name, twobit, chrom_sizes)
     chroms_dir = EXTRACT_CHROMS.out.chroms_dir    // (genome_name, dir/)
     versions   = (is_twobit
-                    ? TWO_BIT_INFO.out.versions
-                    : FA_TO_TWO_BIT.out.versions.mix(TWO_BIT_INFO.out.versions)
+                    ? CHROMSIZE.out.versions
+                    : FA_TO_TWO_BIT.out.versions.mix(CHROMSIZE.out.versions)
                  ).mix(EXTRACT_CHROMS.out.versions)
 }
