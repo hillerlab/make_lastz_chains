@@ -211,7 +211,7 @@ def _seq_arg(path, chrom, start, end):
 
 def build_lastz_command(t_specs, q_specs, blastz_options):
     target_arg = _seq_arg(*t_specs)
-    query_arg  = _seq_arg(*q_specs)
+    query_arg = _seq_arg(*q_specs)
     fields = ("lastz", target_arg, query_arg, blastz_options, ALLOC_ARG, FORMAT_ARG)
     return " ".join(fields)
 
@@ -326,9 +326,9 @@ def is_2bit_v1(path):
     """
     with open(path, "rb") as f:
         header = f.read(8)
-    if header[:4] == b"\x43\x27\x41\x1A":
+    if header[:4] == b"\x43\x27\x41\x1a":
         version = int.from_bytes(header[4:8], "little")
-    elif header[:4] == b"\x1A\x41\x27\x43":
+    elif header[:4] == b"\x1a\x41\x27\x43":
         version = int.from_bytes(header[4:8], "big")
     else:
         raise ValueError(f"Not a .2bit file: {path}")

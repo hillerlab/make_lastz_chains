@@ -9,6 +9,7 @@ Usage:
     psl_bundle.py --input_dir sorted_psl/ --chrom_sizes target.chrom.sizes
                   --output_dir split_psl/ [--max_bases 1000000]
 """
+
 import argparse
 import os
 import sys
@@ -76,20 +77,34 @@ def bundle_files(input_dir, chrom_size, input_files, output_dir, max_bases):
 def check_unbundled(input_dir, input_files):
     for fname, processed in input_files.items():
         if processed == 0:
-            print(f"WARNING: {os.path.join(input_dir, fname)} was not bundled "
-                  f"(chrom not found in chrom.sizes)", file=sys.stderr)
+            print(
+                f"WARNING: {os.path.join(input_dir, fname)} was not bundled "
+                f"(chrom not found in chrom.sizes)",
+                file=sys.stderr,
+            )
 
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--input_dir", required=True,
-                    help="Directory containing chromosome-sorted .psl files (output of pslSortAcc)")
-    ap.add_argument("--chrom_sizes", required=True,
-                    help="Target chrom.sizes file (used to sort chroms by size)")
-    ap.add_argument("--output_dir", required=True,
-                    help="Output directory for bundle .psl files")
-    ap.add_argument("--max_bases", type=int, default=MAX_BASES_DEFAULT,
-                    help=f"Maximum bases per bundle (default: {MAX_BASES_DEFAULT})")
+    ap.add_argument(
+        "--input_dir",
+        required=True,
+        help="Directory containing chromosome-sorted .psl files (output of pslSortAcc)",
+    )
+    ap.add_argument(
+        "--chrom_sizes",
+        required=True,
+        help="Target chrom.sizes file (used to sort chroms by size)",
+    )
+    ap.add_argument(
+        "--output_dir", required=True, help="Output directory for bundle .psl files"
+    )
+    ap.add_argument(
+        "--max_bases",
+        type=int,
+        default=MAX_BASES_DEFAULT,
+        help=f"Maximum bases per bundle (default: {MAX_BASES_DEFAULT})",
+    )
     if len(sys.argv) < 2:
         ap.print_help()
         sys.exit(1)
@@ -102,7 +117,9 @@ def main():
 
     chrom_size = read_chrom_sizes(args.chrom_sizes)
     input_files = get_input_files(args.input_dir)
-    n_bundles = bundle_files(args.input_dir, chrom_size, input_files, args.output_dir, args.max_bases)
+    n_bundles = bundle_files(
+        args.input_dir, chrom_size, input_files, args.output_dir, args.max_bases
+    )
     check_unbundled(args.input_dir, input_files)
     print(f"Produced {n_bundles} bundle files in {args.output_dir}", file=sys.stderr)
 

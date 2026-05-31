@@ -10,6 +10,7 @@ Output (stdout): one partition string per line, e.g.:
     target.2bit:chr1:175000000-200000000
     BULK_1:target.2bit:chr2:chr3:chr4
 """
+
 import argparse
 import os
 import sys
@@ -68,7 +69,9 @@ def create_buckets_for_little_scaffolds(little_scaffolds, chunk_size):
     chrom_count = 0
 
     for chrom, size in little_scaffolds:
-        if (current_bulk_size + size) > bulk_size_threshold or chrom_count >= MAX_CHROM_IN_BULK:
+        if (
+            current_bulk_size + size
+        ) > bulk_size_threshold or chrom_count >= MAX_CHROM_IN_BULK:
             bulk_number += 1
             current_bulk_size = 0
             chrom_count = 0
@@ -79,22 +82,39 @@ def create_buckets_for_little_scaffolds(little_scaffolds, chunk_size):
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--chrom_sizes", required=True,
-                    help="Path to the chrom.sizes file (tab-separated: chrom<TAB>size)")
-    ap.add_argument("--twobit_name", required=True,
-                    help="Basename of the .2bit file (e.g. 'target.2bit'). "
-                         "Used verbatim in partition strings — do NOT supply a full path.")
-    ap.add_argument("--chunk_size", type=int, required=True,
-                    help="Target chunk size in bases (e.g. 175000000 for target, 50000000 for query)")
-    ap.add_argument("--overlap", type=int, required=True,
-                    help="Overlap between consecutive chunks (e.g. 0 for target, 10000 for query)")
-    ap.add_argument("--output", required=True,
-                    help="Output partition file path (one partition string per line)")
+    app = argparse.ArgumentParser(description=__doc__)
+    app.add_argument(
+        "--chrom_sizes",
+        required=True,
+        help="Path to the chrom.sizes file (tab-separated: chrom<TAB>size)",
+    )
+    app.add_argument(
+        "--twobit_name",
+        required=True,
+        help="Basename of the .2bit file (e.g. 'target.2bit'). "
+        "Used verbatim in partition strings — do NOT supply a full path.",
+    )
+    app.add_argument(
+        "--chunk_size",
+        type=int,
+        required=True,
+        help="Target chunk size in bases (e.g. 175000000 for target, 50000000 for query)",
+    )
+    app.add_argument(
+        "--overlap",
+        type=int,
+        required=True,
+        help="Overlap between consecutive chunks (e.g. 0 for target, 10000 for query)",
+    )
+    app.add_argument(
+        "--output",
+        required=True,
+        help="Output partition file path (one partition string per line)",
+    )
     if len(sys.argv) < 2:
-        ap.print_help()
+        app.print_help()
         sys.exit(1)
-    return ap.parse_args()
+    return app.parse_args()
 
 
 def main():
@@ -102,21 +122,30 @@ def main():
     chrom_sizes = read_chrom_sizes(args.chrom_sizes)
     twobit_name = args.twobit_name  # e.g. "target.2bit"
 
-    partition_list, little_scaffolds = create_partition(chrom_sizes, args.chunk_size, args.overlap)
+    partition_list, little_scaffolds = create_partition(
+        chrom_sizes, args.chunk_size, args.overlap
+    )
     bulk_map = create_buckets_for_little_scaffolds(little_scaffolds, args.chunk_size)
 
     n_parts = len(partition_list)
     n_bulks = len(bulk_map)
-    print(f"Partitioning: {n_parts} regular partitions + {n_bulks} bulk groups", file=sys.stderr)
+    print(
+        f"Partitioning: {n_parts} regular partitions + {n_bulks} bulk groups",
+        file=sys.stderr,
+    )
 
     with open(args.output, "w") as out:
         for chrom, start, end in partition_list:
             out.write(f"{twobit_name}:{chrom}:{start}-{end}\n")
         for bulk_number, chroms in sorted(bulk_map.items()):
             chroms_ids = ":".join(chroms)
-            out.write(f"{PART_BULK_FILENAME_PREFIX}_{bulk_number}:{twobit_name}:{chroms_ids}\n")
+            out.write(
+                f"{PART_BULK_FILENAME_PREFIX}_{bulk_number}:{twobit_name}:{chroms_ids}\n"
+            )
 
-    print(f"Wrote {n_parts + n_bulks} partition entries to {args.output}", file=sys.stderr)
+    print(
+        f"Wrote {n_parts + n_bulks} partition entries to {args.output}", file=sys.stderr
+    )
 
 
 if __name__ == "__main__":
