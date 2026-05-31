@@ -22,10 +22,11 @@ process CHAINTOOLS_FILTER {
 
     input:
     tuple val(meta), path(chain)
+    val  min_chain_score
 
     output:
-    tuple val(meta), path("*.filtered.chain")       , optional: true, emit: chain
-    tuple val(meta), path("*.filtered.chain.gz")    , optional: true, emit: chain_gz
+    tuple val(meta), path("*.chain")       , optional: true, emit: chain
+    tuple val(meta), path("*.chain.gz")    , optional: true, emit: chain_gz
     path "versions.yml"                             , emit: versions
 
     when:
@@ -33,13 +34,15 @@ process CHAINTOOLS_FILTER {
 
     script:
     def args      = task.ext.args ?: ''
-    def prefix    = task.ext.prefix ?: "${meta.id}"
+    def prefix    = task.ext.prefix ?: "${meta.id}.filtered"
     """
     chaintools filter \\
         $args \\
         --chain $chain \\
         --threads ${task.cpus} \\
-        --out-chain ${prefix}.filtered.chain
+        --min-score ${min_chain_score} \\
+        --gzip \\
+        --out-chain ${prefix}.chain.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -50,8 +53,8 @@ process CHAINTOOLS_FILTER {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}.filtered.chain
-    touch ${prefix}.filtered.chain.gz
+    touch ${prefix}.chain
+    touch ${prefix}.chain.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

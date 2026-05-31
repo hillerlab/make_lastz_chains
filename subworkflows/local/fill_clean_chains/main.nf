@@ -1,35 +1,39 @@
 /*
+Copyright (c) 2026 The Hiller Lab at the Senckenberg Gessellschaft für Naturforschung
+Distributed under the terms of the Apache License, Version 2.0.
+*/
+
+/*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     FILL_CLEAN_CHAINS subworkflow
     Optionally fills gaps in chains and optionally cleans weak chains.
 
     Steps (both conditional on params flags):
-    1. FILL_CHAIN_SPLIT  — split merged chain into N parts
-    2. REPEAT_FILLER     — fill gaps in each part in parallel
-    3. FILL_CHAIN_MERGE  — merge filled parts
-    4. CHAIN_CLEANER     — remove suspicious chains
-    5. CHAIN_FILTER      — apply minimum score filter → final.chain.gz
+    1. CHAINTOOLS_SPLIT       — split merged chain into N parts
+    2. REPEAT_FILLER          — fill gaps in each part in parallel
+    3. CHAINTOOLS_MERGE       — merge filled parts
+    4. CHAIN_CLEANER          — remove suspicious chains
+    5. CHAINTOOLS_FILTER      — apply minimum score filter → final.chain.gz
 
-    Emits: final_chain — *.final.chain.gz
+    Emits: final_chain — *.allfilled.chain.gz
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
 include { REPEAT_FILLER     } from '../../../modules/local/repeat_filler/main'
-include { FILL_CHAIN_MERGE  } from '../../../modules/local/fill_chain_merge/main'
 include { CHAIN_CLEANER     } from '../../../modules/local/chain_cleaner/main'
-include { CHAIN_FILTER      } from '../../../modules/local/chain_filter/main'
 include { CHAINTOOLS_SPLIT  } from '../../../modules/local/chaintools/split/main'
 include { CHAINTOOLS_SCORE  } from '../../../modules/local/chaintools/score/main'
 include { CHAINTOOLS_MERGE as CHAINTOOLS_MERGE_FILLED_CHAINS } from '../../../modules/local/chaintools/merge/main'
+include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from '../../../modules/local/chaintools/filter/main'
 
 workflow FILL_CLEAN_CHAINS {
     take:
     merged_chain        // path: *.all.chain.gz
-    target_twobit       // path
+    reference_twobit       // path
     query_twobit        // path
-    target_chrom_sizes  // path
+    reference_chrom_sizes  // path
     query_chrom_sizes   // path
-    target_name         // val
+    reference_name         // val
     query_name          // val
 
     main:
@@ -49,7 +53,7 @@ workflow FILL_CLEAN_CHAINS {
 
         REPEAT_FILLER (
             ch_chains_to_fill,
-            target_twobit,
+            reference_twobit,
             query_twobit,
             params.min_chain_score,
             params.fill_gap_max_size_t,
@@ -65,17 +69,17 @@ workflow FILL_CLEAN_CHAINS {
 
         CHAINTOOLS_SCORE (
             REPEAT_FILLER.out.filled_chain,
-            target_twobit,
+            reference_twobit,
             query_twobit
         )
 
         CHAINTOOLS_MERGE_FILLED_CHAINS (
             CHAINTOOLS_SCORE.out.chain
               .collect()
-              .map { chains -> [ [ id: target_name + '.' + query_name + '.filled' ], chains ] }
+              .map { chains -> [ [ id: reference_name + '.' + query_name + '.filled' ], chains ] }
         )
 
-        ch_chain_for_clean = CHAINTOOLS_MERGE_FILLED_CHAINS.out.chain
+        ch_chain_for_clean = CHAINTOOLS_MERGE_FILLED_CHAINS.out.chain_gz
 
         ch_versions = ch_versions.mix(CHAINTOOLS_SPLIT.out.versions)
         ch_versions = ch_versions.mix(REPEAT_FILLER.out.versions)
@@ -89,30 +93,28 @@ workflow FILL_CLEAN_CHAINS {
     if (!params.skip_clean_chain) {
         CHAIN_CLEANER (
             ch_chain_for_clean,
-            target_twobit,
+            reference_twobit,
             query_twobit,
-            target_chrom_sizes,
+            reference_chrom_sizes,
             query_chrom_sizes,
             params.chain_linear_gap,
             params.clean_chain_parameters
         )
 
-        CHAIN_FILTER (
+        CHAINTOOLS_FILTER_CLEANED_CHAINS (
             CHAIN_CLEANER.out.cleaned_chain,
             params.min_chain_score,
-            target_name,
-            query_name
         )
 
-        ch_final = CHAIN_FILTER.out.final_chain
+        ch_final = CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz
 
         ch_versions = ch_versions.mix(CHAIN_CLEANER.out.versions)
-        ch_versions = ch_versions.mix(CHAIN_FILTER.out.versions)
+        ch_versions = ch_versions.mix(CHAINTOOLS_FILTER_CLEANED_CHAINS.out.versions)
     } else {
         // If not cleaning, the output of the fill step is the final chain.
         // Rename for consistent output naming.
         ch_final = ch_chain_for_clean.map { chain_gz ->
-            def final_name = "${target_name}.${query_name}.final.chain.gz"
+            def final_name = "${reference_name}.${query_name}.final.chain.gz"
             // Stage a copy with the final name
             [ chain_gz, final_name ]
         }

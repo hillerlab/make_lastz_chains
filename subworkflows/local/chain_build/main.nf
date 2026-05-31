@@ -1,10 +1,15 @@
 /*
+Copyright (c) 2026 The Hiller Lab at the Senckenberg Gessellschaft für Naturforschung
+Distributed under the terms of the Apache License, Version 2.0.
+*/
+
+/*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CHAIN_BUILD subworkflow
     1. PSL_SORT_ACC — sort all PSL files by target chromosome
-    2. PSL_BUNDLE  — group sorted PSL files into chromosome bundles
-    3. AXT_CHAIN   — convert each PSL bundle to chains (parallel)
-    4. CHAIN_MERGE_SORT — merge all chain files into one compressed chain
+    2. PSL_BUNDLE   — group sorted PSL files into chromosome bundles
+    3. AXT_CHAIN    — convert each PSL bundle to chains (parallel)
+    4. CHAINTOOLS_MERGE — merge all chain files into one compressed chain
 
     Emits: merged_chain — *.all.chain.gz
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,10 +24,10 @@ include { CHAINTOOLS_MERGE } from '../../../modules/local/chaintools/merge/main'
 workflow CHAIN_BUILD {
     take:
     psl_gz_files        // channel of .psl.gz files from LASTZ_ALIGNMENT
-    target_twobit       // path
+    reference_twobit       // path
     query_twobit        // path
-    target_chrom_sizes  // path
-    target_name         // val
+    reference_chrom_sizes  // path
+    reference_name         // val
     query_name          // val
 
     main:
@@ -34,14 +39,14 @@ workflow CHAIN_BUILD {
     // ── Bundle sorted PSL files by chromosome for parallel axtChain ────────
     PSL_BUNDLE (
         PSL_SORT_ACC.out.sorted_psl_dir,
-        target_chrom_sizes,
+        reference_chrom_sizes,
         params.bundle_psl_max_bases
     )
 
     // ── Run axtChain on each bundle in parallel ─────────────────────────────
     AXT_CHAIN (
         PSL_BUNDLE.out.bundles.flatten(),  // one channel item per bundle file
-        target_twobit,
+        reference_twobit,
         query_twobit,
         params.min_chain_score,
         params.chain_linear_gap,
@@ -51,7 +56,7 @@ workflow CHAIN_BUILD {
     // ── Run anti repeat on each chain ─────────────────────────────────────────
     CHAINTOOLS_ANTIREPEAT (
       AXT_CHAIN.out.chain,
-      target_twobit,
+      reference_twobit,
       query_twobit,
     )
 
@@ -59,7 +64,7 @@ workflow CHAIN_BUILD {
     CHAINTOOLS_MERGE (
         CHAINTOOLS_ANTIREPEAT.out.chain
           .collect()
-          .map { chains -> [ [ id: target_name + '.' + query_name ], chains ] }
+          .map { chains -> [ [ id: reference_name + '.' + query_name ], chains ] }
     )
 
     emit:
