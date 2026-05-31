@@ -1,7 +1,4 @@
 <p align="center">
-  <p align="center">
-    <img width=250 align="center" src="./assets/figures/logo.png" >
-  </p>
 
   <span>
     <h1 align="center">
@@ -30,10 +27,13 @@
 
 </p>
 
+---
+
 <p align="center">
   <img align="center" src="./assets/figures/abstract_chains.png" >
 </p>
 
+---
 
 > [!IMPORTANT]
 > - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes.
