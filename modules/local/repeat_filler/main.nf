@@ -29,7 +29,6 @@ process REPEAT_FILLER {
     val  fill_lastz_l
     val  chain_linear_gap
     val  skip_fill_unmask
-    val  lastz_path
 
     output:
     path "${chain_chunk.name}.filled.chain", emit: filled_chain
@@ -44,9 +43,6 @@ process REPEAT_FILLER {
         --T2bit ${target_twobit} \\
         --Q2bit ${query_twobit} \\
         --workdir ./ \\
-        --lastz ${lastz_path} \\
-        --axtChain axtChain \\
-        --chainSort chainSort \\
         --chainMinScore ${chain_min_score} \\
         --gapMaxSizeT ${fill_gap_max_size_t} \\
         --gapMaxSizeQ ${fill_gap_max_size_q} \\
@@ -54,18 +50,29 @@ process REPEAT_FILLER {
         --gapMinSizeT ${fill_gap_min_size_t} \\
         --gapMinSizeQ ${fill_gap_min_size_q} \\
         --lastzParameters "K=${fill_lastz_k} L=${fill_lastz_l}" \\
-        ${unmask_arg} \\
-    | chainScore \\
-        -linearGap=${chain_linear_gap} \\
-        stdin \\
-        ${target_twobit} \\
-        ${query_twobit} \\
-        stdout \\
-    | chainSort stdin ${out_chain}
+        --verbose \\
+        ${unmask_arg} > ${out_chain}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
+        lastz: \$(lastz --version 2>&1 | head -1)
         python: \$(python --version 2>&1 | awk '{print \$2}')
+        axtChain: 482
+        chainSort: 482
+    END_VERSIONS
+    """
+
+    stub:
+    def out_chain  = "${chain_chunk.name}.filled.chain"
+    """
+    touch ${out_chain}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        lastz: \$(lastz --version 2>&1 | head -1)
+        python: \$(python --version 2>&1 | awk '{print \$2}')
+        axtChain: 482
+        chainSort: 482
     END_VERSIONS
     """
 }

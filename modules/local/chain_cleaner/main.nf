@@ -12,8 +12,8 @@ process CHAIN_CLEANER {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
-        'quay.io/biocontainers/ucsc_tools:332--1' }"
+        'https://depot.galaxyproject.org/singularity/ucsc-chaincleaner:455--h1536b3f_1' :
+        'quay.io/biocontainers/ucsc-chaincleaner:455--h1536b3f_1' }"
 
     input:
     path input_chain_gz      // filled.chain.gz or all.chain.gz

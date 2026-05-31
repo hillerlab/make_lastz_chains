@@ -11,8 +11,8 @@ process PSL_SORT_ACC {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/ucsc_tools:332--1' : 
-        'quay.io/biocontainers/ucsc_tools:332--1' }"
+        'https://depot.galaxyproject.org/singularity/ucsc-pslsortacc:482--h0b57e2e_0' : 
+        'quay.io/biocontainers/ucsc-pslsortacc:482--h0b57e2e_0' }"
 
     input:
     path psl_gz_files   // list of all .psl.gz files from CAT_PSL

@@ -13,7 +13,7 @@ process LASTZ {
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/lastz:1.04.52--h7b50bb2_1' :
-        'quay.io/biocontainers/lastz:1.04.52--h7b50bb2_1' }"
+        'ghcr.io/hillerlab/pylastz:latest' }"
 
     input:
     tuple val(target_part), val(query_part)
@@ -27,7 +27,6 @@ process LASTZ {
     val   lastz_h
     val   lastz_l
     val   lastz_y
-    val   axt_to_psl_path
 
     output:
     tuple val(target_part), path("*.psl"), optional: true, emit: psl
@@ -69,13 +68,14 @@ process LASTZ {
         ${out_psl} \\
         run_lastz.py \\
         --output_format psl \\
-        --axt_to_psl ${axt_to_psl_path} \\
         --target_chrom_dir ${target_chroms_dir} \\
         --query_chrom_dir ${query_chroms_dir}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        lastz: \$(lastz --version 2>&1 | head -1 | awk '{print \$NF}' || echo 'N/A')
+        lastz: \$(lastz --version 2>&1 | head -1)
+        python: \$(python --version 2>&1 | awk '{print \$2}')
+        axtToPsl: 482
     END_VERSIONS
     """
 }
