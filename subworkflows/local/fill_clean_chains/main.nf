@@ -25,6 +25,7 @@ include { CHAINTOOLS_SPLIT  } from '../../../modules/local/chaintools/split/main
 include { CHAINTOOLS_SCORE  } from '../../../modules/local/chaintools/score/main'
 include { CHAINTOOLS_MERGE as CHAINTOOLS_MERGE_FILLED_CHAINS } from '../../../modules/local/chaintools/merge/main'
 include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from '../../../modules/local/chaintools/filter/main'
+include { CHAINTOOLS_SORT as CHAINTOOLS_SORT_MERGED_FILLED_CHAINS } from '../../../modules/local/chaintools/sort/main'
 
 workflow FILL_CLEAN_CHAINS {
     take:
@@ -79,7 +80,11 @@ workflow FILL_CLEAN_CHAINS {
               .map { chains -> [ [ id: reference_name + '.' + query_name + '.filled' ], chains ] }
         )
 
-        ch_chain_for_clean = CHAINTOOLS_MERGE_FILLED_CHAINS.out.chain_gz
+        CHAINTOOLS_SORT_MERGED_FILLED_CHAINS (
+            CHAINTOOLS_MERGE_FILLED_CHAINS.out.chain_gz
+        )
+
+        ch_chain_for_clean = CHAINTOOLS_SORT_MERGED_FILLED_CHAINS.out.chain
 
         ch_versions = ch_versions.mix(CHAINTOOLS_SPLIT.out.versions)
         ch_versions = ch_versions.mix(REPEAT_FILLER.out.versions)
