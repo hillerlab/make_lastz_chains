@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Example SLURM submission script for make_lastz_chains (nf-core pipeline)
 #
-# Each array task runs one target × query genome pair. Nextflow itself is the
+# Each array task runs one reference × query genome pair. Nextflow itself is the
 # "main job" — it submits all compute work as child SLURM jobs and only needs
 # a small memory footprint.
 #
@@ -10,7 +10,7 @@
 # ─────────────────────────────────────
 # A tab-separated file with one pair per line, no header:
 #
-#   <target_name>  <target_genome_path>  <query_name>  <query_genome_path>
+#   <reference_name>  <reference_genome_path>  <query_name>  <query_genome_path>
 #
 # Example:
 #   Human   /data/genomes/hg38.fa       Mouse   /data/genomes/mm39.fa
@@ -49,7 +49,7 @@ export NXF_APPTAINER_CACHEDIR=/scratch/$USER/make_lastz_chains/apptainer
 # Optional: pre-build a named SIF to avoid the auto-derived cache filename.
 # Build once with:
 #   apptainer build $NXF_APPTAINER_CACHEDIR/make_lastz_chains.sif \
-#       docker://nilablueshirt/make_lastz_chains:latest-amd64
+#       ghcr.io/hillerlab/make_lastz_chains:latest
 # Then uncomment:
 # export NXF_CONTAINER_IMAGE=$NXF_APPTAINER_CACHEDIR/make_lastz_chains.sif
 
@@ -63,27 +63,27 @@ pipeline_dir="/path/to/make_lastz_chains"  # cloned pipeline repo
 
 # ── Parse manifest line for this array task ───────────────────────────────────
 pair=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$species_list")
-target_name=$(echo "$pair" | cut -f1)
-target_fa=$(echo "$pair"   | cut -f2)
+reference_name=$(echo "$pair" | cut -f1)
+reference_fa=$(echo "$pair"   | cut -f2)
 query_name=$(echo "$pair"  | cut -f3)
 query_fa=$(echo "$pair"    | cut -f4)
 
-if [[ -z "$target_name" || -z "$target_fa" || -z "$query_name" || -z "$query_fa" ]]; then
+if [[ -z "$reference_name" || -z "$reference_fa" || -z "$query_name" || -z "$query_fa" ]]; then
     echo "ERROR: could not parse line ${SLURM_ARRAY_TASK_ID} of ${species_list}" >&2
     exit 1
 fi
 
 # ── Per-pair working directory ─────────────────────────────────────────────────
-pair_dir="${working_dir}/${target_name}_${query_name}_chains"
+pair_dir="${working_dir}/${reference_name}_${query_name}_chains"
 mkdir -p "${pair_dir}/logs"
 
 # ── Write params.json for this pair ───────────────────────────────────────────
 # Scientific parameters go here; infrastructure stays in nextflow.config.
 cat > "${pair_dir}/params.json" <<EOF
 {
-    "target_name":   "${target_name}",
+    "reference_name":   "${reference_name}",
     "query_name":    "${query_name}",
-    "target_genome": "${target_fa}",
+    "reference_genome": "${reference_fa}",
     "query_genome":  "${query_fa}",
     "outdir":        "${pair_dir}/results",
 

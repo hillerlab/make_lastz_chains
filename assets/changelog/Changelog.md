@@ -1,3 +1,29 @@
+# 3.1.1
+
+Container re-architecture with a new `use_container` parameter that lets users decide between a single whole-pipeline image and granular per-module containers.
+
+### Container overhaul
+
+- Replaced the old  `Dockerfile` (Ubuntu 22.04, full UCSC Kent rsync) with a modern multi-stage Alpine-based build at `assets/image/Dockerfile`. The new build compiles only the nine Kent tools the pipeline actually needs (faToTwoBit, twoBitToFa, pslSortAcc, axtChain, axtToPsl, chainSort, chainNet from v482; chainCleaner and chainScore from v455), builds LASTZ v1.04.52 from source (up from v1.04.22), and compiles `chaintools` and `chromsize` from their Rust sources. The runtime layer is Python 3.11 on Alpine. The resulting image is 108 MB.
+- Deleted the root-level `Dockerfile` — the canonical build definition now lives under `assets/image/` but its pulled from [ghcr.io/hillerlab/make_lastz_chains:latest](https://github.com/hillerlab/containers/pkgs/container/make_lastz_chains).
+
+### New `use_container` parameter
+
+- Added `params.use_container` (boolean, default `true`) to `params.json` and `nextflow.config`. When enabled, a single `withName: '.*'` block overrides all process containers with `ghcr.io/hillerlab/make_lastz_chains:latest` (or `$NXF_CONTAINER_IMAGE` if set). When disabled, each module falls back to its own granular container, preserving the v3.1.0 behavior. This gives users the flexibility to use one lightweight image end-to-end or to swap individual tool containers as needed.
+
+### Infrastructure
+
+- Added `apptainer.pullTimeout = '60 min'` to the standard profile to prevent timeouts when pulling large container images over slow connections.
+- Bumped manifest version from `3.1.0` to `3.1.1`.
+- Enabled `use_container` in the test profile and fixed indentation alignment for query parameters in the `test` profile block.
+
+### Documentation
+
+- Updated the README with notes on the new pre-built container (`ghcr.io/hillerlab/make_lastz_chains:latest`) and the project's transition to `chaintools` for UCSC tool replacement.
+- Fixed the pipeline diagram link in `README.md` (double `https://`).
+- Updated `assets/scripts/run_nf_slurm_example.sh` to use the new `reference_name` / `reference_genome` parameter names introduced in v3.1.0 and point to the Hiller Lab container.
+
+
 # 3.1.0 
 
 Complete overhaul of `make_lastz_chains` from a hybrid Python + Nextflow v2 pipeline to a pure nf-core-style Nextflow v3 pipeline. Drops the legacy Python entry point, replaces monolithic UCSC containers with granular per-tool containers, introduces a new `--from` checkpoint system, swaps `target` terminology for `reference` across the entire codebase, and replaces several UCSC Kent tools with the lighter `chaintools` utility.
