@@ -1,3 +1,19 @@
+# 3.1.2
+
+Introduced a new `chaintools sort` step to sort filled chains before the chain cleaning stage, fixing a `chainNet` error that occurred when unsorted chains reached the cleaning subworkflow.
+
+### New `chaintools sort` module
+
+- Added `modules/local/chaintools/sort/main.nf` — a new process that wraps `chaintools sort` to sort filled chains by score/target/query. The sorted output is now what feeds into the chain cleaning step, preventing the `chainNet` error that previously surfaced when unsorted output from the gap-filling merge reached the cleaner.
+- Integrated `CHAINTOOLS_SORT_MERGED_FILLED_CHAINS` into the `FILL_CLEAN_CHAINS` subworkflow, placed between `CHAINTOOLS_MERGE_FILLED_CHAINS` and the chain cleaning step.
+
+### Config adjustments
+
+- Reassigned the `CHAINTOOLS_MERGE` process label to `process_medium` and disabled its `publishDir` (merged intermediates no longer need to be published) — publication is now handled by `CHAINTOOLS_SORT_MERGED_FILLED_CHAINS`, which also uses `process_medium`.
+- Updated the publish directory pattern for sorted merged chains from `*.all.chain.gz` to `*.chain*` to capture the new sorted chain outputs.
+- Bumped manifest version from `3.1.1` to `3.1.2`.
+
+
 # 3.1.1
 
 Container re-architecture with a new `use_container` parameter that lets users decide between a single whole-pipeline image and granular per-module containers.
