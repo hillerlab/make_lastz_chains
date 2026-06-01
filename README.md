@@ -21,7 +21,7 @@
         <br>
         <a href="https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
         <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
-        <a href="https://https://github.com/hillerlab/make_lastz_chains/blob/master/assets/pipeline/make_lastz_chains.mermaid">pipeline</a> 
+        <a href="https://github.com/hillerlab/make_lastz_chains/blob/main/assets/pipeline/make_lastz_chains.mermaid">pipeline</a> 
     </samp>
   </p>
 
@@ -39,6 +39,8 @@
 > - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes.
 > - **Scaffold names**: no spaces; avoid dots (rename `NC_00000.1` → `NC_00000`)
 > - Inputs accepted: `.fasta` or `.2bit`.
+> - **Container image**: We offer a pre-built container image for the whole pipeline as well as individual modules. By default the pipeline runs with [ghcr.io/hillerlab/make_lastz_chains:latest](https://github.com/hillerlab/containers/pkgs/container/make_lastz_chains). Additional images can be found at [containers](https://github.com/hillerlab/containers) and nextflow modules at [core](https://github.com/hillerlab/core).
+> - **UCSC replacement**: As of >=3.1.0, the pipeline uses [chaintools](https://github.com/alejandrogzi/chaintools), a Rust library to work with .chain files.
 
 ---
 
