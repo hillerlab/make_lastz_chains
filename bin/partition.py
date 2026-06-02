@@ -18,15 +18,16 @@ from collections import defaultdict
 
 
 # ── Constants (matching constants.py) ──────────────────────────────────────
-LASTZ_OUT_BUCKET_PREFIX = "bucket_ref"
-LASTZ_OUT_BULK_PREFIX = "bucket_ref_bulk"
-PART_BULK_FILENAME_PREFIX = "BULK"
-MAX_CHROM_IN_BULK = 100
-CHUNK_SIZE_FRACTION_FOR_LITTLE_CHROMOSOMES = 0.75
+LASTZ_OUT_BUCKET_PREFIX: str = "bucket_ref"
+LASTZ_OUT_BULK_PREFIX: str = "bucket_ref_bulk"
+PART_BULK_FILENAME_PREFIX: str = "BULK"
+MAX_CHROM_IN_BULK: int = 100
+CHUNK_SIZE_FRACTION_FOR_LITTLE_CHROMOSOMES: float = 0.75
 
 
 # ── Core logic (inlined from modules/common.py and steps_implementations/partition.py) ─
-def read_chrom_sizes(path):
+def read_chrom_sizes(path: str) -> dict[str, int]:
+    """Read chromosome lengths from a tab-separated chrom.sizes file."""
     sizes = {}
     with open(path) as f:
         for line in f:
@@ -35,7 +36,9 @@ def read_chrom_sizes(path):
     return sizes
 
 
-def create_partition(chrom_sizes, chunk_size, overlap):
+def create_partition(
+    chrom_sizes: dict[str, int], chunk_size: int, overlap: int
+) -> tuple[list[tuple[str, int, int]], list[tuple[str, int]]]:
     """Split chromosomes into overlapping chunks; collect small scaffolds separately.
 
     Note: the old make_chains.py accepted --seq1_limit / --seq2_limit flags to filter
@@ -60,7 +63,9 @@ def create_partition(chrom_sizes, chunk_size, overlap):
     return partition_list, little_scaffolds
 
 
-def create_buckets_for_little_scaffolds(little_scaffolds, chunk_size):
+def create_buckets_for_little_scaffolds(
+    little_scaffolds: list[tuple[str, int]], chunk_size: int
+) -> defaultdict[int, list[str]]:
     """Group small scaffolds into bulks to avoid excessive LASTZ jobs."""
     bulk_num_to_chroms = defaultdict(list)
     bulk_size_threshold = chunk_size * CHUNK_SIZE_FRACTION_FOR_LITTLE_CHROMOSOMES
@@ -81,7 +86,8 @@ def create_buckets_for_little_scaffolds(little_scaffolds, chunk_size):
     return bulk_num_to_chroms
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for genome partitioning."""
     app = argparse.ArgumentParser(description=__doc__)
     app.add_argument(
         "--chrom_sizes",
@@ -117,7 +123,8 @@ def parse_args():
     return app.parse_args()
 
 
-def main():
+def main() -> None:
+    """Write regular and bulk LASTZ partition entries."""
     args = parse_args()
     chrom_sizes = read_chrom_sizes(args.chrom_sizes)
     twobit_name = args.twobit_name  # e.g. "target.2bit"

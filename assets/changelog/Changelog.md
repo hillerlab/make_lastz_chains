@@ -1,3 +1,35 @@
+# 3.1.3
+
+Refactored the LASTZ alignment wrappers and completed the `target` → `reference` terminology migration across the alignment pipeline, alongside a Python container upgrade and internal code quality improvements.
+
+### LASTZ wrapper rewrite
+
+- Rewrote `bin/run_lastz.py` and `bin/run_lastz_intermediate_layer.py` with structured logging via Python's `logging` module, comprehensive type annotations, and explicit input validation. The older `verbose_msg` lambda pattern has been replaced with proper `LOGGER.debug()` calls throughout.
+- Migrated both scripts from positional CLI arguments to explicit `--flag value` options (`--reference`, `--query`, `--params_json`, `--output`, etc.), making the command-line interface self-documenting and consistent with the rest of the pipeline's entry points.
+- Added proper resource management — temporary workspace cleanup now uses `try/finally` blocks, ensuring temporary directories are removed even when a subprocess fails.
+- Introduced validated parameter access via `require_string_param` in both scripts, surfacing clear error messages when mandatory pipeline configuration keys are missing or malformed.
+- Added BULK partition validation in `run_lastz_intermediate_layer.py` to catch malformed partition entries early, and replaced `subprocess.call` with `subprocess.run` + `check=True` for immediate error propagation on child failures.
+
+### Terminology completion (`target` → `reference`)
+
+- Renamed the `--target` CLI argument to `--reference` and `--target_chrom_dir` to `--reference_chrom_dir` in both `bin/run_lastz.py` and `bin/run_lastz_intermediate_layer.py`, including all associated variables, function parameters, and documentation strings.
+- Updated `modules/local/lastz/main.nf` to use `reference_part`, `reference_twobit`, `reference_chrom_sizes`, and `reference_chroms_dir` throughout, and aligned the underlying `run_lastz*` script invocations with the new `--reference` and `--reference_chrom_dir` flags.
+- Harmonised process tags and output channel naming with the new terminology, completing the glossary update that began in v3.1.0.
+
+### Python container upgrade
+
+- Updated the `PARTITION` and `PSL_BUNDLE` process containers from `biocontainers/python:3.8.0--2` to `biocontainers/python:3.11`. Both modules now run on Python 3.11, matching the runtime version used elsewhere in the pipeline.
+
+### Type hints and documentation
+
+- Added full type annotations and docstrings to `bin/partition.py` and `bin/psl_bundle.py` — function signatures now declare argument and return types, constants carry explicit type declarations, and every public function includes a descriptive docstring.
+- Added script-level metadata (`__author__`, `__credits__`, `__email__`, `__github__`, `__version__`) to `bin/run_lastz.py` and `bin/run_lastz_intermediate_layer.py`.
+
+### Config adjustments
+
+- Bumped manifest version from `3.1.2` to `3.1.3`.
+
+
 # 3.1.2
 
 Introduced a new `chaintools sort` step to sort filled chains before the chain cleaning stage, fixing a `chainNet` error that occurred when unsorted chains reached the cleaning subworkflow.

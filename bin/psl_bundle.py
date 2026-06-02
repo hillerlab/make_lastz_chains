@@ -15,10 +15,11 @@ import os
 import sys
 
 
-MAX_BASES_DEFAULT = 1_000_000
+MAX_BASES_DEFAULT: int = 1_000_000
 
 
-def read_chrom_sizes(path):
+def read_chrom_sizes(path: str) -> dict[str, int]:
+    """Read chromosome lengths from a tab-separated chrom.sizes file."""
     sizes = {}
     with open(path) as f:
         for line in f:
@@ -27,14 +28,20 @@ def read_chrom_sizes(path):
     return sizes
 
 
-def get_input_files(input_dir):
+def get_input_files(input_dir: str) -> dict[str, int]:
     """Return dict of {filename: processed_flag} for .psl files in input_dir."""
     files = {f: 0 for f in os.listdir(input_dir) if f.endswith(".psl")}
     print(f"Found {len(files)} PSL files to bundle", file=sys.stderr)
     return files
 
 
-def execute_bundle(input_dir, bundle_psl_file_list, output_dir, cur_bundle_count):
+def execute_bundle(
+    input_dir: str,
+    bundle_psl_file_list: list[str],
+    output_dir: str,
+    cur_bundle_count: int,
+) -> None:
+    """Concatenate one list of PSL files into a numbered bundle file."""
     output_path = os.path.join(output_dir, f"bundle.{cur_bundle_count}.psl")
     with open(output_path, "w") as outfile:
         for file_path in bundle_psl_file_list:
@@ -43,7 +50,14 @@ def execute_bundle(input_dir, bundle_psl_file_list, output_dir, cur_bundle_count
     print(f"Written bundle {cur_bundle_count} to {output_path}", file=sys.stderr)
 
 
-def bundle_files(input_dir, chrom_size, input_files, output_dir, max_bases):
+def bundle_files(
+    input_dir: str,
+    chrom_size: dict[str, int],
+    input_files: dict[str, int],
+    output_dir: str,
+    max_bases: int,
+) -> int:
+    """Group chromosome PSL files into bundles up to the configured size limit."""
     cur_bases = 0
     bundle_file_list = []
     bundle_file_count = 0
@@ -74,7 +88,8 @@ def bundle_files(input_dir, chrom_size, input_files, output_dir, max_bases):
     return cur_bundle_count
 
 
-def check_unbundled(input_dir, input_files):
+def check_unbundled(input_dir: str, input_files: dict[str, int]) -> None:
+    """Warn about PSL files that were not matched to a chromosome size."""
     for fname, processed in input_files.items():
         if processed == 0:
             print(
@@ -84,7 +99,8 @@ def check_unbundled(input_dir, input_files):
             )
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for PSL bundling."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--input_dir",
@@ -111,7 +127,8 @@ def parse_args():
     return ap.parse_args()
 
 
-def main():
+def main() -> None:
+    """Bundle chromosome PSL files according to their chromosome sizes."""
     args = parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 

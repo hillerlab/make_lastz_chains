@@ -1,13 +1,13 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    LASTZ — Pairwise sequence alignment for one target × query partition pair
+    LASTZ — Pairwise sequence alignment for one reference × query partition pair
     Uses run_lastz_intermediate_layer.py (from standalone_scripts/) to handle
     both regular and BULK partitions. A minimal params JSON is written per job.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
 process LASTZ {
-    tag "${target_part} vs ${query_part}"
+    tag "${reference_part} vs ${query_part}"
     label 'process_fast'
 
     conda "${moduleDir}/environment.yml"
@@ -16,12 +16,12 @@ process LASTZ {
         'ghcr.io/hillerlab/pylastz:latest' }"
 
     input:
-    tuple val(target_part), val(query_part)
-    path  target_twobit                     // staged as its basename, e.g. target.2bit
+    tuple val(reference_part), val(query_part)
+    path  reference_twobit                     // staged as its basename, e.g. reference.2bit
     path  query_twobit
-    path  target_chrom_sizes
+    path  reference_chrom_sizes
     path  query_chrom_sizes
-    path  target_chroms_dir                 // dir of pre-extracted <chrom>.fa (v1) or empty (v0)
+    path  reference_chroms_dir                 // dir of pre-extracted <chrom>.fa (v1) or empty (v0)
     path  query_chroms_dir
     val   lastz_k
     val   lastz_h
@@ -29,7 +29,7 @@ process LASTZ {
     val   lastz_y
 
     output:
-    tuple val(target_part), path("*.psl"), optional: true, emit: psl
+    tuple val(reference_part), path("*.psl"), optional: true, emit: psl
     path  "versions.yml",                                   emit: versions
 
     script:
@@ -45,14 +45,14 @@ process LASTZ {
         def parts = p.split(":")
         return "${parts[1]}_${parts[2]}"
     }
-    def t_safe = safe_part(target_part)
+    def t_safe = safe_part(reference_part)
     def q_safe = safe_part(query_part)
     def out_psl = "${t_safe}__${q_safe}.psl"
     """
     # Write minimal pipeline params JSON so run_lastz* scripts can read chrom.sizes
     cat > params.json << 'JSONEOF'
     {
-        "seq_1_len": "${target_chrom_sizes.name}",
+        "seq_1_len": "${reference_chrom_sizes.name}",
         "seq_2_len": "${query_chrom_sizes.name}",
         "lastz_k": ${lastz_k},
         "lastz_h": ${lastz_h},
@@ -62,13 +62,13 @@ process LASTZ {
     JSONEOF
 
     run_lastz_intermediate_layer.py \\
-        '${target_part}' \\
-        '${query_part}' \\
-        params.json \\
-        ${out_psl} \\
-        run_lastz.py \\
+        --reference '${reference_part}' \\
+        --query '${query_part}' \\
+        --params_json params.json \\
+        --output ${out_psl} \\
+        --run_lastz_script run_lastz.py \\
         --output_format psl \\
-        --target_chrom_dir ${target_chroms_dir} \\
+        --reference_chrom_dir ${reference_chroms_dir} \\
         --query_chrom_dir ${query_chroms_dir}
 
     cat <<-END_VERSIONS > versions.yml
