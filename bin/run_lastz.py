@@ -18,7 +18,7 @@ __author__ = "Alejandro Gonzales-Irribarren"
 __credits__ = ["Bogdan M. Kirilenko, Nil Tianchen Mu"]
 __email__ = "alejandrxgzi@gmail.com"
 __github__ = "https://github.com/hillerlab/make_lastz_chains"
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 LOGGER = logging.getLogger("run_lastz")
@@ -300,18 +300,46 @@ def is_2bit_v1(path: str) -> bool:
     return version == 1
 
 
+def get_shared_chrom_fasta(shared_chrom_dir: str | None, chrom: str) -> str | None:
+    """Return a pre-extracted chromosome FASTA if the caller supplied one."""
+    if not shared_chrom_dir:
+        return None
+    shared_path = os.path.join(shared_chrom_dir, f"{chrom}.fa")
+    if os.path.exists(shared_path):
+        LOGGER.debug("Using shared chromosome FASTA cache: %s", shared_path)
+        return shared_path
+    LOGGER.debug("Shared chromosome FASTA cache miss: %s", shared_path)
+    return None
+
+
+def missing_twobit_message(
+    label: str,
+    original_arg: str,
+    two_bit_path: str,
+    chrom: str,
+    shared_chrom_dir: str | None,
+) -> str:
+    """Build a clear missing-input diagnostic for ranged .2bit arguments."""
+    if shared_chrom_dir:
+        expected_fasta = os.path.join(shared_chrom_dir, f"{chrom}.fa")
+        fallback = f"expected shared FASTA {expected_fasta!r} was also absent"
+    else:
+        fallback = f"no --{label}_chrom_dir was provided"
+    return (
+        f"Cannot resolve {label} sequence {original_arg!r}: "
+        f".2bit file {two_bit_path!r} is not readable and {fallback}"
+    )
+
+
 def extract_chrom_to_fasta(
     two_bit_path: str,
     chrom: str,
     shared_chrom_dir: str | None = None,
 ) -> str:
     """Return a cached one-chromosome FASTA extracted from a v1 .2bit file."""
-    if shared_chrom_dir:
-        shared_path = os.path.join(shared_chrom_dir, f"{chrom}.fa")
-        if os.path.exists(shared_path):
-            LOGGER.debug("Using shared chromosome FASTA cache: %s", shared_path)
-            return shared_path
-        LOGGER.debug("Shared chromosome FASTA cache miss: %s", shared_path)
+    shared_path = get_shared_chrom_fasta(shared_chrom_dir, chrom)
+    if shared_path:
+        return shared_path
 
     cache_dir = os.path.abspath("./_v1_chrom_cache")
     os.makedirs(cache_dir, exist_ok=True)
@@ -357,9 +385,37 @@ def main(argv: Sequence[str] | None = None) -> None:
             "reference": args.reference_chrom_dir,
             "query": args.query_chrom_dir,
         }
+        original_args = {
+            "reference": args.reference,
+            "query": args.query,
+        }
         for label, specs in (("reference", reference_specs), ("query", query_specs)):
             path, chrom, start, end = specs
-            if chrom is None or not path.endswith(".2bit") or not is_2bit_v1(path):
+            if chrom is None or not path.endswith(".2bit"):
+                continue
+            shared_fasta = get_shared_chrom_fasta(chrom_dirs[label], chrom)
+            if shared_fasta:
+                resolved_specs = (shared_fasta, chrom, start, end)
+                if label == "reference":
+                    reference_specs = resolved_specs
+                else:
+                    query_specs = resolved_specs
+                continue
+            if not os.path.exists(path):
+                raise FileNotFoundError(
+                    missing_twobit_message(
+                        label, original_args[label], path, chrom, chrom_dirs[label]
+                    )
+                )
+            try:
+                is_v1 = is_2bit_v1(path)
+            except OSError as error:
+                raise OSError(
+                    missing_twobit_message(
+                        label, original_args[label], path, chrom, chrom_dirs[label]
+                    )
+                ) from error
+            if not is_v1:
                 continue
             if tmp_dir is None:
                 tmp_dir = get_temp_dir(temp_parent)
