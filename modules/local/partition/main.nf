@@ -13,7 +13,7 @@ process PARTITION {
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/python:3.8.0--2' :
-        'biocontainers/python:3.8.0--2' }"
+        'biocontainers/python:3.11' }"
 
     input:
     tuple val(genome_name), path(twobit), path(chrom_sizes)
