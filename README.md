@@ -1,4 +1,7 @@
 <p align="center">
+  <p align="center">
+    <img width=200 align="center" src="./assets/figures/hillerlab.png" >
+  </p>
 
   <span>
     <h1 align="center">
@@ -8,7 +11,7 @@
 
   <p align="center">
     <a href="https://github.com/hillerlab/make_lastz_chains" reference="_blank">
-      <img alt="GitHub License" src="https://img.shields.io/github/license/hillerlab/containers?color=blue">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/hillerlab/make_lastz_chains?color=blue">
     </a>
   </p>
 
@@ -36,7 +39,7 @@
 ---
 
 > [!IMPORTANT]
-> - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes.
+> - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes. We also provide a soft-masking solution in [softmask](https://github.com/hillerlab/softmask).
 > - **Scaffold names**: no spaces; avoid dots (rename `NC_00000.1` → `NC_00000`)
 > - Inputs accepted: `.fasta` or `.2bit`.
 > - **Container image**: We offer a pre-built container image for the whole pipeline as well as individual modules. By default the pipeline runs with [ghcr.io/hillerlab/make_lastz_chains:latest](https://github.com/hillerlab/containers/pkgs/container/make_lastz_chains). Additional images can be found at [containers](https://github.com/hillerlab/containers) and nextflow modules at [core](https://github.com/hillerlab/core).
