@@ -1,4 +1,7 @@
 <p align="center">
+  <p align="center">
+    <img width=200 align="center" src="./assets/figures/hillerlab.png" >
+  </p>
 
   <span>
     <h1 align="center">
@@ -8,7 +11,7 @@
 
   <p align="center">
     <a href="https://github.com/hillerlab/make_lastz_chains" reference="_blank">
-      <img alt="GitHub License" src="https://img.shields.io/github/license/hillerlab/containers?color=blue">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/hillerlab/make_lastz_chains?color=blue">
     </a>
   </p>
 
@@ -36,7 +39,7 @@
 ---
 
 > [!IMPORTANT]
-> - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes.
+> - **Softmask both genomes** (lowercase, do NOT hardmask). RepeatModeler 2 per genome is recommended; add WindowMasker if you see runaway LASTZ runtimes. We also provide a soft-masking solution in [softmask](https://github.com/hillerlab/softmask).
 > - **Scaffold names**: no spaces; avoid dots (rename `NC_00000.1` → `NC_00000`)
 > - Inputs accepted: `.fasta` or `.2bit`.
 > - **Container image**: We offer a pre-built container image for the whole pipeline as well as individual modules. By default the pipeline runs with [ghcr.io/hillerlab/make_lastz_chains:latest](https://github.com/hillerlab/containers/pkgs/container/make_lastz_chains). Additional images can be found at [containers](https://github.com/hillerlab/containers) and nextflow modules at [core](https://github.com/hillerlab/core).
@@ -69,8 +72,13 @@ Smoke test:
 nextflow run main.nf -profile test,apptainer
 ```
 
-Resume runs from checkpoints [fill_chains, clean_chains]:
+Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
 ```bash
+
+# Restart after alignment but before repeat-cleaning them [ 04_axtchain ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from chain_antirepeat \
+    --axtchain_path  results/04_axtchain
 
 # Restart after alignment but before filling chains [ 04_axtchain/merged_chains ]
 nextflow run main.nf -profile <PROFILE> -params-file params.json \
@@ -114,7 +122,7 @@ results/
 ├── 01_partition/        *_partitions.txt
 ├── 02_lastz_psl/        *.psl 
 ├── 03_concat_lastz_output/    *.psl.gz 
-├── 04_axtchain/         *.chain
+├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains
 ├── 05_filled_chains/    *.filled.chain.gz  ← checkpoint for --from clean_chains

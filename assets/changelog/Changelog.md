@@ -1,3 +1,36 @@
+# 3.1.4
+
+New `--from chain_antirepeat` checkpoint that lets users resume from the axtChain bundle outputs, skipping LASTZ alignment, alongside a bug fix for `.2bit` path resolution in the wrapper layer and a CPU allocation for the anti-repeat process.
+
+### New `--from chain_antirepeat` checkpoint
+
+- Added `FROM_CHAIN_ANTIREPEAT` subworkflow in `main.nf` — a new resume entry point that accepts a directory of `.chain` files from `04_axtchain`. The workflow prepares the reference and query genomes (without chromosome extraction), collects all bundled chains from the provided `--axtchain_path` directory, runs `chaintools antirepeat` on each, merges the result via `CHAINTOOLS_MERGE`, and proceeds through gap filling and chain cleaning. This effectively allows users to skip LASTZ alignment entirely and resume from the point where axtChain output is available.
+- Added `validateFromChainAntirepeat()` validation function that requires `--axtchain_path` in addition to the usual alias-base parameters (`--reference_name`, `--query_name`, `--reference_genome`, `--query_genome`).
+- Added `--axtchain_path` parameter to `params.json` (defaults to `null`). The parameter accepts a path to a directory containing `.chain` files — typically `results/04_axtchain` from a prior run.
+- Updated the README checkpoint documentation to list `chain_antirepeat` as a valid `--from` value alongside `fill_chains` and `clean_chains`, and annotated the `04_axtchain/` output tree to mark it as the anchor directory for this checkpoint.
+- The new subworkflow respects `--skip_antirepeat`, `--skip_fill_chains`, and `--skip_clean_chain` flags, giving users fine-grained control over which post-alignment steps execute.
+
+### Bug fix: `.2bit` path resolution in LASTZ wrapper
+
+- Fixed a bug in `bin/run_lastz.py` where the LASTZ wrapper did not properly handle missing or unreadable `.2bit` files when processing ranged chromosome arguments. The fix introduces explicit `os.path.exists()` and `os.access` checks before v1 header detection, surfacing a clear `FileNotFoundError` with a descriptive message that includes the expected shared FASTA path (when `--reference_chrom_dir` or `--query_chrom_dir` is configured) or a note about the missing directory.
+- Extracted the shared FASTA lookup into a dedicated `get_shared_chrom_fasta()` helper and added `missing_twobit_message()` to produce consistent, actionable error diagnostics. Both the v0 and v1 `.2bit` paths now produce the same quality of error messaging when the input file is absent.
+- Bumped `bin/run_lastz.py` `__version__` from `0.0.2` to `0.0.3`.
+
+### CPU allocation for anti-repeat process
+
+- Added `cpus = 32` to the `CHAINTOOLS_ANTIREPEAT` process block in `nextflow.config`. The anti-repeat step iterates over all aligned chain bundles and benefits from the additional parallelism, reducing wall-clock time during the chain-building stage.
+
+### Documentation
+
+- Added the Hiller Lab logo (`assets/figures/hillerlab.png`) to the top of `README.md`.
+- Fixed the GitHub License badge URL, which was incorrectly pointing to the `containers` repository instead of `make_lastz_chains`.
+- Added a reference to the [softmask](https://github.com/hillerlab/softmask) solution in the important-notes section for users that need to soft-mask their genomes.
+
+### Config adjustments
+
+- Bumped manifest version from `3.1.3` to `3.1.4`.
+
+
 # 3.1.3
 
 Refactored the LASTZ alignment wrappers and completed the `target` → `reference` terminology migration across the alignment pipeline, alongside a Python container upgrade and internal code quality improvements.
