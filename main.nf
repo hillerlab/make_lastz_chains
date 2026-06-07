@@ -100,6 +100,8 @@ include { CHAIN_CLEANER     } from './modules/local/chain_cleaner/main'
 include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from './modules/local/chaintools/filter/main'
 include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from './subworkflows/local/prepare_genomes/main'
 include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from './subworkflows/local/prepare_genomes/main'
+include { CHAINTOOLS_ANTIREPEAT } from './modules/local/chaintools/antirepeat/main'
+include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -131,6 +133,15 @@ def validateAliasBase() {
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     return errors
+}
+
+def validateFromChainAntirepeat() {
+    def errors = validateAliasBase()
+    if (!params.axtchain_path) errors << "  --axtchain_path is required (path to *.chain)"
+    if (errors) {
+        log.error "Parameter validation failed:\n${errors.join('\n')}"
+        System.exit(1)
+    }
 }
 
 def validateFromFillChains() {
@@ -166,6 +177,10 @@ workflow MAKE_LASTZ_CHAINS {
         // ── Checkpoint: start from filled chain (skip LASTZ + chain build + fill) ──
         log.info "Resuming from ${params.from} checkpoint — skipping LASTZ + fill step"
         FROM_CLEAN_CHAINS()
+    } else if (params.from == "chain_antirepeat") {
+        // ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
+        log.info "Resuming from ${params.from} checkpoint — skipping LASTZ"
+        FROM_CHAIN_ANTIREPEAT()
     } else {
         // ── Default: full pipeline ─────────────────────────────────────────────────
         log.info "Starting full pipeline — skipping checkpoints"
@@ -209,6 +224,80 @@ workflow FULL_RUN {
     )
 }
 
+// ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
+// Input: results/04_axtchain/*.chain from a previous run
+workflow FROM_CHAIN_ANTIREPEAT {
+    validateFromChainAntirepeat()
+
+    log.info """
+    make_lastz_chains v${workflow.manifest.version} — FROM_CHAIN_ANTIREPEAT
+
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
+
+      Reference : ${params.reference_name}
+      Query  : ${params.query_name}
+      Input  : ${params.merged_chain_path}
+      Outdir : ${params.outdir}
+      Antirepeat : ${params.skip_antirepeat ? 'SKIPPED' : 'enabled'}
+      Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
+      Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
+      Profile: ${workflow.profile}
+    """.stripIndent()
+
+    // ── 1. Prepare genomes ─────────────────────────────────────────────────
+    PREPARE_REFERENCE_GENOME (
+        params.reference_name,
+        params.reference_genome,
+        false
+    )
+    PREPARE_QUERY_GENOME (
+        params.query_name,
+        params.query_genome,
+        false
+    )
+
+    // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
+    reference_prepared    = PREPARE_REFERENCE_GENOME.out.prepared
+    reference_twobit      = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
+
+    query_prepared    = PREPARE_QUERY_GENOME.out.prepared
+    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
+    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+
+    // ── 2. Collect all bundled chains from axtChain ───────────────────────────────────
+    Channel.fromPath(params.axtchain_path, type: 'dir', checkIfExists: true, maxDepth: 1)
+        .map { chain -> chain.listFiles().findAll { it.name.endsWith('.chain') } }
+        .flatten()
+        // .map { chain -> [ [ id: chain.baseName ], chain ] }
+        .set { ch_axtchain_chains }
+
+    // ── 3. Run anti repeat on each chain ─────────────────────────────────────────
+    CHAINTOOLS_ANTIREPEAT (
+      ch_axtchain_chains,
+      reference_twobit,
+      query_twobit,
+    )
+
+    // ── 4. Merge all chain files into one ────────────────────────────────────────
+    CHAINTOOLS_MERGE (
+        CHAINTOOLS_ANTIREPEAT.out.chain
+          .collect()
+          .map { chains -> [ [ id: params.reference_name + '.' + params.query_name ], chains ] }
+    )
+
+    FILL_CLEAN_CHAINS(
+        CHAINTOOLS_MERGE.out.chain_gz,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        query_chrom_sizes,
+        params.reference_name,
+        params.query_name
+    )
+}
+
 // ── Checkpoint: start from merged chain (skip LASTZ + chain building) ──────
 // Input: results/chain_merge/*.all.chain.gz from a previous run
 workflow FROM_FILL_CHAINS {
@@ -224,6 +313,7 @@ workflow FROM_FILL_CHAINS {
       Query  : ${params.query_name}
       Input  : ${params.merged_chain_path}
       Outdir : ${params.outdir}
+      Antirepeat : ${params.skip_antirepeat ? 'SKIPPED' : 'enabled'}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
       Profile: ${workflow.profile}
@@ -323,6 +413,8 @@ workflow FROM_CLEAN_CHAINS {
         params.min_chain_score,
     )
 }
+
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

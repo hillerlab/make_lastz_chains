@@ -72,8 +72,13 @@ Smoke test:
 nextflow run main.nf -profile test,apptainer
 ```
 
-Resume runs from checkpoints [fill_chains, clean_chains]:
+Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
 ```bash
+
+# Restart after alignment but before repeat-cleaning them [ 04_axtchain ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from chain_antirepeat \
+    --axtchain_path  results/04_axtchain
 
 # Restart after alignment but before filling chains [ 04_axtchain/merged_chains ]
 nextflow run main.nf -profile <PROFILE> -params-file params.json \
@@ -117,7 +122,7 @@ results/
 ├── 01_partition/        *_partitions.txt
 ├── 02_lastz_psl/        *.psl 
 ├── 03_concat_lastz_output/    *.psl.gz 
-├── 04_axtchain/         *.chain
+├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains
 ├── 05_filled_chains/    *.filled.chain.gz  ← checkpoint for --from clean_chains
