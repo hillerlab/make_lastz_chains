@@ -105,7 +105,7 @@ A helper sh script is provided to run the pipeline on a SLURM cluster. See detai
 Edit the path variables at the top of `assets/scripts/make_lastz_chains.sh` (cache dir, container image, manifest path), then submit:
 
 ```bash
-sbatch --array=1-<N> run_nf_slurm_example.sh
+sbatch --array=1-<N> make_lastz_chains.sh
 ```
 
 Each array task spawns one Nextflow head job that submits all compute as child SLURM jobs.

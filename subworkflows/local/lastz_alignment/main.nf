@@ -10,7 +10,7 @@ Distributed under the terms of the Apache License, Version 2.0.
     2. Create N×K alignment pairs via channel.combine()
     3. Run LASTZ on each pair in parallel
     4. Group PSL outputs by reference-partition bucket
-    5. Concatenate + compress each bucket (CAT_PSL)
+    5. Concatenate (PSLTOOLS_MERGE)
 
     Emits: psl_gz — all .psl.gz files ready for PSL_SORT_ACC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -39,9 +39,9 @@ def get_bucket_key(String partition) {
 workflow LASTZ_ALIGNMENT {
     take:
     reference_prepared    // tuple: (reference_name, reference_twobit, reference_chrom_sizes)
-    query_prepared     // tuple: (query_name,  query_twobit,  query_chrom_sizes)
+    query_prepared        // tuple: (query_name,  query_twobit,  query_chrom_sizes)
     reference_chroms_dir  // tuple: (reference_name, dir/) — pre-extracted v1 FASTAs
-    query_chroms_dir   // tuple: (query_name,  dir/) — pre-extracted v1 FASTAs
+    query_chroms_dir      // tuple: (query_name,  dir/) — pre-extracted v1 FASTAs
 
     main:
     // ── Partition ───────────────────────────────────────────────────────────
@@ -82,11 +82,14 @@ workflow LASTZ_ALIGNMENT {
 
     // ── LASTZ alignment ─────────────────────────────────────────────────────
     reference_twobit_ch       = reference_prepared.map { _n, tb, _cs -> tb }
-    query_twobit_ch        = query_prepared.map  { _n, tb, _cs -> tb }
     reference_chrom_sz_ch     = reference_prepared.map { _n, _tb, cs -> cs }
-    query_chrom_sz_ch      = query_prepared.map  { _n, _tb, cs -> cs }
     reference_chroms_dir_ch   = reference_chroms_dir.map { _n, d -> d }
+    reference_name            = reference_prepared.map { n, _tb, _cs -> n.toString() }
+
+    query_twobit_ch        = query_prepared.map  { _n, tb, _cs -> tb }
+    query_chrom_sz_ch      = query_prepared.map  { _n, _tb, cs -> cs }
     query_chroms_dir_ch    = query_chroms_dir.map  { _n, d -> d }
+    query_name             = query_prepared.map  { n, _tb, _cs -> n.toString() }
 
     LASTZ (
         pairs_ch,
@@ -128,9 +131,19 @@ workflow LASTZ_ALIGNMENT {
         }
         .groupTuple()    // ( [ bucket_key ], [psl_file, psl_file, ...] )
 
+    // ── Collect all PSL files into a single channel ───────────────────────────────────
     PSLTOOLS_MERGE ( bucketed_ch )
+    PSLTOOLS_MERGE.out.psl
+        .map { meta, psl -> psl }
+        .collect()
+        .combine(reference_name)
+        .combine(query_name)
+        .map { psl_files, ref, query -> 
+            [ [ id: "${ref}.${query}.all.psl" ], psl_files ] 
+        }
+        .set { ch_psl_files }
 
     emit:
-    psl_gz   = PSLTOOLS_MERGE.out.psl
+    psl_gz   = ch_psl_files
     versions = PARTITION_REFERENCE.out.versions.mix(PARTITION_QUERY.out.versions, LASTZ.out.versions, PSLTOOLS_MERGE.out.versions)
 }

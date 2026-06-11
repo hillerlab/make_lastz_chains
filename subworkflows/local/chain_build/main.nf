@@ -23,17 +23,17 @@ include { PSLTOOLS_SPLIT } from '../../../modules/local/psltools/split/main'
 
 workflow CHAIN_BUILD {
     take:
-    psl_gz_files        // channel of .psl.gz files from LASTZ_ALIGNMENT
+    psl_files              // channel of .psl files from LASTZ_ALIGNMENT
     reference_twobit       // path
-    query_twobit        // path
+    query_twobit           // path
     reference_chrom_sizes  // path
     reference_name         // val
-    query_name          // val
+    query_name             // val
 
     main:
     // ── Split all PSL files by chromosome ───────────────────────────────────
     PSLTOOLS_SPLIT (
-        psl_gz_files
+        psl_files
     )
 
     PSLTOOLS_SPLIT.out.psl
