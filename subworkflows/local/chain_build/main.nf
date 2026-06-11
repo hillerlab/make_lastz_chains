@@ -15,11 +15,11 @@ Distributed under the terms of the Apache License, Version 2.0.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { PSL_SORT_ACC     } from '../../../modules/local/psl_sort_acc/main'
 include { PSL_BUNDLE       } from '../../../modules/local/psl_bundle/main'
 include { AXT_CHAIN        } from '../../../modules/local/axt_chain/main'
 include { CHAINTOOLS_ANTIREPEAT } from '../../../modules/local/chaintools/antirepeat/main'
 include { CHAINTOOLS_MERGE } from '../../../modules/local/chaintools/merge/main'
+include { PSLTOOLS_SPLIT } from '../../../modules/local/psltools/split/main'
 
 workflow CHAIN_BUILD {
     take:
@@ -31,14 +31,19 @@ workflow CHAIN_BUILD {
     query_name          // val
 
     main:
-    // ── Sort all PSL files by chromosome ───────────────────────────────────
-    PSL_SORT_ACC (
-        psl_gz_files.collect()
+    // ── Split all PSL files by chromosome ───────────────────────────────────
+    PSLTOOLS_SPLIT (
+        psl_gz_files
     )
+
+    PSLTOOLS_SPLIT.out.psl
+        .map { meta, psl -> psl }
+        .collect()
+        .set { ch_psl_files }
 
     // ── Bundle sorted PSL files by chromosome for parallel axtChain ────────
     PSL_BUNDLE (
-        PSL_SORT_ACC.out.sorted_psl_dir,
+        ch_psl_files,
         reference_chrom_sizes,
         params.bundle_psl_max_bases
     )
@@ -69,9 +74,8 @@ workflow CHAIN_BUILD {
 
     emit:
     merged_chain = CHAINTOOLS_MERGE.out.chain_gz
-    versions     = PSL_SORT_ACC.out.versions
-                     .mix( PSL_BUNDLE.out.versions,
-                           AXT_CHAIN.out.versions,
+    versions     = PSL_BUNDLE.out.versions
+                     .mix( AXT_CHAIN.out.versions,
                            CHAINTOOLS_ANTIREPEAT.out.versions,
                            CHAINTOOLS_MERGE.out.versions )
 }
