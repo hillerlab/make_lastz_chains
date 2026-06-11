@@ -86,6 +86,12 @@ cat > "${pair_dir}/params.json" <<EOF
     "reference_genome": "${reference_fa}",
     "query_genome":  "${query_fa}",
     "outdir":        "${pair_dir}/results",
+    "use_container": true,
+
+    "from": null,
+    "axtchain_path": null,
+    "merged_chain_path": null,
+    "filled_chain_path": null,
 
     "seq1_chunk": 175000000,
     "seq2_chunk": 50000000,
@@ -115,9 +121,6 @@ cat > "${pair_dir}/params.json" <<EOF
 
     "skip_clean_chain":       false,
     "clean_chain_parameters": "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 -maxSuspectScore=100000 -minBrokenChainScore=75000",
-
-    "lastz_path":      "lastz",
-    "axt_to_psl_path": "axtToPsl"
 }
 EOF
 

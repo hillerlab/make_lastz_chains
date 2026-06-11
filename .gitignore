@@ -38,3 +38,5 @@ test_data/humanChrX.fa
 test_data/mm39ChrX.fa
 test_out_new/
 test_out_old/
+test.json
+big_test.json
