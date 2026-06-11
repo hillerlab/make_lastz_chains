@@ -40,6 +40,7 @@ process CHAINTOOLS_SPLIT {
         --chain $chain \\
         --files $num_chunks \\
         --outdir . \\
+        --randomize \\
         --threads ${task.cpus}
 
     cat <<-END_VERSIONS > versions.yml

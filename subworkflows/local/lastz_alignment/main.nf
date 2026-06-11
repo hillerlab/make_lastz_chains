@@ -19,7 +19,7 @@ Distributed under the terms of the Apache License, Version 2.0.
 include { PARTITION as PARTITION_REFERENCE } from '../../../modules/local/partition/main'
 include { PARTITION as PARTITION_QUERY  } from '../../../modules/local/partition/main'
 include { LASTZ     } from '../../../modules/local/lastz/main'
-include { CAT_PSL   } from '../../../modules/local/cat_psl/main'
+include { PSLTOOLS_MERGE } from '../../../modules/local/psltools/merge/main'
 
 // Derive the bucket key from a reference partition string.
 // Regular: "reference.2bit:chr1:0-175000000"  → "bucket_ref_chr1_in_0_175000000"
@@ -120,17 +120,17 @@ workflow LASTZ_ALIGNMENT {
         return got
     }
 
-    // ── Group PSL outputs by reference bucket, then CAT_PSL ───────────────────
+    // ── Group PSL outputs by reference bucket, then PSLTOOLS_MERGE ───────────────────
     bucketed_ch = LASTZ.out.psl
         .map { reference_part, psl_file ->
             def bucket = get_bucket_key(reference_part)
-            [ bucket, psl_file ]
+            [ [ id:bucket ], psl_file ]
         }
-        .groupTuple()    // (bucket_key, [psl_file, psl_file, ...])
+        .groupTuple()    // ( [ bucket_key ], [psl_file, psl_file, ...] )
 
-    CAT_PSL ( bucketed_ch )
+    PSLTOOLS_MERGE ( bucketed_ch )
 
     emit:
-    psl_gz   = CAT_PSL.out.psl_gz     // all .psl.gz files for PSL_SORT_ACC
-    versions = PARTITION_REFERENCE.out.versions.mix(PARTITION_QUERY.out.versions, LASTZ.out.versions, CAT_PSL.out.versions)
+    psl_gz   = PSLTOOLS_MERGE.out.psl
+    versions = PARTITION_REFERENCE.out.versions.mix(PARTITION_QUERY.out.versions, LASTZ.out.versions, PSLTOOLS_MERGE.out.versions)
 }

@@ -43,7 +43,7 @@
 > - **Scaffold names**: no spaces; avoid dots (rename `NC_00000.1` → `NC_00000`)
 > - Inputs accepted: `.fasta` or `.2bit`.
 > - **Container image**: We offer a pre-built container image for the whole pipeline as well as individual modules. By default the pipeline runs with [ghcr.io/hillerlab/make_lastz_chains:latest](https://github.com/hillerlab/containers/pkgs/container/make_lastz_chains). Additional images can be found at [containers](https://github.com/hillerlab/containers) and nextflow modules at [core](https://github.com/hillerlab/core).
-> - **UCSC replacement**: As of >=3.1.0, the pipeline uses [chaintools](https://github.com/alejandrogzi/chaintools), a Rust library to work with .chain files.
+> - **UCSC replacement**: As of >=3.1.0, the pipeline uses [chaintools](https://github.com/alejandrogzi/chaintools), a Rust library to work with .chain files. As of >=3.1.5, the pipeline uses [psltools](https://github.com/alejandrogzi/psltools), a Rust library to work with .psl files.
 
 ---
 
@@ -67,10 +67,12 @@ nextflow run main.nf -params-file params.json -profile docker
 nextflow run main.nf -params-file params.json -profile apptainer
 ```
 
-Smoke test:
-```bash
-nextflow run main.nf -profile test,apptainer
-```
+> [!TIP]
+> We recommend running the pipeline test suite with:
+> ```bash
+> nextflow run main.nf -profile test,apptainer
+> ```
+> To ensure that the pipeline runs on your system.
 
 Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
 ```bash
@@ -100,7 +102,7 @@ A helper sh script is provided to run the pipeline on a SLURM cluster. See detai
 <summary>Click to expand</summary>
 
 
-Edit the path variables at the top of `assets/scripts/run_nf_slurm_example.sh` (cache dir, container image, manifest path), then submit:
+Edit the path variables at the top of `assets/scripts/make_lastz_chains.sh` (cache dir, container image, manifest path), then submit:
 
 ```bash
 sbatch --array=1-<N> run_nf_slurm_example.sh

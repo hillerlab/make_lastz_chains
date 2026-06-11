@@ -15,8 +15,8 @@ process PSL_BUNDLE {
         'biocontainers/python:3.11' }"
 
     input:
-    path sorted_psl_dir       // directory output of PSL_SORT_ACC
-    path target_chrom_sizes
+    path psl_files, stageAs: "sorted_psl/*"
+    path reference_chrom_sizes
     val  max_bases
 
     output:
@@ -28,8 +28,8 @@ process PSL_BUNDLE {
     mkdir -p split_psl
 
     psl_bundle.py \\
-        --input_dir ${sorted_psl_dir} \\
-        --chrom_sizes ${target_chrom_sizes} \\
+        --input_dir sorted_psl/ \\
+        --chrom_sizes ${reference_chrom_sizes} \\
         --output_dir split_psl \\
         --max_bases ${max_bases}
 
