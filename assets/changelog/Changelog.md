@@ -1,3 +1,49 @@
+# 3.1.5
+
+Replaced the UCSC `pslSortAcc` and the shell-based `CAT_PSL` module with `psltools`, a dedicated Rust library for working with PSL files, and introduced weighted repeat-filler distribution via `chaintools split --randomize`.
+
+### New `psltools` modules
+
+- Added `PSLTOOLS_SPLIT` (`modules/local/psltools/split/main.nf`) — splits PSL files by reference chromosome, replacing the UCSC `pslSortAcc` tool. The module receives the raw PSL output from LASTZ, groups alignments by reference chromosome, and emits split PSL files, each containing all query-to-reference alignments for one chromosome.
+- Added `PSLTOOLS_MERGE` (`modules/local/psltools/merge/main.nf`) — merges multiple PSL files belonging to the same reference bucket into a single PSL output, replacing the old `CAT_PSL` process that relied on `cat` + `grep` + `gzip`.
+- Integrated `PSLTOOLS_SPLIT` into the `CHAIN_BUILD` subworkflow in place of `PSL_SORT_ACC`. The split module now feeds individual PSL files (rather than a sorted directory) into `PSL_BUNDLE`, requiring a `map`/`collect` channel transformation before the bundle step.
+- Integrated `PSLTOOLS_MERGE` into the `LASTZ_ALIGNMENT` subworkflow in place of `CAT_PSL`. The merge expects a meta tuple `[id:bucket]` instead of a plain bucket string, aligning with the standard nf-core input pattern.
+- Removed `modules/local/cat_psl/main.nf` and `modules/local/psl_sort_acc/main.nf`. The UCSC `pslSortAcc` container is no longer required.
+
+### Weighted repeat-filler distribution
+
+- Added the `--randomize` flag to the `chaintools split` invocation in `modules/local/chaintools/split/main.nf`. This flag randomly shuffles the input chains before partitioning them into chunks, ensuring that the workload across `REPEAT_FILLER` array jobs is evenly distributed regardless of the input order. Previously, chunks could be biased toward larger or smaller chains, causing some array tasks to finish significantly faster than others.
+
+### Pipeline configuration
+
+- Bumped manifest version from `3.1.4` to `3.1.5`.
+- Relocated the `array = 500` setting from the base `LASTZ`, `AXT_CHAIN`, and `REPEAT_FILLER` process blocks into a `withName` block scoped to the `slurm` profile. This prevents array-job semantics from being enabled in non-SLURM environments (Docker, Apptainer, local) where array syntax is not applicable.
+- Reduced `CHAINTOOLS_ANTIREPEAT` CPU allocation from 32 to 16. The anti-repeat step benefits less from aggressive parallelisation on typical datasets, and the reduced allocation better fits common SLURM partition limits.
+- Broadened the `errorStrategy` condition to treat exit status `null` and `Integer.MAX_VALUE` (signalling a missing or unreachable exit code) as retryable alongside the existing signal range (`130–145`, `104`, `175`). This catches previously unhandled edge cases where the process wrapper failed before the child process could produce a proper exit code.
+- Removed `--qos=public` from the SLURM profile's `clusterOptions`. This QoS flag is not available on all SLURM installations, and its removal makes the SLURM profile portable across clusters.
+- Set `use_container = false` in the `test` profile to ensure the test suite runs without relying on an external container registry.
+- Updated the `CAT_PSL` (now `PSLTOOLS_MERGE`) publishDir pattern from `*.psl.gz` to `*.psl`, matching the uncompressed output format of `psltools merge`.
+- Disabled `publishDir` for the `PSL_SORT_ACC` (now `PSLTOOLS_SPLIT`) process, as its intermediate outputs do not need to be published.
+
+### PSL bundle module updates
+
+- Changed `PSL_BUNDLE` input from a single `path sorted_psl_dir` (a directory) to `path psl_files, stageAs: "sorted_psl/*"` (a list of files staged into a predictable directory). The module now accepts individual PSL files from `PSLTOOLS_SPLIT` rather than a pre-sorted directory structure.
+- Renamed the internal chrom-sizes input parameter from `target_chrom_sizes` to `reference_chrom_sizes` for consistency with the rest of the pipeline.
+
+### Removed test file
+
+- Deleted `bin/tests/test_run_lastz_wrappers.py` (268 lines of unit tests for the old LASTZ wrapper scripts). These tests covered `run_lastz.py` and `run_lastz_intermediate_layer.py` internals (BULK expansion, sequence argument formatting, temp workspace cleanup) that have been stable since v3.1.3 and are maintained upstream in the `pylastz` repository.
+
+### Documentation
+
+- Updated `README.md` to mention `psltools` as the PSL counterpart to `chaintools` in the UCSC replacement note.
+- Renamed `assets/scripts/run_nf_slurm_example.sh` to `assets/scripts/make_lastz_chains.sh` to match the pipeline's naming convention.
+- Expanded the SLURM helper script's embedded `params.json` snippet with explicit fields for `use_container`, `from`, `axtchain_path`, `merged_chain_path`, and `filled_chain_path` — giving users a complete parameter template that matches the current schema.
+- Removed the outdated `lastz_path` and `axt_to_psl_path` entries from the SLURM helper's `params.json` — these parameters were removed in v3.1.0 and are no longer recognised.
+- Wrapped the smoke-test command in a `[!TIP]` callout to distinguish it from the main execution examples.
+- Added `test.json` and `big_test.json` to `.gitignore` to prevent accidental commits of ad-hoc test configuration files.
+
+
 # 3.1.4
 
 New `--from chain_antirepeat` checkpoint that lets users resume from the axtChain bundle outputs, skipping LASTZ alignment, alongside a bug fix for `.2bit` path resolution in the wrapper layer and a CPU allocation for the anti-repeat process.
