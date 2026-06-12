@@ -136,6 +136,7 @@ workflow LASTZ_ALIGNMENT {
     PSLTOOLS_MERGE.out.psl
         .map { meta, psl -> psl }
         .collect()
+        .map { psl_files -> [psl_files] }
         .combine(reference_name)
         .combine(query_name)
         .map { psl_files, ref, query -> 
