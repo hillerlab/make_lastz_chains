@@ -43,6 +43,7 @@ process CHAINTOOLS_MERGE {
         --threads ${task.cpus} \\
         --max-gb $max_gb \\
         --sort-by id \\
+        --rename \\
         --gzip \\
         --out-chain ${prefix}.all.chain.gz
 
