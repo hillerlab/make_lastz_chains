@@ -13,6 +13,7 @@ Distributed under the terms of the Apache License, Version 2.0.
 
 process CHAINTOOLS_MERGE {
     tag "$meta.id"
+    label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
