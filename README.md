@@ -67,6 +67,17 @@ nextflow run main.nf -params-file params.json -profile docker
 nextflow run main.nf -params-file params.json -profile apptainer
 ```
 
+Alternatively, keep the alignment settings in `params.json` and provide the genome paths and output directory as command-line arguments:
+
+```bash
+nextflow run main.nf -params-file params.json -profile docker \
+    --reference_genome /path/to/reference.2bit \
+    --query_genome /path/to/query.2bit \
+    --outdir results
+```
+
+Command-line parameters override matching values from `params.json`; all other parameters continue to come from the file.
+
 > [!TIP]
 > We recommend running the pipeline test suite with:
 > ```bash
