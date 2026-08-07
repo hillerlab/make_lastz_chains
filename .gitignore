@@ -40,3 +40,12 @@ test_out_new/
 test_out_old/
 test.json
 big_test.json
+test_results/
+
+# CI/local test run outputs
+tests/work/
+results/
+work/
+.nextflow*
+
+
