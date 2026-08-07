@@ -1,3 +1,78 @@
+<p align="center">
+<p align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="../figures/hillerlab-dark.png"
+    >
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="../figures/hillerlab-light.png"
+    >
+    <img
+      width="200"
+      alt="Hiller Lab"
+      src="../figures/hillerlab-light.png"
+    >
+  </picture>
+</p>
+
+  <span>
+    <h1 align="center">
+        make_lastz_chains
+    </h1>
+  </span>
+
+  <p align="center">
+    <a href="https://github.com/hillerlab/make_lastz_chains" reference="_blank">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/hillerlab/make_lastz_chains?color=blue">
+    </a>
+  </p>
+
+  <p align="center">
+    <samp>
+        <span> portable solution for generating pairwise genome alignment chains  </span>
+        <br>
+        <span> The Hiller Lab at the Senckenberg Research Institute </span>
+        <br>
+        <br>
+        <a href="https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
+        <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
+        <a href="https://github.com/hillerlab/make_lastz_chains/blob/main./pipeline/make_lastz_chains.mermaid">pipeline</a> 
+    </samp>
+  </p>
+
+</p>
+
+---
+
+# 3.1.7
+
+Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.
+
+### chainc
+
+- Added `CHAINC` (`modules/local/chainc/main.nf`), a Rust implementation of UCSC `chainCleaner`, and removed the `chain_cleaner` module. `chainc` nets the input chains in memory, so the `--net` file is no longer required; the pipeline still passes the reference/query chromosome sizes and the `--linear-gap` model.
+- `clean_chain_parameters` now takes `chainc`'s kebab-case flags (e.g. `--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000`).
+- Output is byte-identical to `chainCleaner` for a given set of parameters (verified by the new golden harness).
+
+### Dataflow simplifications
+
+- `LASTZ_ALIGNMENT` (`subworkflows/local/lastz_alignment/main.nf`): removed the per-reference-partition `PSLTOOLS_MERGE` step. Raw `LASTZ` PSL output now goes straight to `PSLTOOLS_SPLIT --by reference`, which already consolidates alignments across query partitions; `axtChain` sorts its block list internally. This drops one full pass over all alignment data.
+- `FILL_CLEAN_CHAINS` (`subworkflows/local/fill_clean_chains/main.nf`): removed `CHAINTOOLS_SORT_MERGED_FILLED_CHAINS`. `CHAINTOOLS_MERGE_FILLED_CHAINS` now merges with `--sort-by score` (controllable via `task.ext.sort_by`), directly producing the score-descending order `chainc` requires. This drops a full sort of the filled chain file.
+- Deleted `modules/local/psltools/merge/main.nf` (no remaining callers).
+
+### CI
+
+- Added a GitHub Actions workflow (`.github/workflows/ci.yml`) with two jobs:
+  - `test-profile` — runs the bundled smoke test `nextflow run main.nf -profile test,docker` and asserts the final chain exists.
+  - `golden-comparison` — runs the pipeline on a full-pipeline synthetic fixture and a hand-crafted chain-breaking-alignment (CBA) fixture (`tests/fixture/cba/`), then diffs the outputs byte-for-byte against committed chainCleaner baselines under `tests/golden/`. Regenerate goldens with `tests/ci/make_golden.sh`. See `tests/README.md`.
+- The CI pins Nextflow 25.04.6.
+
+### Container image
+
+- `assets/image/Dockerfile` mirrors the `hillerlab/containers` build and now adds `chainc` (cargo-installed), alongside the updated `chaintools`/`psltools` versions. `chainc --version` is smoke-tested at image build time.
+
 # 3.1.6
 
 Fixed two issues that could silently corrupt or crash the pipeline: chain IDs were being improperly renamed during merge, leading to crashes during chain cleaning, and the PSL output channel from `LASTZ_ALIGNMENT` was emitting individual files instead of a single collect, causing multiple collision scenarios in the downstream chain-building subworkflow.
