@@ -34,6 +34,7 @@ process CHAINTOOLS_MERGE {
     script:
     def args      = task.ext.args ?: ''
     def prefix    = task.ext.prefix ?: "${meta.id}"
+    def sort_by   = task.ext.sort_by ?: 'id'
     def max_gb    = task.memory ? task.memory.toGiga() : 32
     """
     ls *.chain > chains.list
@@ -43,7 +44,7 @@ process CHAINTOOLS_MERGE {
         --file chains.list \\
         --threads ${task.cpus} \\
         --max-gb $max_gb \\
-        --sort-by id \\
+        --sort-by ${sort_by} \\
         --rename \\
         --gzip \\
         --out-chain ${prefix}.all.chain.gz
