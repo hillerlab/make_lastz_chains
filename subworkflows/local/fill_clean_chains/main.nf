@@ -12,7 +12,7 @@ Distributed under the terms of the Apache License, Version 2.0.
     1. CHAINTOOLS_SPLIT       — split merged chain into N parts
     2. REPEAT_FILLER          — fill gaps in each part in parallel
     3. CHAINTOOLS_MERGE       — merge filled parts
-    4. CHAIN_CLEANER          — remove suspicious chains
+    4. CHAINC                — remove suspicious chains
     5. CHAINTOOLS_FILTER      — apply minimum score filter → final.chain.gz
 
     Emits: final_chain — *.allfilled.chain.gz
@@ -20,12 +20,11 @@ Distributed under the terms of the Apache License, Version 2.0.
 */
 
 include { REPEAT_FILLER     } from '../../../modules/local/repeat_filler/main'
-include { CHAIN_CLEANER     } from '../../../modules/local/chain_cleaner/main'
+include { CHAINC } from '../../../modules/local/chainc/main'
 include { CHAINTOOLS_SPLIT  } from '../../../modules/local/chaintools/split/main'
 include { CHAINTOOLS_SCORE  } from '../../../modules/local/chaintools/score/main'
 include { CHAINTOOLS_MERGE as CHAINTOOLS_MERGE_FILLED_CHAINS } from '../../../modules/local/chaintools/merge/main'
 include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from '../../../modules/local/chaintools/filter/main'
-include { CHAINTOOLS_SORT as CHAINTOOLS_SORT_MERGED_FILLED_CHAINS } from '../../../modules/local/chaintools/sort/main'
 
 workflow FILL_CLEAN_CHAINS {
     take:
@@ -80,11 +79,9 @@ workflow FILL_CLEAN_CHAINS {
               .map { chains -> [ [ id: reference_name + '.' + query_name + '.filled' ], chains ] }
         )
 
-        CHAINTOOLS_SORT_MERGED_FILLED_CHAINS (
-            CHAINTOOLS_MERGE_FILLED_CHAINS.out.chain_gz
-        )
-
-        ch_chain_for_clean = CHAINTOOLS_SORT_MERGED_FILLED_CHAINS.out.chain
+        // merge --sort-by score --rename already emits score-descending chains
+        // (chainc's required input order), so no separate sort step is needed.
+        ch_chain_for_clean = CHAINTOOLS_MERGE_FILLED_CHAINS.out.chain_gz
 
         ch_versions = ch_versions.mix(CHAINTOOLS_SPLIT.out.versions)
         ch_versions = ch_versions.mix(REPEAT_FILLER.out.versions)
@@ -96,24 +93,23 @@ workflow FILL_CLEAN_CHAINS {
 
     // ── Clean chains (optional) ─────────────────────────────────────────────
     if (!params.skip_clean_chain) {
-        CHAIN_CLEANER (
-            ch_chain_for_clean,
+        CHAINC (
+            ch_chain_for_clean.map { meta, chain -> [ meta, chain, [] ] },
             reference_twobit,
             query_twobit,
             reference_chrom_sizes,
             query_chrom_sizes,
-            params.chain_linear_gap,
-            params.clean_chain_parameters
+            params.chain_linear_gap
         )
 
         CHAINTOOLS_FILTER_CLEANED_CHAINS (
-            CHAIN_CLEANER.out.cleaned_chain,
+            CHAINC.out.chain,
             params.min_chain_score,
         )
 
         ch_final = CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz
 
-        ch_versions = ch_versions.mix(CHAIN_CLEANER.out.versions)
+        ch_versions = ch_versions.mix(CHAINC.out.versions)
         ch_versions = ch_versions.mix(CHAINTOOLS_FILTER_CLEANED_CHAINS.out.versions)
     } else {
         // If not cleaning, the output of the fill step is the final chain.
