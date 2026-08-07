@@ -52,6 +52,12 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Always pass -long to faToTwoBit, producing a v1 (64-bit) .2bit file regardless of FASTA size. Forces lastz to take the v1 FASTA-extraction path. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs."
+                },
+                "stop_after": {
+                    "type": "string",
+                    "description": "Stop after genome preparation and LASTZ alignment. PSL output is copied to lastz_psl and concat_lastz_output.",
+                    "enum": ["lastz"],
+                    "fa_icon": "fas fa-stop"
                 }
             }
         },

@@ -8,6 +8,10 @@
     "query_genome":  null,
     "outdir":        "./results",
 
+    "//0": "── Early exit ──────────────────────────────────────────────────────────",
+    "//0a": "Set to \"lastz\" to run genome preparation and LASTZ only; leave null for the full pipeline.",
+    "stop_after": null,
+
     "//1": "── Checkpoint entry point inputs ───────────────────────────────────────",
     "//1a": "Used with -entry FROM_FILL_CHAINS or -entry FROM_CLEAN_CHAINS.",
     "merged_chain":       null,

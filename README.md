@@ -159,6 +159,19 @@ nextflow run main.nf -params-file params.json -profile apptainer
 nextflow run main.nf -profile test,apptainer
 ```
 
+### Stop after LASTZ
+
+To run genome preparation and LASTZ without building, filling, or cleaning chains:
+
+```bash
+nextflow run main.nf -params-file params.json --stop_after lastz -profile apptainer
+```
+
+This copies the individual PSL files to `results/lastz_psl/` and the
+concatenated, compressed PSL files to `results/concat_lastz_output/`. Set
+`"stop_after": "lastz"` in `params.json` to use the same mode without the
+command-line flag. Leave it `null` for a full pipeline run.
+
 ### Checkpoint entry points
 
 For mid-run recovery after a failure, Nextflow's built-in `-resume` is sufficient:
@@ -195,6 +208,8 @@ nextflow run main.nf -entry FROM_CLEAN_CHAINS -params-file params.json \
 results/
 ├── genome_prep/      target.2bit, query.2bit, *.chrom.sizes
 ├── partition/        *_partitions.txt
+├── lastz_psl/        *.psl                 ← only with --stop_after lastz
+├── concat_lastz_output/ *.psl.gz           ← only with --stop_after lastz
 ├── chain_merge/      *.all.chain.gz        ← checkpoint for FROM_FILL_CHAINS
 ├── fill_chains/      *.filled.chain.gz     ← checkpoint for FROM_CLEAN_CHAINS
 ├── final/            *.final.chain.gz      ← final output

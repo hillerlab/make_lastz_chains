@@ -37,6 +37,12 @@ if (params.help) {
         -entry FROM_FILL_CHAINS   Start from *.all.chain.gz  (skips LASTZ + chain building)
         -entry FROM_CLEAN_CHAINS  Start from *.filled.chain.gz (skips fill step)
 
+    Early exit:
+        --stop_after lastz        Run genome preparation and LASTZ, then stop.
+                                  Individual PSL files are copied to
+                                  <outdir>/lastz_psl and concatenated PSL files
+                                  to <outdir>/concat_lastz_output.
+
         Required extra params for FROM_FILL_CHAINS:
             --merged_chain        PATH  Path to *.all.chain.gz
             --target_twobit       PATH  Path to target .2bit
@@ -94,6 +100,9 @@ if (params.help) {
 */
 
 include { MAKE_LASTZ_CHAINS } from './workflows/make_lastz_chains'
+include { PREPARE_GENOMES as PREPARE_TARGET_GENOME } from './subworkflows/local/prepare_genomes/main'
+include { PREPARE_GENOMES as PREPARE_QUERY_GENOME  } from './subworkflows/local/prepare_genomes/main'
+include { LASTZ_ALIGNMENT } from './subworkflows/local/lastz_alignment/main'
 include { FILL_CLEAN_CHAINS } from './subworkflows/local/fill_clean_chains/main'
 include { CHAIN_CLEANER     } from './modules/local/chain_cleaner/main'
 include { CHAIN_FILTER      } from './modules/local/chain_filter/main'
@@ -110,6 +119,8 @@ def validateFullRun() {
     if (!params.query_name)    errors << "  --query_name is required"
     if (!params.target_genome) errors << "  --target_genome is required"
     if (!params.query_genome)  errors << "  --query_genome is required"
+    if (params.stop_after && params.stop_after != 'lastz')
+        errors << "  --stop_after must be 'lastz'"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     if (errors) {
@@ -127,6 +138,8 @@ def validateAliasBase() {
     if (!params.query_twobit)       errors << "  --query_twobit is required (path to query .2bit)"
     if (!params.target_chrom_sizes) errors << "  --target_chrom_sizes is required"
     if (!params.query_chrom_sizes)  errors << "  --query_chrom_sizes is required"
+    if (params.stop_after)
+        errors << "  --stop_after cannot be combined with a checkpoint entry workflow"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     return errors
@@ -159,6 +172,7 @@ def validateFromCleanChains() {
 // ── Default: full pipeline ─────────────────────────────────────────────────
 workflow {
     validateFullRun()
+    def lastz_only = params.stop_after == 'lastz'
 
     log.info """
     make_lastz_chains v${workflow.manifest.version}
@@ -167,15 +181,33 @@ workflow {
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
+      Stop   : ${lastz_only ? 'after LASTZ' : 'after final chain'}
       Profile: ${workflow.profile}
     """.stripIndent()
 
-    MAKE_LASTZ_CHAINS(
-        params.target_name,
-        params.query_name,
-        params.target_genome,
-        params.query_genome
-    )
+    if (lastz_only) {
+        PREPARE_TARGET_GENOME(
+            params.target_name,
+            params.target_genome
+        )
+        PREPARE_QUERY_GENOME(
+            params.query_name,
+            params.query_genome
+        )
+        LASTZ_ALIGNMENT(
+            PREPARE_TARGET_GENOME.out.prepared,
+            PREPARE_QUERY_GENOME.out.prepared,
+            PREPARE_TARGET_GENOME.out.chroms_dir,
+            PREPARE_QUERY_GENOME.out.chroms_dir
+        )
+    } else {
+        MAKE_LASTZ_CHAINS(
+            params.target_name,
+            params.query_name,
+            params.target_genome,
+            params.query_genome
+        )
+    }
 }
 
 // ── Checkpoint: start from merged chain (skip LASTZ + chain building) ──────
@@ -244,13 +276,19 @@ workflow FROM_CLEAN_CHAINS {
 */
 
 workflow.onComplete {
+    def lastz_only = params.stop_after == 'lastz'
+
     if (workflow.success) {
-        def final_chain = file("${params.outdir}/final/${params.target_name}.${params.query_name}.final.chain.gz")
         log.info "Pipeline completed successfully!"
-        if (final_chain.exists()) {
-            log.info "Final chain: ${final_chain}"
+        if (lastz_only) {
+            log.info "Stopped after LASTZ — concatenated PSL output: ${params.outdir}/concat_lastz_output"
         } else {
-            log.warn "Pipeline reported success but final chain file was not produced — check that all steps ran"
+            def final_chain = file("${params.outdir}/final/${params.target_name}.${params.query_name}.final.chain.gz")
+            if (final_chain.exists()) {
+                log.info "Final chain: ${final_chain}"
+            } else {
+                log.warn "Pipeline reported success but final chain file was not produced — check that all steps ran"
+            }
         }
         log.info "Run time   : ${workflow.duration}"
     } else {
