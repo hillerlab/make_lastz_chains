@@ -11,9 +11,13 @@ x-install-nextflow: &install-nextflow
     nextflow -version | grep -i version
 
 on:
+  release:
+    types: [ published ]
   push:
     branches: [ main ]
+    tags: [ '**' ]
   pull_request:
+  workflow_dispatch: {}
 
 jobs:
   test-profile:

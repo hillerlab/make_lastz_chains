@@ -11,7 +11,7 @@ Distributed under the terms of the Apache License, Version 2.0.
     nf-core style entry point
 
     Pipeline to create chain-formatted pairwise genome alignments.
-    Authors: Bogdan M. Kirilenko, Alejandro Gonzales-Irribarren, Nil Mu, Virag Sharma, Ekaterina Osipova, Michael Hiller
+    Authors: Alejandro Gonzales-Irribarren, Nil Mu, Bogdan M. Kirilenko, Michael Hiller
     GitHub:  https://github.com/hillerlab/make_lastz_chains
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
