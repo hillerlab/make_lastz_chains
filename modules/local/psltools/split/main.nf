@@ -33,7 +33,7 @@ process PSLTOOLS_SPLIT {
     def args      = task.ext.args ?: ''
     def prefix    = task.ext.prefix ?: "${meta.id}"
     """
-    ls *.psl > psl.list
+    find . -maxdepth 1 -name "*.psl" -print0 | xargs -0 cat > psl.list
 
     psltools split \\
         $args \\
