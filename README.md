@@ -92,6 +92,77 @@ nextflow run main.nf -params-file params.json -profile docker \
 
 Command-line parameters override matching values from `params.json`; all other parameters continue to come from the file.
 
+### Alignment backend
+
+`--aligner` picks which aligner produces the PSL alignments. Everything downstream
+(chain building, filling, cleaning) is identical for both.
+
+```
+                    PREPARE_GENOMES ──► .2bit + chrom.sizes
+                              │
+              ┌───────────────┴────────────────┐
+              │                                │
+      aligner=lastz                    aligner=kegalign (gpu profile)
+              │                                │
+      LASTZ_ALIGNMENT (CPU)             KEGALIGN_ALIGNMENT
+      PARTITION_REFERENCE /            REFERENCE_TO_FA / QUERY_TO_FA
+      PARTITION_QUERY                  (.2bit → FASTA)
+              │                                │
+      N × LASTZ (run_lastz.py)         KEGALIGN [kegalign-full, GPU]
+              │ psl per pair           runner.py --output-type tarball
+              │                        faToTwoBit → work/{ref,query}.2bit
+              │                        kegalign --format axt+ (K,L,H,Y thresholds)
+              │                        package_output.py → data_package.tgz
+              │                                │
+              │                  ┌─────────────┴──────────────┐
+              │           executor=batched          executor=distributed
+              │           KEGALIGN_LASTZ            KEGALIGN_EXPAND
+              │           run_lastz_tarball.py      (parse commands.json)
+              │           [kegalign-full]                  │
+              │           → .axt                   N × KEG_LASTZ
+              │           → AXT_TO_PSL             run_keg_lastz.py
+              │           → .psl                   → .psl each
+              │                  └─────────────┬──────────────┘
+              │                                │
+              │              psl_gz: (meta, [psl_files])  ← same contract
+              └───────────────┬────────────────┘
+                              │
+                       CHAIN_BUILD (identical downstream)
+              PSLTOOLS_SPLIT ─► PSL_BUNDLE ─► AXT_CHAIN ─► chainc ─► … ─► .chain.gz
+```
+
+Both backends converge on the identical `psl_gz` contract, so chain building,
+filling and cleaning are unchanged.
+
+```bash
+# CPU LASTZ over partitioned chunks (default)
+nextflow run main.nf -params-file params.json -profile docker --aligner lastz
+
+# KegAlign: GPU seeding + HSP filtering, then batched CPU LASTZ gapped extension
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner kegalign
+
+# ...with each KegAlign partition as its own Nextflow task (spreads across nodes)
+nextflow run main.nf -params-file params.json -profile docker,gpu \
+    --aligner kegalign --kegalign_executor distributed
+```
+
+`--kegalign_executor` chooses how the KegAlign backend runs its CPU gapped-extension
+stage. `batched` (default) hands every partition to KegAlign's own process pool in a
+single Nextflow task. `distributed` fans the partitions out as one task each, so each
+caches, retries and escalates resources on its own and the work spreads across nodes;
+on SLURM they are submitted as job arrays. Both consume the identical KegAlign
+package and run the identical LASTZ commands, so they are scientifically equivalent —
+`tests/ci/compare_aligners.sh` asserts their normalised PSL and chains match exactly.
+
+> [!IMPORTANT]
+> `kegalign` needs the `gpu` profile (`--gpus all` for Docker, `--nv` for
+> Apptainer/Singularity) — there is no CPU fallback, and requesting it without a GPU
+> runtime fails at startup rather than silently reverting to LASTZ. KegAlign does its
+> own reference/query partitioning, so `seq1_chunk` / `seq2_chunk` / `seq1_lap` /
+> `seq2_lap` are unused for that backend. The four LASTZ scoring thresholds are
+> shared: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`,
+> `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`.
+
 > [!TIP]
 > We recommend running the pipeline test suite with:
 > ```bash
@@ -147,7 +218,8 @@ LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, 
 results/
 ├── 00_genome_prep/      reference.2bit, query.2bit, *.chrom.sizes
 ├── 01_partition/        *_partitions.txt
-├── 02_lastz_psl/        *.psl 
+├── 02_lastz_psl/        *.psl              ← --aligner lastz
+├── 02_kegalign_psl/     *.psl              ← --aligner kegalign
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains

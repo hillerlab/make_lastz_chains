@@ -10,6 +10,25 @@ diffs the published outputs against committed "golden" files:
    step actually **removes** a suspect. The tiny synthetic genomes produce no
    CBAs, so this fixture is the one that exercises the removal code path.
 
+A third script, `tests/ci/compare_aligners.sh`, runs the same synthetic fixture
+three ways — `--aligner lastz`, `--aligner kegalign --kegalign_executor batched`,
+and `--aligner kegalign --kegalign_executor distributed` — and checks that each
+completes with non-empty PSL and a non-empty final chain. Then:
+
+- **lastz vs kegalign**: chain aligned bases must agree within `TOLERANCE`
+  (default 20%); the normalised chain diff is printed for inspection only, since
+  KegAlign partitions differently from LASTZ and byte identity is not claimed.
+- **batched vs distributed**: normalised PSL and final chains must match
+  **exactly**. Both executors run the identical KegAlign-generated LASTZ
+  commands, so any difference is a bug, not a tolerance question.
+
+KegAlign has no CPU fallback, so the script **skips (exit 0) when no GPU is
+present** and is deliberately not part of the GitHub-hosted CI jobs above.
+
+`bin/run_keg_lastz.py --self-check` asserts the LASTZ-command reconstruction and
+stderr-tolerance rules that the distributed executor depends on. It needs neither
+a GPU nor LASTZ, so it is runnable anywhere.
+
 Goldens live in `tests/golden/{e2e,cba}/`:
 
 | file | what |

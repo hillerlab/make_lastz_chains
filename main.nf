@@ -64,12 +64,16 @@ if (params.help) {
 
     Optional parameters (common):
         --outdir              PATH    Output directory [default: ./results]
+        --aligner             STR     Alignment backend: lastz|kegalign [default: lastz]
+                                      kegalign is GPU-only — add -profile gpu
+        --kegalign_executor   STR     KegAlign CPU stage: batched|distributed [default: batched]
+                                      distributed = one Nextflow task per KegAlign partition
         --seq1_chunk          INT     reference chunk size in bp [default: 175000000]
         --seq2_chunk          INT     Query chunk size in bp  [default: 50000000]
-        --lastz_y             INT     LASTZ gap extension penalty [default: 9400]
-        --lastz_h             INT     LASTZ seed hit count [default: 2000]
-        --lastz_k             INT     LASTZ minimum anchor score [default: 2400]
-        --lastz_l             INT     LASTZ step length [default: 3000]
+        --lastz_y             INT     LASTZ Y = --ydrop, y-drop threshold [default: 9400]
+        --lastz_h             INT     LASTZ H = --inner, HSP interpolation threshold [default: 2000]
+        --lastz_k             INT     LASTZ K = --hspthresh, ungapped HSP threshold [default: 2400]
+        --lastz_l             INT     LASTZ L = --gappedthresh, gapped alignment threshold [default: 3000]
         --min_chain_score     INT     Minimum chain score [default: 1000]
         --chain_linear_gap    STR     linearGap model: loose|medium [default: loose]
         --skip_fill_chains            Skip the fill-chains step
@@ -82,6 +86,7 @@ if (params.help) {
         apptainer   Use Apptainer containers
         singularity Use Singularity containers
         docker      Use Docker containers
+        gpu         Expose host GPUs to containers (required by --aligner kegalign)
         test        Run with bundled test data
 
     Use --help to show this message.
@@ -110,8 +115,25 @@ include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-def validateFullRun() {
+def validateAligner() {
+    // Returns error strings; the KegAlign backend is GPU-only by design — a
+    // silent fallback to CPU LASTZ would hide a misconfigured runtime.
     def errors = []
+    if (!(['lastz', 'kegalign'].contains(params.aligner))) {
+        errors << "  --aligner must be 'lastz' or 'kegalign' (got '${params.aligner}')"
+    }
+    else if (params.aligner == 'kegalign' && !workflow.profile.tokenize(',').contains('gpu')) {
+        errors << "  --aligner kegalign requires the gpu profile (e.g. -profile docker,gpu or apptainer,gpu)."
+        errors << "  Clusters that grant GPU access through their own config should still include -profile gpu."
+    }
+    if (!(['batched', 'distributed'].contains(params.kegalign_executor))) {
+        errors << "  --kegalign_executor must be 'batched' or 'distributed' (got '${params.kegalign_executor}')"
+    }
+    return errors
+}
+
+def validateFullRun() {
+    def errors = validateAligner()
     if (!params.reference_name)   errors << "  --reference_name is required"
     if (!params.query_name)    errors << "  --query_name is required"
     if (!params.reference_genome) errors << "  --reference_genome is required"
@@ -213,6 +235,7 @@ workflow FULL_RUN {
 
       Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.query_name}   (${params.query_genome})
+      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor})" : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}

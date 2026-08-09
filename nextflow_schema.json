@@ -97,30 +97,50 @@
                 },
             },
         },
+        "alignment_backend": {
+            "title": "Alignment backend",
+            "type": "object",
+            "description": "Selects which pairwise aligner produces the PSL alignments fed to chain building.",
+            "properties": {
+                "aligner": {
+                    "type": "string",
+                    "default": "lastz",
+                    "enum": ["lastz", "kegalign"],
+                    "description": "Alignment backend. 'lastz' runs CPU LASTZ over partitioned chunks. 'kegalign' runs KegAlign's GPU seeding/HSP-filtering stage followed by CPU LASTZ gapped extension; it requires -profile gpu and does its own partitioning (seq1_chunk / seq2_chunk / seq1_lap / seq2_lap are unused).",
+                    "fa_icon": "fas fa-microchip",
+                },
+                "kegalign_executor": {
+                    "type": "string",
+                    "default": "batched",
+                    "enum": ["batched", "distributed"],
+                    "description": "How the KegAlign backend runs its CPU gapped-extension stage. 'batched' runs every KegAlign partition in one Nextflow task through KegAlign's own process pool. 'distributed' fans the partitions out as one Nextflow task each, so they cache, retry and escalate resources independently and can spread across nodes. Both consume the identical KegAlign package. Ignored when --aligner is lastz.",
+                },
+            },
+        },
         "lastz_alignment": {
             "title": "LASTZ alignment",
             "type": "object",
-            "description": "Parameters for the LASTZ pairwise sequence aligner.",
+            "description": "Scoring parameters for the LASTZ pairwise sequence aligner. Shared by both backends: the KegAlign backend forwards the same four thresholds to KegAlign's equivalent long options (K=--hspthresh, L=--gappedthresh, H=--inner, Y=--ydrop).",
             "properties": {
                 "lastz_y": {
                     "type": "integer",
                     "default": 9400,
-                    "description": "LASTZ gap extension penalty (Y parameter).",
+                    "description": "LASTZ Y parameter (--ydrop): y-drop threshold for gapped extension.",
                 },
                 "lastz_h": {
                     "type": "integer",
                     "default": 2000,
-                    "description": "LASTZ seed hit count (H parameter).",
+                    "description": "LASTZ H parameter (--inner): score threshold for HSPs found during interpolation.",
                 },
                 "lastz_l": {
                     "type": "integer",
                     "default": 3000,
-                    "description": "LASTZ step length (L parameter).",
+                    "description": "LASTZ L parameter (--gappedthresh): score threshold for gapped alignments.",
                 },
                 "lastz_k": {
                     "type": "integer",
                     "default": 2400,
-                    "description": "LASTZ minimum anchor score (K parameter).",
+                    "description": "LASTZ K parameter (--hspthresh): score threshold for ungapped high-scoring pairs.",
                 },
                 "lastz_q": {
                     "type": "string",
@@ -316,6 +336,7 @@
     "allOf": [
         {"$ref": "#/definitions/input_output_options"},
         {"$ref": "#/definitions/genome_partitioning"},
+        {"$ref": "#/definitions/alignment_backend"},
         {"$ref": "#/definitions/lastz_alignment"},
         {"$ref": "#/definitions/chain_building"},
         {"$ref": "#/definitions/fill_chains"},
