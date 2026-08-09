@@ -46,6 +46,30 @@
 
 ---
 
+# 4.0.0
+
+Added a GPU alignment backend built on [KegAlign](https://github.com/hillerlab/kegalign) (CUDA seeding + HSP filtering) with two CPU gapped-extension executors, and fixed the PSL-splitting path that broke at whole-genome scale.
+
+### GPU alignment backend
+
+- `--aligner kegalign` routes the alignment stage through `KEGALIGN_ALIGNMENT` (`subworkflows/local/kegalign_alignment/`): `.2bit` genomes are round-tripped to FASTA, KegAlign runs on the GPU (`KEGALIGN`, `quay.io/biocontainers/kegalign-full`), and the emitted AXT packages are converted to PSL (`AXT_TO_PSL`). Downstream chain building is unchanged and consumes the identical `psl_gz` contract.
+- `--kegalign_executor batched` (default) runs the whole CPU gapped-extension stage as one `KEGALIGN_LASTZ` task. `--kegalign_executor distributed` fans the KegAlign partitions out as one `KEG_LASTZ` task each (`run_keg_lastz.py`), spreading work across nodes and SLURM job arrays.
+- KegAlign requires the `gpu` profile (`--gpus all` / `--nv`); requesting `--aligner kegalign` without it fails at startup rather than silently falling back to LASTZ.
+- New modules: `kegalign`, `kegalign_lastz`, `kegalign_expand`, `keg_lastz`, `two_bit_to_fa`, `axt_to_psl`. The four LASTZ scoring thresholds are shared with the CPU path: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`, `lastz_h` → `--inner`, `lastz_y` → `--ydrop`.
+
+### PSL splitting fixes
+
+- `PSLTOOLS_SPLIT` no longer pipes PSL file *contents* into `psl.list` (the previous `xargs -0 cat` fed `psLayout version 3` as a filename, failing every split); it now writes the filenames found by `find`.
+- Split inputs are staged in a subdirectory (`stageAs: 'input/*'`) so Nextflow's stage-out glob does not expand to ~100k input symlinks — the previous behaviour hit `E2BIG` ("Argument list too long") at whole-genome scale on scratch executors.
+
+### Container image
+
+- `assets/image/Dockerfile` is rebuildable again: the SHA256SUMS file it greps for is now committed (with real hashes), the stale `modules/chaincleaner/`, `modules/repeat_filler/` and `modules/make_lastz_chains/bin/` COPY paths are fixed (the kent build no longer produces `chainCleaner`), and `repeat_filler` is pulled from its own image via a multi-stage `COPY --from`.
+
+### Tests
+
+- `tests/` and `test_data/` moved under `assets/tests/` (`assets/tests/ci/`, `assets/tests/test_data/`); CI and script paths updated. `assets/tests/ci/compare_aligners.sh` runs the CPU and both GPU executors on the bundled fixture and asserts batched/distributed equivalence.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.

@@ -17,7 +17,12 @@ on:
     branches: [ main ]
     tags: [ '**' ]
   pull_request:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      run_gpu_tests:
+        description: 'Run CPU/GPU batched/GPU distributed aligner comparison (needs a GPU runner group)'
+        type: boolean
+        default: false
 
 jobs:
   test-profile:
@@ -56,4 +61,31 @@ jobs:
         with:
           name: golden-diff-report
           path: assets/tests/work/diff_report/
+          if-no-files-found: ignore
+
+  # Manual only: GPU larger runners are metered (billed per-minute, public repos
+  # included) and must be created by an org admin as a runner group with the
+  # NVIDIA GPU-Optimized image (Tesla T4). Runs the three alignment backends —
+  # CPU lastz, GPU kegalign batched, GPU kegalign distributed — and asserts
+  # batched == distributed exactly, lastz vs kegalign within TOLERANCE.
+  # Create the runner group, then trigger this job via workflow_dispatch
+  # (run_gpu_tests checkbox). The job is skipped on push/PR.
+  gpu-aligner-comparison:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_gpu_tests
+    runs-on:
+      group: gpu
+    steps:
+      - uses: actions/checkout@v4
+      - *install-nextflow
+      - name: Verify GPU
+        run: nvidia-smi
+      - name: Compare aligners (CPU, GPU batched, GPU distributed)
+        run: bash assets/tests/ci/compare_aligners.sh
+
+      - name: Upload comparison report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aligner-comparison-report
+          path: assets/tests/work/aligner_compare/
           if-no-files-found: ignore
