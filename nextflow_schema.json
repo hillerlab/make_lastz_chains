@@ -237,7 +237,7 @@
         "clean_chains": {
             "title": "Clean chains (optional)",
             "type": "object",
-            "description": "Parameters for the optional chainCleaner step that removes weak/suspicious chains.",
+            "description": "Parameters for the optional chainc step that removes weak/suspicious chains.",
             "properties": {
                 "skip_clean_chain": {
                     "type": "boolean",
@@ -247,12 +247,12 @@
                 "chain_clean_memory": {
                     "type": "integer",
                     "default": 100,
-                    "description": "Memory (GB) for the chainCleaner process.",
+                    "description": "Memory (GB) for the chainc process.",
                 },
                 "clean_chain_parameters": {
                     "type": "string",
-                    "default": "-LRfoldThreshold=2.5 -doPairs -LRfoldThresholdPairs=10 -maxPairDistance=10000 -maxSuspectScore=100000 -minBrokenChainScore=75000",
-                    "description": "Additional parameters passed verbatim to chainCleaner.",
+                    "default": "--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000",
+                    "description": "Additional parameters passed to chainc (see https://github.com/hillerlab/chainc).",
                 },
             },
         },

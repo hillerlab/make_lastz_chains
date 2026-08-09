@@ -9,32 +9,15 @@ Distributed under the terms of the Apache License, Version 2.0.
     1. Partition reference and query genomes into chunks
     2. Create N×K alignment pairs via channel.combine()
     3. Run LASTZ on each pair in parallel
-    4. Group PSL outputs by reference-partition bucket
-    5. Concatenate (PSLTOOLS_MERGE)
+    4. Collect all PSL outputs into a single channel
 
-    Emits: psl_gz — all .psl.gz files ready for PSL_SORT_ACC
+    Emits: psl — all .psl files ready for chromosome split/bundle
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
 include { PARTITION as PARTITION_REFERENCE } from '../../../modules/local/partition/main'
 include { PARTITION as PARTITION_QUERY  } from '../../../modules/local/partition/main'
 include { LASTZ     } from '../../../modules/local/lastz/main'
-include { PSLTOOLS_MERGE } from '../../../modules/local/psltools/merge/main'
-
-// Derive the bucket key from a reference partition string.
-// Regular: "reference.2bit:chr1:0-175000000"  → "bucket_ref_chr1_in_0_175000000"
-// Bulk:    "BULK_1:reference.2bit:chr1:chr2"  → "bucket_ref_bulk_1"
-def get_bucket_key(String partition) {
-    if (partition.startsWith("BULK")) {
-        def bulk_num = partition.split(":")[0].split("_")[1]
-        return "bucket_ref_bulk_${bulk_num}"
-    } else {
-        def parts    = partition.split(":")
-        def chrom    = parts[1]
-        def startEnd = parts[2].split("-")
-        return "bucket_ref_${chrom}_in_${startEnd[0]}_${startEnd[1]}"
-    }
-}
 
 workflow LASTZ_ALIGNMENT {
     take:
@@ -123,28 +106,22 @@ workflow LASTZ_ALIGNMENT {
         return got
     }
 
-    // ── Group PSL outputs by reference bucket, then PSLTOOLS_MERGE ───────────────────
-    bucketed_ch = LASTZ.out.psl
-        .map { reference_part, psl_file ->
-            def bucket = get_bucket_key(reference_part)
-            [ [ id:bucket ], psl_file ]
-        }
-        .groupTuple()    // ( [ bucket_key ], [psl_file, psl_file, ...] )
-
     // ── Collect all PSL files into a single channel ───────────────────────────────────
-    PSLTOOLS_MERGE ( bucketed_ch )
-    PSLTOOLS_MERGE.out.psl
-        .map { meta, psl -> psl }
+    // Feed LASTZ's raw per-partition PSLs straight to the chromosome split/bundle step:
+    // PSLTOOLS_SPLIT --by reference already consolidates across query partitions, and
+    // axtChain sorts its block list internally, so the per-bucket PSLTOOLS_MERGE was
+    // redundant (one extra full pass over all alignment data).
+    ch_psl_files = LASTZ.out.psl
+        .map { reference_part, psl -> psl }
         .collect()
         .map { psl_files -> [psl_files] }
         .combine(reference_name)
         .combine(query_name)
-        .map { psl_files, ref, query -> 
-            [ [ id: "${ref}.${query}.all.psl" ], psl_files ] 
+        .map { psl_files, ref, query ->
+            [ [ id: "${ref}.${query}.all.psl" ], psl_files ]
         }
-        .set { ch_psl_files }
 
     emit:
     psl_gz   = ch_psl_files
-    versions = PARTITION_REFERENCE.out.versions.mix(PARTITION_QUERY.out.versions, LASTZ.out.versions, PSLTOOLS_MERGE.out.versions)
+    versions = PARTITION_REFERENCE.out.versions.mix(PARTITION_QUERY.out.versions, LASTZ.out.versions)
 }

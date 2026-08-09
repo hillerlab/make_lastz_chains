@@ -18,8 +18,11 @@ process PSLTOOLS_SPLIT {
         '' :
         'ghcr.io/alejandrogzi/psltools:latest' }"
 
+    // ponytail: stage inputs in a subdir so Nextflow's stage-out glob `ls -1d *.psl`
+    // (scratch executors, slurm profile) doesn't expand to ~100k input files → E2BIG
+    // "Argument list too long". Outputs still land in the task root, untouched.
     input:
-    tuple val(meta), path(psl)
+    tuple val(meta), path(psl, stageAs: 'input/*')
 
     output:
     tuple val(meta), path("*.psl")       , optional: true, emit: psl
@@ -33,7 +36,7 @@ process PSLTOOLS_SPLIT {
     def args      = task.ext.args ?: ''
     def prefix    = task.ext.prefix ?: "${meta.id}"
     """
-    ls *.psl > psl.list
+    find input -maxdepth 1 -name "*.psl" > psl.list
 
     psltools split \\
         $args \\

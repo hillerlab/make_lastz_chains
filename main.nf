@@ -11,7 +11,7 @@ Distributed under the terms of the Apache License, Version 2.0.
     nf-core style entry point
 
     Pipeline to create chain-formatted pairwise genome alignments.
-    Authors: Bogdan M. Kirilenko, Alejandro Gonzales-Irribarren, Nil Mu, Virag Sharma, Ekaterina Osipova, Michael Hiller
+    Authors: Alejandro Gonzales-Irribarren, Nil Mu, Bogdan M. Kirilenko, Michael Hiller
     GitHub:  https://github.com/hillerlab/make_lastz_chains
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
@@ -26,8 +26,9 @@ nextflow.enable.dsl = 2
 
 if (params.help) {
     log.info """
-    make_lastz_chains v${workflow.manifest.version}
-    Pipeline to create chain-formatted pairwise genome alignments.
+    > make_lastz_chains v${workflow.manifest.version}
+    > Portable solution to generate genome alignment chains using lastz
+    > The Hiller Lab at the Senckenberg Gesellschaft für Naturforschung
 
     Authors: ${workflow.manifest.author}
     Github:  ${workflow.manifest.homePage}
@@ -96,7 +97,7 @@ if (params.help) {
 
 include { MAKE_LASTZ_CHAINS as CHAINS } from './workflows/make_lastz_chains'
 include { FILL_CLEAN_CHAINS } from './subworkflows/local/fill_clean_chains/main'
-include { CHAIN_CLEANER     } from './modules/local/chain_cleaner/main'
+include { CHAINC } from './modules/local/chainc/main'
 include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from './modules/local/chaintools/filter/main'
 include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from './subworkflows/local/prepare_genomes/main'
 include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from './subworkflows/local/prepare_genomes/main'
@@ -203,7 +204,9 @@ workflow FULL_RUN {
     validateFullRun()
 
     log.info """
-    make_lastz_chains v${workflow.manifest.version}
+    > make_lastz_chains v${workflow.manifest.version}
+    > Portable solution to generate genome alignment chains using lastz
+    > The Hiller Lab at the Senckenberg Gessellschaft für Naturforschung
   
     Authors: ${workflow.manifest.author}
     Github:  ${workflow.manifest.homePage}
@@ -395,21 +398,20 @@ workflow FROM_CLEAN_CHAINS {
     query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
 
     Channel.fromPath(params.filled_chain_path)
-        .map { chain -> [ [ id: params.reference_name + '.' + params.query_name ], chain ] }
+        .map { chain -> [ [ id: params.reference_name + '.' + params.query_name ], chain, [] ] }
         .set { ch_filled_chain }
 
-    CHAIN_CLEANER(
+    CHAINC(
         ch_filled_chain,
         reference_twobit,
         query_twobit,
         reference_chrom_sizes,
         query_chrom_sizes,
-        params.chain_linear_gap,
-        params.clean_chain_parameters
+        params.chain_linear_gap
     )
 
     CHAINTOOLS_FILTER_CLEANED_CHAINS(
-        CHAIN_CLEANER.out.cleaned_chain,
+        CHAINC.out.chain,
         params.min_chain_score,
     )
 }

@@ -6,8 +6,8 @@ Distributed under the terms of the Apache License, Version 2.0.
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CHAIN_BUILD subworkflow
-    1. PSL_SORT_ACC — sort all PSL files by target chromosome
-    2. PSL_BUNDLE   — group sorted PSL files into chromosome bundles
+    1. PSLTOOLS_SPLIT — split all PSL files by reference chromosome
+    2. PSL_BUNDLE   — group chromosome PSL files into bundles
     3. AXT_CHAIN    — convert each PSL bundle to chains (parallel)
     4. CHAINTOOLS_MERGE — merge all chain files into one compressed chain
 

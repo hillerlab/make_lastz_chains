@@ -1,11 +1,25 @@
 <p align="center">
-  <p align="center">
-    <img width=200 align="center" src="./assets/figures/hillerlab.png" >
-  </p>
+<p align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="./assets/figures/hillerlab-dark.png"
+    >
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="./assets/figures/hillerlab-light.png"
+    >
+    <img
+      width="200"
+      alt="Hiller Lab"
+      src="./assets/figures/hillerlab-light.png"
+    >
+  </picture>
+</p>
 
   <span>
     <h1 align="center">
-        make_lastz_chains
+        <code>make_lastz_chain</code>
     </h1>
   </span>
 
@@ -134,13 +148,12 @@ results/
 ├── 00_genome_prep/      reference.2bit, query.2bit, *.chrom.sizes
 ├── 01_partition/        *_partitions.txt
 ├── 02_lastz_psl/        *.psl 
-├── 03_concat_lastz_output/    *.psl.gz 
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains
 ├── 05_filled_chains/    *.filled.chain.gz  ← checkpoint for --from clean_chains
-├── 06_cleaned_chains/   *.final.chain.gz
-├── 07_final/            *.final.chain.gz   ← final output
+├── 06_cleaned_chains/   *.chain, *.removed.bed
+├── 07_final/            *.allfilled.chain.gz   ← final output
 └── pipeline_info/    timeline, trace, DAG
 ```
 

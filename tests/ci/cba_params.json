@@ -1,0 +1,10 @@
+{
+  "_comment": "Clean-step golden: runs PREPARE_GENOMES + CHAINC + CHAINTOOLS_FILTER on a hand-crafted chain fixture with one chain-breaking alignment. Guarantees the clean step actually removes a suspect (unlike the tiny synthetic genomes where lastz chains merge cleanly). Input is the 'filled' chain that normally comes out of the fill step.",
+  "reference_name": "cba_ref",
+  "query_name": "cba_query",
+  "use_container": true,
+  "from": "clean_chains",
+  "min_chain_score": 0,
+  "chain_linear_gap": "loose",
+  "clean_chain_parameters": "--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000"
+}

@@ -94,7 +94,7 @@ flowchart TD
   SKIP_FILL -- "true" --> CHAIN_FOR_CLEAN
 
   CHAIN_FOR_CLEAN --> SKIP_CLEAN{"params.skip_clean_chain?"}
-  SKIP_CLEAN -- "false / default" --> CLEANER["CHAIN_CLEANER: chainCleaner with tSizes, qSizes, linearGap, clean_chain_parameters"]
+  SKIP_CLEAN -- "false / default" --> CLEANER["CHAINC: chainc with sizes, linearGap, clean_chain_parameters"]
   REF_PREP --> CLEANER
   QUERY_PREP --> CLEANER
 
@@ -122,7 +122,7 @@ flowchart TD
   CLEAN_VALIDATE --> CP_CLEAN_PREP_QUERY["PREPARE_QUERY_GENOME(..., extract_chroms=false)"]
   CLEAN_VALIDATE --> EXISTING_FILLED["Channel.fromPath(params.filled_chain_path): existing *.filled.chain.gz"]
   EXISTING_FILLED --> CP_CLEAN_META["Attach meta id = reference.query"]
-  CP_CLEAN_PREP_REF --> CP_CLEANER["CHAIN_CLEANER directly on filled chain"]
+  CP_CLEAN_PREP_REF --> CP_CLEANER["CHAINC directly on filled chain"]
   CP_CLEAN_PREP_QUERY --> CP_CLEANER
   CP_CLEAN_META --> CP_CLEANER
   CP_CLEANER --> CP_FILTER["CHAINTOOLS_FILTER_CLEANED_CHAINS"]
