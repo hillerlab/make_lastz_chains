@@ -31,7 +31,7 @@ jobs:
       # Bundled smoke test: full pipeline on test_data with per-module granular
       # containers (use_container=false). Exercises every module's container.
       - name: Run test profile
-        run: nextflow run main.nf -profile test,docker -w tests/work/nf_work_test
+        run: nextflow run main.nf -profile test,docker -w assets/tests/work/nf_work_test
 
       - name: Check final chain
         run: test -f test_results/07_final/*.chain.gz
@@ -45,15 +45,15 @@ jobs:
         run: docker info
 
       # Runs the pipeline (chainc) and diffs against committed chainCleaner
-      # baselines (tests/golden/), surfacing any change. Regenerate goldens via
-      # tests/ci/make_golden.sh only after an intentional, approved change.
+      # baselines (assets/tests/golden/), surfacing any change. Regenerate goldens via
+      # assets/tests/ci/make_golden.sh only after an intentional, approved change.
       - name: Golden comparison (e2e + CBA clean step)
-        run: bash tests/ci/compare.sh
+        run: bash assets/tests/ci/compare.sh
 
       - name: Upload diff report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: golden-diff-report
-          path: tests/work/diff_report/
+          path: assets/tests/work/diff_report/
           if-no-files-found: ignore

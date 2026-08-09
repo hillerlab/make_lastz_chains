@@ -1,16 +1,16 @@
 # make_lastz_chains — golden comparison tests
 
-CI runs `tests/ci/compare.sh` on every push/PR. It runs the pipeline twice and
+CI runs `assets/tests/ci/compare.sh` on every push/PR. It runs the pipeline twice and
 diffs the published outputs against committed "golden" files:
 
-1. **e2e** (`tests/ci/e2e_*`): full pipeline (LASTZ → axtChain → fill → clean
-   → filter) on the bundled synthetic genomes (`test_data/`).
-2. **cba** (`tests/ci/cba_*`): the clean step only (`--from clean_chains`) on a
+1. **e2e** (`assets/tests/ci/e2e_*`): full pipeline (LASTZ → axtChain → fill → clean
+   → filter) on the bundled synthetic genomes (`assets/tests/test_data/`).
+2. **cba** (`assets/tests/ci/cba_*`): the clean step only (`--from clean_chains`) on a
    hand-crafted chain with one chain-breaking alignment — guarantees the clean
    step actually **removes** a suspect. The tiny synthetic genomes produce no
    CBAs, so this fixture is the one that exercises the removal code path.
 
-A third script, `tests/ci/compare_aligners.sh`, runs the same synthetic fixture
+A third script, `assets/tests/ci/compare_aligners.sh`, runs the same synthetic fixture
 three ways — `--aligner lastz`, `--aligner kegalign --kegalign_executor batched`,
 and `--aligner kegalign --kegalign_executor distributed` — and checks that each
 completes with non-empty PSL and a non-empty final chain. Then:
@@ -29,7 +29,7 @@ present** and is deliberately not part of the GitHub-hosted CI jobs above.
 stderr-tolerance rules that the distributed executor depends on. It needs neither
 a GPU nor LASTZ, so it is runnable anywhere.
 
-Goldens live in `tests/golden/{e2e,cba}/`:
+Goldens live in `assets/tests/golden/{e2e,cba}/`:
 
 | file | what |
 |---|---|
@@ -49,7 +49,7 @@ Only after an intentional, human-approved change (e.g. a tool/image bump that
 legitimately changes output):
 
 ```bash
-bash tests/ci/make_golden.sh   # reruns pipeline + rewrites tests/golden/
+bash assets/tests/ci/make_golden.sh   # reruns pipeline + rewrites assets/tests/golden/
 ```
 
 Notes:

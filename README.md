@@ -152,7 +152,7 @@ single Nextflow task. `distributed` fans the partitions out as one task each, so
 caches, retries and escalates resources on its own and the work spreads across nodes;
 on SLURM they are submitted as job arrays. Both consume the identical KegAlign
 package and run the identical LASTZ commands, so they are scientifically equivalent —
-`tests/ci/compare_aligners.sh` asserts their normalised PSL and chains match exactly.
+`assets/tests/ci/compare_aligners.sh` asserts their normalised PSL and chains match exactly.
 
 > [!IMPORTANT]
 > `kegalign` needs the `gpu` profile (`--gpus all` for Docker, `--nv` for
