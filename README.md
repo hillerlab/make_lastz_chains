@@ -63,6 +63,13 @@
 
 ## Usage
 
+> [!TIP]
+> We recommend running the pipeline test suite with:
+> ```bash
+> nextflow run main.nf -profile test,apptainer
+> ```
+> To ensure that the pipeline runs on your system.
+
 > [!NOTE]
 > Requirements: Nextflow ≥ 25.04.6, Docker or Apptainer, Java.
 
@@ -92,7 +99,49 @@ nextflow run main.nf -params-file params.json -profile docker \
 
 Command-line parameters override matching values from `params.json`; all other parameters continue to come from the file.
 
-### Alignment backend
+Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
+```bash
+
+# Restart after alignment but before repeat-cleaning them [ 04_axtchain ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from chain_antirepeat \
+    --axtchain_path  results/04_axtchain
+
+# Restart after alignment but before filling chains [ 04_axtchain/merged_chains ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from fill_chains \
+    --merged_chain_path  results/04_axtchain/merged_chains/<CHAIN> 
+
+# Restart afterf filling chains but before cleaning them [ 05_filled_chains ]
+nextflow run main.nf -profile <PROFILE> -params-file params.json \
+    --from clean_chains \
+    --filled_chain_path  results/fill_chains/hg38.mm39.filled.chain.gz 
+```
+
+> [!NOTE]
+> You can also specify these options directly in `params.json`.
+
+A helper sh script is provided to run the pipeline on a SLURM cluster. See details below.
+
+<details>
+<summary>Click to expand</summary>
+
+
+Edit the path variables at the top of `assets/scripts/make_lastz_chains.sh` (cache dir, container image, manifest path), then submit:
+
+```bash
+sbatch --array=1-<N> make_lastz_chains.sh
+```
+
+Each array task spawns one Nextflow head job that submits all compute as child SLURM jobs.
+
+LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, array sizes, and resource tiers are documented inline in `nextflow.config` — edit there to match your cluster.
+
+</details>
+
+---
+
+## Alignment backend
 
 `--aligner` picks which aligner produces the PSL alignments. Everything downstream
 (chain building, filling, cleaning) is identical for both.
@@ -163,53 +212,6 @@ package and run the identical LASTZ commands, so they are scientifically equival
 > shared: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`,
 > `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`.
 
-> [!TIP]
-> We recommend running the pipeline test suite with:
-> ```bash
-> nextflow run main.nf -profile test,apptainer
-> ```
-> To ensure that the pipeline runs on your system.
-
-Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
-```bash
-
-# Restart after alignment but before repeat-cleaning them [ 04_axtchain ]
-nextflow run main.nf -profile <PROFILE> -params-file params.json \
-    --from chain_antirepeat \
-    --axtchain_path  results/04_axtchain
-
-# Restart after alignment but before filling chains [ 04_axtchain/merged_chains ]
-nextflow run main.nf -profile <PROFILE> -params-file params.json \
-    --from fill_chains \
-    --merged_chain_path  results/04_axtchain/merged_chains/<CHAIN> 
-
-# Restart afterf filling chains but before cleaning them [ 05_filled_chains ]
-nextflow run main.nf -profile <PROFILE> -params-file params.json \
-    --from clean_chains \
-    --filled_chain_path  results/fill_chains/hg38.mm39.filled.chain.gz 
-```
-
-> [!NOTE]
-> You can also specify these options directly in `params.json`.
-
-A helper sh script is provided to run the pipeline on a SLURM cluster. See details below.
-
-<details>
-<summary>Click to expand</summary>
-
-
-Edit the path variables at the top of `assets/scripts/make_lastz_chains.sh` (cache dir, container image, manifest path), then submit:
-
-```bash
-sbatch --array=1-<N> make_lastz_chains.sh
-```
-
-Each array task spawns one Nextflow head job that submits all compute as child SLURM jobs.
-
-LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, array sizes, and resource tiers are documented inline in `nextflow.config` — edit there to match your cluster.
-
-</details>
-
 ---
 
 ## Output
@@ -242,8 +244,4 @@ results/
 
 ## Citation
 
-- Kirilenko BM, Munegowda C, Osipova E, Jebb D, Sharma V, Blumer M, Morales A, Ahmed AW, Kontopoulos DG, Hilgers L, Lindblad-Toh K, Karlsson EK, Zoonomia Consortium, Hiller M. [Integrating gene annotation with orthology inference at scale.](https://www.science.org/stoken/author-tokens/ST-1161/full) Science, 380, 2023
-- Osipova E, Hecker N, Hiller M. [RepeatFiller newly identifies megabases of aligning repetitive sequences and improves annotations of conserved non-exonic elements.](https://academic.oup.com/gigascience/article/8/11/giz132/5631861) GigaScience, 8(11), giz132, 2019
-- Suarez H, Langer BE, Ladde P, Hiller M. [chainCleaner improves genome alignment specificity and sensitivity.](https://academic.oup.com/bioinformatics/article/33/11/1596/2929344) Bioinformatics, 33(11), 1596-1603, 2017
-- Kent WJ, Baertsch R, Hinrichs A, Miller W, Haussler D. [Evolution's cauldron: Duplication, deletion, and rearrangement in the mouse and human genomes.](https://www.pnas.org/doi/10.1073/pnas.1932072100) PNAS, 100(20):11484-9, 2003
-- Mu NT, Dizon W, Otero G, Battelle T. [Optimizing Nextflow-based Software on Shared HPC Resources: A Case Study with make_lastz_chains.](https://doi.org/10.5281/zenodo.17118383) US Research Software Engineering Conference (USRSE'25), Philadelphia, PA, 2025
+- Gonzales-Irribarren A, Mu NT, Kirilenko BM, Hiller M. *make_lastz_chains: A portable solution to generate genome alignment chains using LASTZ*. In preparation.
