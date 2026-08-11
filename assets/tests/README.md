@@ -29,6 +29,40 @@ present** and is deliberately not part of the GitHub-hosted CI jobs above.
 stderr-tolerance rules that the distributed executor depends on. It needs neither
 a GPU nor LASTZ, so it is runnable anywhere.
 
+`bin/run_kegalign_mps_pair.py --self-check` does the same for the argv contract
+`bin/run_mig.py` builds when `--kegalign_mps_workers > 1` — the reference/query
+order, the four scoring thresholds, and the pair number that names each keg.
+
+## Running the GPU backend on an AMD GPU (ZLUDA)
+
+`assets/tests/ci/zluda_setup.sh` + `-profile docker,gpu,zluda` run the KegAlign
+stages natively against a local [ZLUDA](https://github.com/vosen/ZLUDA) build
+while every other stage stays containerised, so the GPU backend can be developed
+and tested without NVIDIA hardware. The setup script documents the paths it
+expects (`KEGALIGN_BIN`, `ZLUDA_LIB`, `ZLUDA_SHIM`, …) and builds
+`~/.cache/make_lastz_chains/zluda`:
+
+```bash
+bash assets/tests/ci/zluda_setup.sh
+nextflow run main.nf -params-file assets/tests/ci/e2e_params.json \
+    -c assets/tests/ci/e2e.config -profile docker,gpu,zluda \
+    --aligner kegalign --kegalign_executor batched
+```
+
+`assets/tests/ci/gen_synthetic.py <dir> <n_chroms> <chrom_bp>` writes a larger
+pair for benchmarking: N independent homologous chromosome pairs (random
+reference, diverged query, inversions), so alignment work grows linearly with N
+instead of the N² you get by replicating one sequence. The bundled 590 kb fixture
+is too small to time anything — it is dominated by task startup.
+
+`--kegalign_mps_workers > 1` cannot work here: NVIDIA MPS, `nvidia-smi` and NVML
+do not exist on AMD, and the GPU preflight refuses the run. `zluda_setup.sh` with
+`WITH_MPS_STUBS=1` plus `-profile docker,gpu,zluda,zluda_mps_stub` stubs exactly
+those three so the **plumbing** (chromosome binning, `run_mig.py` scheduling,
+per-pair kegs, the keg-count guard, the CPU stage) can be exercised with real
+KegAlign on the GPU. It proves nothing about the MPS daemon itself, and it makes
+the preflight pass on a host with no MPS — never enable it to validate MPS.
+
 Goldens live in `assets/tests/golden/{e2e,cba}/`:
 
 | file | what |
