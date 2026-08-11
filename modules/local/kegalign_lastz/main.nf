@@ -31,10 +31,15 @@ process KEGALIGN_LASTZ {
     // runs every block command through KegAlign's own process pool. Fan the
     // .segments workloads out as separate Nextflow tasks only if profiling shows
     // scheduler-level parallelism is materially better.
+    //
+    // The name comes from the keg, not from (reference, query): KEGALIGN_MPS emits
+    // one keg per chromosome-bin pair, and their AXT/PSL must not collide in the
+    // publish directory. One keg gives exactly today's ${reference}.${query} name.
+    def prefix = tarball.baseName.replaceAll(/\.kegalign$/, '')
     """
     run_lastz_tarball.py \\
         --input ${tarball} \\
-        --output ${reference_name}.${query_name}.axt \\
+        --output ${prefix}.axt \\
         --parallel ${task.cpus}
 
     cat <<-END_VERSIONS > versions.yml

@@ -24,8 +24,10 @@
 
     "//2a": "── Alignment backend: lastz (CPU, default) or kegalign (needs -profile gpu) ─",
     "//2b": "kegalign_executor: batched (one task) or distributed (one task per KegAlign partition)",
+    "//2c": "kegalign_mps_workers: 1 = no MPS; >1 shares the one GPU between that many KegAlign instances (needs batched)",
     "aligner": "lastz",
     "kegalign_executor": "batched",
+    "kegalign_mps_workers": 1,
 
     "//3": "── LASTZ scoring, shared by both backends ──────────────────────────────",
     "//3a": "K=--hspthresh, L=--gappedthresh, H=--inner, Y=--ydrop",

@@ -7,8 +7,11 @@ Distributed under the terms of the Apache License, Version 2.0.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     KEGALIGN_ALIGNMENT subworkflow — GPU alignment backend
     1. .2bit → FASTA for both genomes (KegAlign's GPU stage reads FASTA)
-    2. KEGALIGN — GPU seeding + HSP filtering, packaged as a tarball
-    3. CPU gapped extension of that package, either executor:
+    2. GPU seeding + HSP filtering, packaged as tarballs ("kegs"):
+         KEGALIGN     — one instance, one keg  (--kegalign_mps_workers 1)
+         KEGALIGN_MPS — N instances sharing one GPU through NVIDIA MPS, one keg
+                        per reference-bin × query-bin pair  (workers > 1)
+    3. CPU gapped extension of those packages, either executor:
          batched     — KEGALIGN_LASTZ (one task, KegAlign's own pool) → AXT+ → PSL
          distributed — KEGALIGN_EXPAND → one KEG_LASTZ task per partition → PSL
        Both consume the identical KegAlign package, so they are directly
@@ -26,6 +29,7 @@ Distributed under the terms of the Apache License, Version 2.0.
 include { TWO_BIT_TO_FA as REFERENCE_TO_FA } from '../../../modules/local/two_bit_to_fa/main'
 include { TWO_BIT_TO_FA as QUERY_TO_FA     } from '../../../modules/local/two_bit_to_fa/main'
 include { KEGALIGN                         } from '../../../modules/local/kegalign/main'
+include { KEGALIGN_MPS                     } from '../../../modules/local/kegalign_mps/main'
 include { KEGALIGN_LASTZ                   } from '../../../modules/local/kegalign_lastz/main'
 include { AXT_TO_PSL                       } from '../../../modules/local/axt_to_psl/main'
 include { KEGALIGN_EXPAND                  } from '../../../modules/local/kegalign_expand/main'
@@ -48,21 +52,53 @@ workflow KEGALIGN_ALIGNMENT {
     // The same LASTZ scoring parameters the CPU backend uses. LASTZ's
     // blastz-style letters map onto KegAlign's long options one-to-one:
     // K=--hspthresh, L=--gappedthresh, H=--inner, Y=--ydrop.
-    KEGALIGN (
-        REFERENCE_TO_FA.out.fasta,
-        QUERY_TO_FA.out.fasta,
-        params.lastz_k,
-        params.lastz_l,
-        params.lastz_h,
-        params.lastz_y
-    )
+    //
+    // With --kegalign_mps_workers > 1 the same stage runs N KegAlign instances
+    // over chromosome-bin pairs on one MPS-shared GPU, emitting one keg per pair
+    // instead of one. Workers = 1 never touches MPS: it is today's execution,
+    // unchanged, because run_mig.py starts an MPS daemon even for --MPS 1.
+    def mps_workers = params.kegalign_mps_workers as int
+
+    if (mps_workers > 1) {
+        KEGALIGN_MPS (
+            REFERENCE_TO_FA.out.fasta,
+            QUERY_TO_FA.out.fasta,
+            mps_workers,
+            params.lastz_k,
+            params.lastz_l,
+            params.lastz_h,
+            params.lastz_y
+        )
+
+        // One channel item per keg — the CPU stage below is per-keg either way.
+        // flatten() because a glob output is a bare path when it matches once.
+        ch_kegs     = KEGALIGN_MPS.out.tarball
+                        .flatMap { r, q, kegs -> [ kegs ].flatten().collect { [ r, q, it ] } }
+        ch_gpu_vers = KEGALIGN_MPS.out.versions
+    }
+    else {
+        KEGALIGN (
+            REFERENCE_TO_FA.out.fasta,
+            QUERY_TO_FA.out.fasta,
+            params.lastz_k,
+            params.lastz_l,
+            params.lastz_h,
+            params.lastz_y
+        )
+
+        ch_kegs     = KEGALIGN.out.tarball
+        ch_gpu_vers = KEGALIGN.out.versions
+    }
 
     ch_versions = REFERENCE_TO_FA.out.versions
-                    .mix( QUERY_TO_FA.out.versions, KEGALIGN.out.versions )
+                    .mix( QUERY_TO_FA.out.versions, ch_gpu_vers )
 
     // ── CPU gapped extension (GPU already released) ─────────────────────────
+    // Both executors process every keg. 'distributed' additionally assumes a
+    // single keg (its job ids and package directory are global), which is why
+    // main.nf rejects it together with --kegalign_mps_workers > 1.
     if (params.kegalign_executor == 'distributed') {
-        KEGALIGN_EXPAND ( KEGALIGN.out.tarball )
+        KEGALIGN_EXPAND ( ch_kegs )
 
         // One channel item per KegAlign diagonal partition.
         jobs_list  = KEGALIGN_EXPAND.out.jobs
@@ -96,7 +132,7 @@ workflow KEGALIGN_ALIGNMENT {
         ch_versions = ch_versions.mix( KEGALIGN_EXPAND.out.versions, KEG_LASTZ.out.versions )
     }
     else {
-        KEGALIGN_LASTZ ( KEGALIGN.out.tarball )
+        KEGALIGN_LASTZ ( ch_kegs )
 
         AXT_TO_PSL (
             KEGALIGN_LASTZ.out.axt,

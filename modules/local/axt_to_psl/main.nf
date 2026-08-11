@@ -26,12 +26,15 @@ process AXT_TO_PSL {
     path "versions.yml",                                       emit: versions
 
     script:
+    // Named after the AXT, so the one-task-per-keg fan-out under
+    // --kegalign_mps_workers > 1 cannot collide in 02_kegalign_psl/. A single
+    // keg keeps the ${reference}.${query}.psl name it has always had.
     """
     axtToPsl \\
         ${axt} \\
         ${reference_chrom_sizes} \\
         ${query_chrom_sizes} \\
-        ${reference_name}.${query_name}.psl
+        ${axt.baseName}.psl
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

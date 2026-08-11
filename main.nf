@@ -68,6 +68,10 @@ if (params.help) {
                                       kegalign is GPU-only — add -profile gpu
         --kegalign_executor   STR     KegAlign CPU stage: batched|distributed [default: batched]
                                       distributed = one Nextflow task per KegAlign partition
+        --kegalign_mps_workers INT    Concurrent KegAlign instances on the one allocated
+                                      GPU via NVIDIA MPS, 1-4 [default: 1 = no MPS]
+                                      > 1 needs --kegalign_executor batched and 12-16 GiB
+                                      VRAM per worker
         --seq1_chunk          INT     reference chunk size in bp [default: 175000000]
         --seq2_chunk          INT     Query chunk size in bp  [default: 50000000]
         --lastz_y             INT     LASTZ Y = --ydrop, y-drop threshold [default: 9400]
@@ -87,6 +91,8 @@ if (params.help) {
         singularity Use Singularity containers
         docker      Use Docker containers
         gpu         Expose host GPUs to containers (required by --aligner kegalign)
+        zluda       Local dev on an AMD GPU via ZLUDA: runs the KegAlign stages
+                    natively (see assets/tests/ci/zluda_setup.sh), rest in containers
         test        Run with bundled test data
 
     Use --help to show this message.
@@ -128,6 +134,21 @@ def validateAligner() {
     }
     if (!(['batched', 'distributed'].contains(params.kegalign_executor))) {
         errors << "  --kegalign_executor must be 'batched' or 'distributed' (got '${params.kegalign_executor}')"
+    }
+    // MPS shares one GPU between concurrent KegAlign instances. The 4 ceiling is
+    // upstream's VRAM guidance, not a hard limit — raise it once benchmarked.
+    def mps = params.kegalign_mps_workers.toString()
+    if (!mps.isInteger() || mps.toInteger() < 1 || mps.toInteger() > 4) {
+        errors << "  --kegalign_mps_workers must be an integer 1..4 (got '${params.kegalign_mps_workers}')"
+    }
+    else if (mps.toInteger() > 1) {
+        if (params.aligner != 'kegalign') {
+            errors << "  --kegalign_mps_workers > 1 only applies to --aligner kegalign"
+        }
+        if (params.kegalign_executor != 'batched') {
+            errors << "  --kegalign_mps_workers > 1 requires --kegalign_executor batched:"
+            errors << "  the distributed CPU stage expands a single keg, while MPS emits one per chunk pair."
+        }
     }
     return errors
 }
@@ -235,7 +256,7 @@ workflow FULL_RUN {
 
       Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.query_name}   (${params.query_genome})
-      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor})" : ''}
+      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
