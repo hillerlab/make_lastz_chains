@@ -134,6 +134,10 @@ Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean 
 
 - `tests/` and `test_data/` moved under `assets/tests/` (`assets/tests/ci/`, `assets/tests/test_data/`); CI and script paths updated. `assets/tests/ci/compare_aligners.sh` runs the CPU and both GPU executors on the bundled fixture and asserts batched/distributed equivalence.
 
+### Config adjustments
+
+- Raised the `process_fast`/`process_low`/`process_medium` time ceilings (0.5–2 h → 4 h) and gave `process_gpu` an explicit `16 h` time and `32 GB` memory allocation, so the global `errorStrategy` retries a slow or memory-starved GPU task on the same or a bigger allocation instead of failing a run that merely outgrew the old ceilings.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.
