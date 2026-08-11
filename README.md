@@ -162,6 +162,10 @@ LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, 
               │                        faToTwoBit → work/{ref,query}.2bit
               │                        kegalign --format axt+ (K,L,H,Y thresholds)
               │                        package_output.py → data_package.tgz
+              │                        (mps_workers > 1: KEGALIGN_MPS instead —
+              │                         split_input.py bins both genomes,
+              │                         run_mig.py runs N kegalign instances on
+              │                         one MPS-shared GPU → one keg per bin pair)
               │                                │
               │                  ┌─────────────┴──────────────┐
               │           executor=batched          executor=distributed
@@ -193,6 +197,10 @@ nextflow run main.nf -params-file params.json -profile docker,gpu --aligner kega
 # ...with each KegAlign partition as its own Nextflow task (spreads across nodes)
 nextflow run main.nf -params-file params.json -profile docker,gpu \
     --aligner kegalign --kegalign_executor distributed
+
+# ...with 2 KegAlign instances sharing the one allocated GPU through NVIDIA MPS
+nextflow run main.nf -params-file params.json -profile docker,gpu \
+    --aligner kegalign --kegalign_mps_workers 2
 ```
 
 `--kegalign_executor` chooses how the KegAlign backend runs its CPU gapped-extension
@@ -203,6 +211,16 @@ on SLURM they are submitted as job arrays. Both consume the identical KegAlign
 package and run the identical LASTZ commands, so they are scientifically equivalent —
 `assets/tests/ci/compare_aligners.sh` asserts their normalised PSL and chains match exactly.
 
+`--kegalign_mps_workers N` (N > 1) keeps the GPU busy by running N KegAlign instances
+concurrently on the **same single allocated GPU** through the NVIDIA MPS daemon — one
+SLURM job, one GPU, N `kegalign` processes. Upstream's `split_input.py` bins both
+genomes at a ~200 Mb goal without splitting chromosomes, upstream's `run_mig.py`
+schedules the bin pairs, and each pair is packaged as its own keg; the CPU stage then
+runs once per keg. Scoring, format and diagonal partitioning are untouched, so MPS
+changes scheduling only. It needs `--kegalign_executor batched`, and roughly 12–16 GiB
+of VRAM per instance — start with 2 on a 32–40 GB GPU, try 4 only on 80 GB. `1`
+(default) never starts an MPS daemon and is exactly the single-instance path above.
+
 > [!IMPORTANT]
 > `kegalign` needs the `gpu` profile (`--gpus all` for Docker, `--nv` for
 > Apptainer/Singularity) — there is no CPU fallback, and requesting it without a GPU
@@ -211,6 +229,14 @@ package and run the identical LASTZ commands, so they are scientifically equival
 > `seq2_lap` are unused for that backend. The four LASTZ scoring thresholds are
 > shared: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`,
 > `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`.
+
+> [!TIP]
+> On an **AMD GPU**, `bash assets/tests/ci/zluda_setup.sh` plus
+> `-profile docker,gpu,zluda` runs the KegAlign stages natively against a local
+> [ZLUDA](https://github.com/vosen/ZLUDA) build (everything else stays
+> containerised), so the GPU backend can be developed and tested without NVIDIA
+> hardware. `--kegalign_mps_workers > 1` still cannot run there — NVIDIA MPS does
+> not exist on AMD and the preflight says so. See `assets/tests/README.md`.
 
 ---
 

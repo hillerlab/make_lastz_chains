@@ -57,6 +57,70 @@ Added a GPU alignment backend built on [KegAlign](https://github.com/hillerlab/k
 - KegAlign requires the `gpu` profile (`--gpus all` / `--nv`); requesting `--aligner kegalign` without it fails at startup rather than silently falling back to LASTZ.
 - New modules: `kegalign`, `kegalign_lastz`, `kegalign_expand`, `keg_lastz`, `two_bit_to_fa`, `axt_to_psl`. The four LASTZ scoring thresholds are shared with the CPU path: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`, `lastz_h` → `--inner`, `lastz_y` → `--ydrop`.
 
+### GPU multi-instance execution (NVIDIA MPS)
+
+- `--kegalign_mps_workers N` (1–4, default `1`) runs N KegAlign instances concurrently on the **single allocated GPU** through the NVIDIA MPS daemon: one SLURM job, one GPU, N `kegalign` processes. `1` never starts an MPS daemon and is by construction the unchanged single-instance path — `run_mig.py` starts a daemon even for `--MPS 1`, so the branch in `KEGALIGN_ALIGNMENT` routes workers=1 through `KEGALIGN` and never through MPS.
+- New `KEGALIGN_MPS` module (`modules/local/kegalign_mps/`): GPU/MPS preflight → upstream `split_input.py` bins both genomes (`--goal_bp 200000000 --max_chunks 20`, chromosomes never split) → upstream `run_mig.py` schedules the reference-bin × query-bin pairs → one keg per pair. Scoring, format and diagonal partitioning are untouched: MPS changes work scheduling only, and the four thresholds are forwarded through `run_mig --opt_cmd` (the worker makes them `required`, so a lost `--opt_cmd` fails instead of silently using KegAlign defaults).
+- New `bin/run_kegalign_mps_pair.py` — a GPU-only worker passed to `run_mig.py --kegalign_cmd`, replacing upstream's `run_kegalign_symlink_sort`, which starts LASTZ processes while KegAlign is still on the GPU. It runs one chunk pair in an isolated `pair_NNNN/` (`runner.py --diagonal-partition` → `package_output.py`) and stops at `keg_NNNN.tgz`. **No LASTZ runs inside the GPU allocation.** `--self-check` asserts the argv contract `run_mig.py` builds.
+- Vendored `bin/split_input.py` and `bin/run_mig.py` from KegAlign `ea16d54` (MIT, provenance in the file headers): the `kegalign-full` conda package does not ship `scripts/mps-mig/`. Nextflow puts `bin/` on the task PATH.
+- **Integrity guard (mandatory).** `run_mig.py` exits 0 even when it loses chunk pairs — it only prints `Missing N output parts` and swallows the combine failure — so `KEGALIGN_MPS` fails unless `keg count == reference bins × query bins`, the same last-line defence the distributed executor keeps over its partition list. A chunk pair that legitimately yields no HSP above `--hspthresh` leaves a `keg_*.empty` marker so the count still balances instead of aborting a whole run (unlike a whole-genome run, an empty *bin pair* is normal).
+- The CPU stage is per keg either way: `KEGALIGN_LASTZ` / `AXT_TO_PSL` now name their output after the keg rather than after `(reference, query)`, so the one-task-per-keg fan-out cannot collide in `02_kegalign_psl/`. A single keg keeps exactly the previous `${reference}.${query}` names.
+- `--kegalign_mps_workers > 1` requires `--kegalign_executor batched` and is rejected with `distributed`, whose job ids and package directory are global to one keg. Preflight fails early when `nvidia-smi`, `nvidia-cuda-mps-control`, `pynvml` or a visible GPU is missing, and warns when VRAM / workers is under 14 GiB (upstream reports 12–16 GiB per instance).
+
+### Upstream KegAlign bugs fixed locally
+
+Both are fatal and marked `make_lastz_chains patch` inline; `split_input.py` is byte-verbatim. Found by running the MPS path, not by reading it — worth reporting upstream:
+
+- `run_mig.py` `NamedPopen.__init__` forwarded `name=` into `subprocess.Popen`, which rejects the keyword: `TypeError` on the first submitted pair. Upstream cannot schedule anything as shipped.
+- `run_mig.py` `GPU_queue.__len__` read a module-level `gpu_queue` that does not exist (it is a local in `main()`): `NameError` as soon as a pair is submitted.
+
+Two more upstream limitations are worked around rather than patched, since the scripts live in the container:
+
+- `package_output.py` `realpath()`s the *archive name* as well as the source, so a symlinked `work/ref.2bit` resolving outside the pair directory aborts with `path fail`. The worker hard-links instead (zero copy, falls back to a copy across filesystems).
+- `runner.py` sizes diagonal partitions with `statistics.quantiles`, which needs ≥2 `.segments` groups; a sparse bin pair has one or none and it dies there. The worker retries that pair unpartitioned — same alignments, one LASTZ command instead of several. **The single-instance `KEGALIGN` module has the same latent failure for small or sparse genome pairs** and is left untouched here.
+
+### ZLUDA profile — GPU backend on AMD hardware
+
+- `-profile docker,gpu,zluda` runs the three KegAlign processes natively against a local [ZLUDA](https://github.com/vosen/ZLUDA) build while every other stage stays containerised, so the GPU backend is developable and testable without NVIDIA hardware. `assets/tests/ci/zluda_setup.sh` builds what it needs into `~/.cache/make_lastz_chains/zluda`: a `kegalign` shim carrying the ZLUDA recipe (`LD_PRELOAD` reaches only the GPU binary, never the musl-linked UCSC tools), musl-loader wrappers for the pipeline image's `faToTwoBit`/`lastz`, the KegAlign helper scripts, and `bashlex` on `PYTHONPATH` (Nextflow exports `PYTHONNOUSERSITE=1`, so a `pip --user` install is invisible to tasks).
+- Implementation notes worth keeping: the process-level part lives in **SECTION 5b**, after SECTION 5, because two `withName` selectors matching the same process do not reliably override each other's `container` — SECTION 5's kegalign selector now decides `null` vs the CUDA image itself. `params.zluda` gates it rather than `workflow.profile`, which is not bound while the config is parsed.
+- `-profile ...,zluda_mps_stub` (with `WITH_MPS_STUBS=1`) stubs `nvidia-smi`, the MPS daemon and NVML — the three things ZLUDA cannot provide — so the MPS *plumbing* can be exercised on AMD with real KegAlign on the GPU. It proves nothing about the MPS daemon and makes the preflight pass on a host with no MPS.
+
+### Verification on AMD (RX 6500 XT + ZLUDA, Nextflow 25.04.6)
+
+Every route run end to end on the bundled synthetic fixture, from scratch:
+
+| route | exit | PSL | chains | GPU-stage evidence |
+|---|---|---|---|---|
+| `lastz` (CPU baseline) | 0 | 67 rec | 31 | — |
+| `kegalign batched` | 0 | 75 rec | 31 | real KegAlign on the GPU |
+| `kegalign distributed` | 0 | 75 rec | 31 | `partition integrity check passed: 4/4` |
+| `kegalign_mps_workers 2` | 0 | 75 rec | 31 | `1 ref bins x 1 query bins = 1 pairs`; `integrity check passed: 1/1 kegs`; keg contains 4 partitioned `.segments` + unexecuted `commands.json`, no `.axt` |
+
+- **Normalised PSL and final chains are IDENTICAL across batched, distributed and MPS**; `lastz` vs `kegalign` chain aligned bases differ by +0.5% (CI tolerance 20%).
+- Concurrency, with binning forced to 2×2 (`goal_bp` lowered, since the fixture bins to 1×1 at the production 200 Mb goal): **peak 2 concurrent `kegalign` PIDs, 0 `lastz`**, `4/4` pairs accounted for (2 kegs + 2 genuine no-HSP pairs). Those kegs' PSL is aggregate-identical to the single-instance route (same records, matches, insert bases and spans); exactly 1 of 75 records differs, with the same score, endpoints and gap totals but a different equal-scoring internal tie-break — so multiple bins give *equivalent*, not byte-identical, output.
+- Not covered: NVIDIA MPS itself. The daemon, `nvidia-smi` and NVML do not exist on AMD, so the first NVIDIA run remains the real test of the daemon lifecycle and of `CUDA_MPS_PIPE_DIRECTORY` path length under deep work directories.
+
+On a 5 Mb synthetic pair (20 independent homologous chromosome pairs, ~10% divergence, inversions in every third) **all three routes produce byte-identical PSL — including `lastz` vs `kegalign`**: 35 records, 4,600,791 matched bases, 5,000,095 bp of reference span covered by both backends. At 10 Mb (40 pairs) batched and distributed stay byte-identical and `kegalign` finds 0.8% more matched bases than `lastz` (9,278,590 vs 9,202,054).
+
+### Benchmark: is the GPU backend actually worth it
+
+Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean skipped. `wall` is whole-pipeline; `align cpu-time` is the summed task time of the alignment stage only (`LASTZ`, or `KEGALIGN` + `KEGALIGN_LASTZ`/`KEG_LASTZ`):
+
+| genome pair | route | wall | align cpu-time |
+|---|---|---|---|
+| 5 Mb | `lastz` (default chunking → 1 task) | 247 s | 173 s |
+| 5 Mb | `lastz` (1 Mb chunks → 63 tasks) | 453 s | 194 s |
+| 5 Mb | `kegalign batched` | **25 s** | **8.2 s** (5.2 GPU + 3.0 CPU) |
+| 5 Mb | `kegalign distributed` | 26 s | 12.1 s |
+| 10 Mb | `lastz` (4 tasks) | 413 s | 725 s |
+| 10 Mb | `kegalign batched` | **35 s** | **12.7 s** (10.4 GPU + 2.3 CPU) |
+| 10 Mb | `kegalign distributed` | 38 s | 35.5 s |
+
+- **~10–12× whole-pipeline wall time, ~21–57× less alignment compute**, and the margin widens with size: doubling the genomes multiplied LASTZ compute by 4.2× (173 → 725 s) but the GPU stage by only 2.0× (5.2 → 10.4 s).
+- The honest qualifier: the durable advantage is *total compute* (cores × seconds), not wall time in the abstract. The CPU route's wall time is bounded by its partition count — here one 6m30s LASTZ task dominated the 10 Mb run — so a cluster with enough slots can close much of the wall-time gap while still burning ~50× the CPU. Finer chunking does not help on one machine: 1 Mb chunks made wall time *worse* (453 s vs 247 s) because 63 containerised tasks cost ~3.4 s each in startup and staging, while producing byte-identical PSL.
+- Conservative for the GPU side: an entry-level 4 GB card through a translation layer, where KegAlign targets datacentre GPUs. The ZLUDA HIP shim's tracing is not a factor (3,142 trace lines in the 10 Mb run). `KEGALIGN` peaked at 418 MB RSS and 120% CPU.
+- Synthetic random sequence has no repeats, which is the workload feature that hurts LASTZ most, so real genomes likely widen the gap rather than narrow it.
+
 ### PSL splitting fixes
 
 - `PSLTOOLS_SPLIT` no longer pipes PSL file *contents* into `psl.list` (the previous `xargs -0 cat` fed `psLayout version 3` as a filename, failing every split); it now writes the filenames found by `find`.
