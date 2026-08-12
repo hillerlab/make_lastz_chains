@@ -19,7 +19,7 @@
 
   <span>
     <h1 align="center">
-        <code>make_lastz_chain</code>
+        <code>make_lastz_chains</code>
     </h1>
   </span>
 
