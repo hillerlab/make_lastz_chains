@@ -64,7 +64,7 @@ if (params.help) {
 
     Optional parameters (common):
         --outdir              PATH    Output directory [default: ./results]
-        --aligner             STR     Alignment backend: lastz|kegalign [default: lastz]
+        --aligner             STR     Alignment backend: lastz|kegalign|hspz [default: lastz]
                                       kegalign is GPU-only — add -profile gpu
         --kegalign_executor   STR     KegAlign CPU stage: batched|distributed [default: batched]
                                       distributed = one Nextflow task per KegAlign partition
@@ -125,16 +125,22 @@ def validateAligner() {
     // Returns error strings; the KegAlign backend is GPU-only by design — a
     // silent fallback to CPU LASTZ would hide a misconfigured runtime.
     def errors = []
-    if (!(['lastz', 'kegalign'].contains(params.aligner))) {
-        errors << "  --aligner must be 'lastz' or 'kegalign' (got '${params.aligner}')"
+    if (!(['lastz', 'kegalign', 'hspz'].contains(params.aligner))) {
+        errors << "  --aligner must be 'lastz' or 'kegalign' or 'hspz' (got '${params.aligner}')"
     }
     else if (params.aligner == 'kegalign' && !workflow.profile.tokenize(',').contains('gpu')) {
         errors << "  --aligner kegalign requires the gpu profile (e.g. -profile docker,gpu or apptainer,gpu)."
         errors << "  Clusters that grant GPU access through their own config should still include -profile gpu."
+    } 
+    else if (params.aligner == 'hspz' && !(['gpu', 'zluda'].intersect(workflow.profile.tokenize(',')))) {
+        errors << "  --aligner hspz requires the gpu or zluda profile (e.g. -profile docker,gpu or docker,zluda)."
+        errors << "  Clusters that grant GPU access through their own config should still include -profile gpu or zluda."
     }
+
     if (!(['batched', 'distributed'].contains(params.kegalign_executor))) {
         errors << "  --kegalign_executor must be 'batched' or 'distributed' (got '${params.kegalign_executor}')"
     }
+
     // MPS shares one GPU between concurrent KegAlign instances. The 4 ceiling is
     // upstream's VRAM guidance, not a hard limit — raise it once benchmarked.
     def mps = params.kegalign_mps_workers.toString()
@@ -150,6 +156,7 @@ def validateAligner() {
             errors << "  the distributed CPU stage expands a single keg, while MPS emits one per chunk pair."
         }
     }
+
     return errors
 }
 

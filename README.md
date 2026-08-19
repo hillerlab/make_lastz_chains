@@ -248,6 +248,11 @@ results/
 ├── 01_partition/        *_partitions.txt
 ├── 02_lastz_psl/        *.psl              ← --aligner lastz
 ├── 02_kegalign_psl/     *.psl              ← --aligner kegalign
+├── 02_hspz/                                ← --aligner hspz
+├─── • segments/         *.segments
+├─── • psl/              *.psl
+├─── • axt/              *.axt
+├── 03_psl/              *.psl              ← merged per-chr psl files
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains

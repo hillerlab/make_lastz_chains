@@ -23,6 +23,7 @@ include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from '../subworkflows/lo
 include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from '../subworkflows/local/prepare_genomes/main'
 include { LASTZ_ALIGNMENT    } from '../subworkflows/local/lastz_alignment/main'
 include { KEGALIGN_ALIGNMENT } from '../subworkflows/local/kegalign_alignment/main'
+include { HSPZ_ALIGNMENT     } from '../subworkflows/local/hspz_alignment/main'
 include { CHAIN_BUILD        } from '../subworkflows/local/chain_build/main'
 include { FILL_CLEAN_CHAINS  } from '../subworkflows/local/fill_clean_chains/main'
 
@@ -66,23 +67,38 @@ workflow MAKE_LASTZ_CHAINS {
     query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir
 
     // ── 2. Alignment (backend selected by --aligner) ────────────────────────
-    if (params.aligner == 'kegalign') {
-        KEGALIGN_ALIGNMENT (
-            reference_prepared,
-            query_prepared
-        )
-        ch_alignment_psl = KEGALIGN_ALIGNMENT.out.psl_gz
-        ch_versions      = ch_versions.mix(KEGALIGN_ALIGNMENT.out.versions)
-    }
-    else {
-        LASTZ_ALIGNMENT (
-            reference_prepared,
-            query_prepared,
-            reference_chroms_dir,
-            query_chroms_dir
-        )
-        ch_alignment_psl = LASTZ_ALIGNMENT.out.psl_gz
-        ch_versions      = ch_versions.mix(LASTZ_ALIGNMENT.out.versions)
+    switch (params.aligner) {
+        case 'hspz':
+            HSPZ_ALIGNMENT (
+                reference_prepared,
+                query_prepared
+            )
+            ch_alignment_psl = HSPZ_ALIGNMENT.out.psl_gz
+            ch_versions      = ch_versions.mix(HSPZ_ALIGNMENT.out.versions)
+            break
+
+        case 'kegalign':
+            KEGALIGN_ALIGNMENT (
+                reference_prepared,
+                query_prepared
+            )
+            ch_alignment_psl = KEGALIGN_ALIGNMENT.out.psl_gz
+            ch_versions      = ch_versions.mix(KEGALIGN_ALIGNMENT.out.versions)
+            break
+
+        case 'lastz':
+            LASTZ_ALIGNMENT (
+                reference_prepared,
+                query_prepared,
+                reference_chroms_dir,
+                query_chroms_dir
+            )
+            ch_alignment_psl = LASTZ_ALIGNMENT.out.psl_gz
+            ch_versions      = ch_versions.mix(LASTZ_ALIGNMENT.out.versions)
+            break
+
+        default:
+            throw new Exception("Invalid aligner: ${params.aligner}")
     }
 
     // ── 3. Chain building ──────────────────────────────────────────────────
