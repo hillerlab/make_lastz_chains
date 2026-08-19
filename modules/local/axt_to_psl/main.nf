@@ -41,4 +41,14 @@ process AXT_TO_PSL {
         ucsc-axttopsl: \$(axtToPsl 2>&1 | grep version | awk '{print \$NF}' || echo 'N/A')
     END_VERSIONS
     """
+
+    stub:
+    """
+    touch ${axt.baseName}.psl
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        ucsc-axttopsl: 'stub'
+    END_VERSIONS
+    """
 }

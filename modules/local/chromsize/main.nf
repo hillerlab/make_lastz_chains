@@ -50,7 +50,7 @@ process CHROMSIZE {
     stub:
     def prefix = task.ext.prefix ?: "${genome_name}"
     """
-    touch ${prefix}
+    mkdir -p ${prefix}
     touch ${prefix}/${prefix}.chrom.sizes
 
     cat <<-END_VERSIONS > versions.yml
