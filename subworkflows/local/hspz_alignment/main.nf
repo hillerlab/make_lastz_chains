@@ -6,13 +6,10 @@ Distributed under the terms of the Apache License, Version 2.0.
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     HSPZ_ALIGNMENT subworkflow — GPU alignment backend
-    1. GPU seeding + HSP filtering, packaged as tarballs ("kegs"):
-         KEGALIGN     — one instance, one keg  (--kegalign_mps_workers 1)
-         KEGALIGN_MPS — N instances sharing one GPU through NVIDIA MPS, one keg
-                        per reference-bin × query-bin pair  (workers > 1)
-    2. CPU gapped extension of those packages, either executor:
-         batched     — KEGALIGN_LASTZ (one task, lastZ's own pool) → AXT+ → PSL
-         distributed — KEGALIGN_EXPAND → one KEG_LASTZ task per partition → PSL
+    1. GPU seeding + HSP filtering returned as .segments [optionally tarball]:
+         HSPZ     — GPU backend, one/many instances, returns segments
+    2. CPU gapped extension of those segments, one executor only:
+         distributed — LASTZ_SEGMENTED → one lastZ task per partition → PSL
        Both consume the identical lastZ package, so they are directly
        comparable; only the execution loop differs.
 
