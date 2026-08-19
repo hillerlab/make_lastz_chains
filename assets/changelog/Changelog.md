@@ -48,7 +48,7 @@
 
 # 4.0.0
 
-Added a GPU alignment backend built on [KegAlign](https://github.com/hillerlab/kegalign) (CUDA seeding + HSP filtering) with two CPU gapped-extension executors, and fixed the PSL-splitting path that broke at whole-genome scale.
+Added two GPU alignment backends — [KegAlign](https://github.com/hillerlab/kegalign) (CUDA seeding + HSP filtering) with two CPU gapped-extension executors, and hspZ 0.0.1 (GPU seeding, CPU gapped extension) — and fixed the PSL-splitting path that broke at whole-genome scale.
 
 ### GPU alignment backend
 
@@ -133,6 +133,16 @@ Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean 
 ### Tests
 
 - `tests/` and `test_data/` moved under `assets/tests/` (`assets/tests/ci/`, `assets/tests/test_data/`); CI and script paths updated. `assets/tests/ci/compare_aligners.sh` runs the CPU and both GPU executors on the bundled fixture and asserts batched/distributed equivalence.
+
+### hspZ backend — GPU seeding with CUDA or AMD (ZLUDA)
+
+- `--aligner hspz` routes the alignment stage through `HSPZ_ALIGNMENT` (`subworkflows/local/hspz_alignment/`): `HSPZ` runs upstream hspZ 0.0.1 on the GPU (`ghcr.io/hillerlab/hspz:0.0.1`), which returns only high-scoring ungapped alignment blocks; `LASTZ_SEGMENTED` then does the CPU gapped extension per block (`--segments=`, skipping indexing, seeding and gap-free extension), and `AXT_TO_PSL` converts the AXT to PSL. Downstream chain building is unchanged and consumes the identical `psl_gz` contract.
+- Requires the `gpu` (CUDA) or `zluda` (AMD) profile — `--aligner hspz` without either fails at startup. The workflow now dispatches the alignment stage via a `switch` on `--aligner`.
+- hspZ does not use `lastz_k` (seed-time only); `LASTZ_SEGMENTED` forwards `lastz_h`/`lastz_l`/`lastz_y`. An integrity guard fails the run if any `.segments` block produces no AXT.
+- `-profile docker,zluda` runs HSPZ natively against a local ZLUDA build (`hspz:0.0.1-zluda`): the image's ENTRYPOINT is cleared and the host shim is mounted at `/opt/zluda` on `LD_LIBRARY_PATH`.
+- `environment.yml` removed — conda environments are now declared per module (`LASTZ_SEGMENTED` ships its own).
+- `PSLTOOLS_SPLIT` now publishes the merged per-chromosome PSL to `03_psl/`; hspZ output lands in `02_hspz/{segments,axt,psl}`.
+- New `test_hspz` profile runs the bundled fixture with `--aligner hspz` and `use_container = false`.
 
 ### Config adjustments
 
