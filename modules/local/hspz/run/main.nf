@@ -20,7 +20,7 @@ process HSPZ {
     conda "bioconda::hspz=0.0.1"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         '' :
-        'ghcr.io/hillerlab/hspz:0.0.2' }"
+        'ghcr.io/hillerlab/hspz:latest' }"
 
     input:
     tuple val(reference_name), path(reference_sequence) // fa|gz|2bit

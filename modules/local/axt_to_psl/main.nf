@@ -8,7 +8,7 @@
 */
 
 process AXT_TO_PSL {
-    tag "${reference_name} vs ${query_name}"
+    tag "${axt.baseName}"
     label 'process_medium'
 
     conda "${projectDir}/environment.yml"
