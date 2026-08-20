@@ -99,8 +99,12 @@ nextflow run main.nf -params-file params.json -profile docker \
 
 Command-line parameters override matching values from `params.json`; all other parameters continue to come from the file.
 
-Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
+Resume runs from checkpoints [segments, chain_antirepeat, fill_chains, clean_chains]:
 ```bash
+
+# Restart after hspZ GPU seeding but before gapped extension [ 02_hspz/segments ]
+nextflow run main.nf --from segments -profile <PROFILE> -params-file params.json \
+    --segments_path  results/02_hspz/segments
 
 # Restart after alignment but before repeat-cleaning them [ 04_axtchain ]
 nextflow run main.nf -profile <PROFILE> -params-file params.json \
@@ -249,7 +253,7 @@ results/
 ├── 02_lastz_psl/        *.psl              ← --aligner lastz
 ├── 02_kegalign_psl/     *.psl              ← --aligner kegalign
 ├── 02_hspz/                                ← --aligner hspz
-├─── • segments/         *.segments
+├─── • segments/         *.segments         ← checkpoint for --from segments
 ├─── • psl/              *.psl
 ├─── • axt/              *.axt
 ├── 03_psl/              *.psl              ← merged per-chr psl files

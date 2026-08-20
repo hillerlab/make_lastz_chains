@@ -22,9 +22,8 @@ Distributed under the terms of the Apache License, Version 2.0.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { AXT_TO_PSL                       } from '../../../modules/local/axt_to_psl/main'
-include { HSPZ                             } from '../../../modules/local/hspz/run/main'
-include { LASTZ_SEGMENTED                  } from '../../../modules/local/lastz_segmented/main'
+include { HSPZ            } from '../../../modules/local/hspz/run/main'
+include { SEGMENTS_TO_PSL } from '../segments_to_psl/main'
 
 workflow HSPZ_ALIGNMENT {
     take:
@@ -34,10 +33,12 @@ workflow HSPZ_ALIGNMENT {
     main:
     ch_versions = Channel.empty()
 
-    reference_sizes_ch     = reference_prepared.map { _n, _tb, cs -> cs }.first()
-    query_sizes_ch         = query_prepared.map     { _n, _tb, cs -> cs }.first()
-    reference_twobit_val   = reference_prepared.map { _n, tb, _cs -> tb }.first()
-    query_twobit_val       = query_prepared.map     { _n, tb, _cs -> tb }.first()
+    reference_sizes_ch   = reference_prepared.map { _n, _tb, cs -> cs }.first()
+    query_sizes_ch       = query_prepared.map     { _n, _tb, cs -> cs }.first()
+    reference_twobit_val = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    query_twobit_val     = query_prepared.map     { _n, tb, _cs -> tb }.first()
+    reference_name_val   = reference_prepared.map { n, _tb, _cs -> n.toString() }.first()
+    query_name_val       = query_prepared.map     { n, _tb, _cs -> n.toString() }.first()
 
     // ── hspZ [GPU stage] ───────────────────────────────────────────────────────────────
     HSPZ (
@@ -59,54 +60,21 @@ workflow HSPZ_ALIGNMENT {
             )
         }
     }
-    expected_n = ch_segments.count()
 
-    LASTZ_SEGMENTED(
+    SEGMENTS_TO_PSL (
         ch_segments,
         reference_twobit_val,
         query_twobit_val,
+        reference_sizes_ch,
+        query_sizes_ch,
+        reference_name_val,
+        query_name_val,
         params.lastz_h,
         params.lastz_l,
         params.lastz_y
     )
-    actual_n = LASTZ_SEGMENTED.out.axt.count()
-
-    // Every partition must have run exactly once — §10's requirement, and the
-    // same last-line defence LASTZ_ALIGNMENT keeps over its N×K pair list.
-    expected_n.combine( actual_n ).map { exp, got ->
-        if (exp != got) {
-            error "LASTZ partition integrity check failed: expected ${exp} " +
-                  "LASTZ partitions, only ${got} produced a PSL. " +
-                  "${exp - got} partition(s) were lost silently. " +
-                  "Aborting before downstream chain building reads incomplete data."
-        }
-        log.info "lastZ partition integrity check passed: ${got}/${exp} partitions completed"
-        return got
-    }
-
-    AXT_TO_PSL (
-        LASTZ_SEGMENTED.out.axt,
-        reference_sizes_ch,
-        query_sizes_ch
-    )
-    ch_psl_list = AXT_TO_PSL.out.psl.map { _r, _q, psl -> psl }.collect()
-
-    // Shape it exactly like LASTZ_ALIGNMENT.out.psl_gz: (meta, [psl files]).
-    // The PSLs go to CHAIN_BUILD as-is — PSLTOOLS_SPLIT already consolidates
-    // many inputs, so concatenating them first would be a wasted pass.
-    reference_name_ch = reference_prepared.map { n, _tb, _cs -> n.toString() }
-    query_name_ch     = query_prepared.map     { n, _tb, _cs -> n.toString() }
-
-    ch_psl_files = ch_psl_list
-        .map { psl_files -> [ psl_files ] }
-        .combine(reference_name_ch)
-        .combine(query_name_ch)
-        .map { psl_files, ref, query ->
-            [ [ id: "${ref}.${query}.all.psl" ], psl_files ]
-        }
 
     emit:
-    psl_gz   = ch_psl_files
-    versions = HSPZ.out.versions
-                 .mix(LASTZ_SEGMENTED.out.versions, AXT_TO_PSL.out.versions)
+    psl_gz   = SEGMENTS_TO_PSL.out.psl_gz
+    versions = HSPZ.out.versions.mix(SEGMENTS_TO_PSL.out.versions)
 }

@@ -45,12 +45,16 @@ if (params.help) {
     Checkpoint entry points (resume from a published intermediate):
         -entry FROM_FILL_CHAINS   Start from *.all.chain.gz  (skips LASTZ + chain building)
         -entry FROM_CLEAN_CHAINS  Start from *.filled.chain.gz (skips fill step)
+        -entry FROM_SEGMENTS      Start from hspZ *.segments  (skips GPU stage)
 
         Required extra params for FROM_FILL_CHAINS (--from fill_chains):
             --merged_chain           PATH  Path to *.all.chain.gz
 
         Required extra params for FROM_CLEAN_CHAINS (--from clean_chains):
             --filled_chain           PATH  Path to *.filled.chain.gz
+
+        Required extra params for FROM_SEGMENTS (--from segments):
+            --segments_path          PATH  Path to directory with *.segments
 
 
     Pass all parameters from a JSON file (replaces old --params_from_file):
@@ -112,6 +116,8 @@ include { CHAINC } from './modules/local/chainc/main'
 include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from './modules/local/chaintools/filter/main'
 include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from './subworkflows/local/prepare_genomes/main'
 include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from './subworkflows/local/prepare_genomes/main'
+include { SEGMENTS_TO_PSL } from './subworkflows/local/segments_to_psl/main'
+include { CHAIN_BUILD } from './subworkflows/local/chain_build/main'
 include { CHAINTOOLS_ANTIREPEAT } from './modules/local/chaintools/antirepeat/main'
 include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
 
@@ -195,6 +201,15 @@ def validateFromChainAntirepeat() {
     }
 }
 
+def validateFromSegments() {
+    def errors = validateAliasBase()
+    if (!params.segments_path) errors << "  --segments_path is required (path to dir with *.segments)"
+    if (errors) {
+        log.error "Parameter validation failed:\n${errors.join('\n')}"
+        System.exit(1)
+    }
+}
+
 def validateFromFillChains() {
     def errors = validateAliasBase()
     if (!params.merged_chain_path) errors << "  --merged_chain is required (path to *.all.chain.gz)"
@@ -232,6 +247,10 @@ workflow MAKE_LASTZ_CHAINS {
         // ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
         log.info "Resuming from ${params.from} checkpoint — skipping LASTZ"
         FROM_CHAIN_ANTIREPEAT()
+    } else if (params.from == "segments") {
+        // ── Checkpoint: start from pre-generated hspZ .segments ──────────────
+        log.info "Resuming from ${params.from} checkpoint — starting at LASTZ_SEGMENTED (CPU-only)"
+        FROM_SEGMENTS()
     } else {
         // ── Default: full pipeline ─────────────────────────────────────────────────
         log.info "Starting full pipeline — skipping checkpoints"
@@ -343,6 +362,100 @@ workflow FROM_CHAIN_ANTIREPEAT {
 
     FILL_CLEAN_CHAINS(
         CHAINTOOLS_MERGE.out.chain_gz,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        query_chrom_sizes,
+        params.reference_name,
+        params.query_name
+    )
+}
+
+// ── Checkpoint: start from pre-generated hspZ .segments (CPU-only) ──────
+// Input: results/02_hspz/segments/*.segments from a previous --aligner hspz run
+workflow FROM_SEGMENTS {
+    validateFromSegments()
+
+    log.info """
+    make_lastz_chains v${workflow.manifest.version} — FROM_SEGMENTS
+
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
+
+      Reference : ${params.reference_name}
+      Query  : ${params.query_name}
+      Input  : ${params.segments_path}
+      Outdir : ${params.outdir}
+      Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
+      Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
+      Profile: ${workflow.profile}
+    """.stripIndent()
+
+    // ── 1. Prepare genomes ─────────────────────────────────────────────────
+    PREPARE_REFERENCE_GENOME (
+        params.reference_name,
+        params.reference_genome,
+        false
+    )
+    PREPARE_QUERY_GENOME (
+        params.query_name,
+        params.query_genome,
+        false
+    )
+
+    // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
+    reference_prepared    = PREPARE_REFERENCE_GENOME.out.prepared
+    reference_twobit      = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
+
+    query_prepared    = PREPARE_QUERY_GENOME.out.prepared
+    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
+    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+
+    // ── 2. Collect segments ────────────────────────────────────────────────
+    Channel.fromPath(params.segments_path, type: 'dir', checkIfExists: true)
+        .flatMap { dir ->
+            def files = []
+            file(dir).eachFileRecurse { f ->
+                if (f.name.endsWith('.segments')) files << f
+            }
+            files
+        }
+        .map { segment ->
+            tuple(
+                [ id: segment.baseName, reference: params.reference_name, query: params.query_name ],
+                segment
+            )
+        }
+        .set { ch_segments }
+
+    // ── 3. Segments → PSL ──────────────────────────────────────────────────
+    SEGMENTS_TO_PSL (
+        ch_segments,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        query_chrom_sizes,
+        params.reference_name,
+        params.query_name,
+        params.lastz_h,
+        params.lastz_l,
+        params.lastz_y
+    )
+
+    // ── 4. Chain build ─────────────────────────────────────────────────────
+    CHAIN_BUILD (
+        SEGMENTS_TO_PSL.out.psl_gz,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        params.reference_name,
+        params.query_name
+    )
+
+    // ── 5. Fill / clean chains ─────────────────────────────────────────────
+    FILL_CLEAN_CHAINS (
+        CHAIN_BUILD.out.merged_chain,
         reference_twobit,
         query_twobit,
         reference_chrom_sizes,
