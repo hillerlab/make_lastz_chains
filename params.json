@@ -15,6 +15,7 @@
     "axtchain_path": null,
     "merged_chain_path": null,
     "filled_chain_path": null,
+    "segments_path": null,
 
     "//2": "── Genome partitioning ─────────────────────────────────────────────────",
     "seq1_chunk": 175000000,
