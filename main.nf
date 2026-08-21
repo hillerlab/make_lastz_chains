@@ -134,8 +134,8 @@ def validateAligner() {
     if (!(['lastz', 'kegalign', 'hspz'].contains(params.aligner))) {
         errors << "  --aligner must be 'lastz' or 'kegalign' or 'hspz' (got '${params.aligner}')"
     }
-    else if (params.aligner == 'kegalign' && !workflow.profile.tokenize(',').contains('gpu')) {
-        errors << "  --aligner kegalign requires the gpu profile (e.g. -profile docker,gpu or apptainer,gpu)."
+    else if (params.aligner == 'kegalign' && !(['gpu', 'zluda'].intersect(workflow.profile.tokenize(',')))) {
+        errors << "  --aligner kegalign requires the gpu or zluda profile (e.g. -profile docker,gpu/zluda or apptainer,gpu/zluda)."
         errors << "  Clusters that grant GPU access through their own config should still include -profile gpu."
     } 
     else if (params.aligner == 'hspz' && !(['gpu', 'zluda'].intersect(workflow.profile.tokenize(',')))) {
