@@ -151,7 +151,7 @@
         "lastz_alignment": {
             "title": "LASTZ alignment",
             "type": "object",
-            "description": "Scoring parameters for the LASTZ pairwise sequence aligner. Shared by both backends: the KegAlign backend forwards the same four thresholds to KegAlign's equivalent long options (K=--hspthresh, L=--gappedthresh, H=--inner, Y=--ydrop).",
+            "description": "Scoring parameters for the LASTZ pairwise sequence aligner. Shared by all backends: KegAlign and hspZ forward lastz_k as --hspthresh; LASTZ_SEGMENTED (hspZ CPU stage) and KegAlign LASTZ use L=--gappedthresh, H=--inner, Y=--ydrop. Do not pass lastz_h as hspZ -H — that short flag is --hspthresh, not BLASTZ inner.",
             "properties": {
                 "lastz_y": {
                     "type": "integer",

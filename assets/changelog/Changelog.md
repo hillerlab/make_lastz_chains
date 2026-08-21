@@ -138,11 +138,14 @@ Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean 
 
 - `--aligner hspz` routes the alignment stage through `HSPZ_ALIGNMENT` (`subworkflows/local/hspz_alignment/`): `HSPZ` runs upstream hspZ 0.0.1 on the GPU (`ghcr.io/hillerlab/hspz:0.0.1`), which returns only high-scoring ungapped alignment blocks; `LASTZ_SEGMENTED` then does the CPU gapped extension per block (`--segments=`, skipping indexing, seeding and gap-free extension), and `AXT_TO_PSL` converts the AXT to PSL. Downstream chain building is unchanged and consumes the identical `psl_gz` contract.
 - Requires the `gpu` (CUDA) or `zluda` (AMD) profile — `--aligner hspz` without either fails at startup. The workflow now dispatches the alignment stage via a `switch` on `--aligner`.
-- hspZ does not use `lastz_k` (seed-time only); `LASTZ_SEGMENTED` forwards `lastz_h`/`lastz_l`/`lastz_y`. An integrity guard fails the run if any `.segments` block produces no AXT.
+- `lastz_k` → hspZ `--hspthresh` (same K as KegAlign; do not pass `-H`, that short flag is `--hspthresh` not BLASTZ inner). `LASTZ_SEGMENTED` forwards `lastz_l`/`lastz_h`/`lastz_y` as `--gappedthresh`/`--inner`/`--ydrop` plus `--strand` from the partition. An integrity guard fails the run if any `.segments` block produces no AXT.
 - `-profile docker,zluda` runs HSPZ natively against a local ZLUDA build (`hspz:zluda`): the image's ENTRYPOINT is cleared and the host shim is mounted at `/opt/zluda` on `LD_LIBRARY_PATH`.
 - `environment.yml` removed — conda environments are now declared per module (`LASTZ_SEGMENTED` ships its own).
 - `PSLTOOLS_SPLIT` now publishes the merged per-chromosome PSL to `03_psl/`; hspZ output lands in `02_hspz/{segments,axt,psl}`.
 - New `test_hspz` profile runs the bundled fixture with `--aligner hspz` and `use_container = false`.
+- **Fix:** HSPZ previously passed no scoring flags, so hspZ used its CLI default of 3000 while KegAlign ran at `lastz_k` (2400). On hg38 chr21 × mm39 chr16 that dropped 19k HSPs (the 2400–2999 band) and produced thinner chains.
+- **Fix:** `LASTZ_SEGMENTED` now matches KegAlign's LASTZ command (`--gappedthresh=${lastz_l}` was incorrectly `lastz_h`; `--strand=plus|minus` from the partition; `--allocate:traceback=1.99G`).
+- `assets/tests/ci/compare.sh` asserts that wiring. `compare_aligners.sh` also runs `--aligner hspz` and checks chain aligned bases against KegAlign within `TOLERANCE`.
 
 ### Config adjustments
 

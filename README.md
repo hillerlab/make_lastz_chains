@@ -205,6 +205,9 @@ nextflow run main.nf -params-file params.json -profile docker,gpu \
 # ...with 2 KegAlign instances sharing the one allocated GPU through NVIDIA MPS
 nextflow run main.nf -params-file params.json -profile docker,gpu \
     --aligner kegalign --kegalign_mps_workers 2
+
+# hspZ: GPU seeding at lastz_k (--hspthresh), then per-partition LASTZ gapped extension
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz
 ```
 
 `--kegalign_executor` chooses how the KegAlign backend runs its CPU gapped-extension
@@ -226,13 +229,15 @@ of VRAM per instance — start with 2 on a 32–40 GB GPU, try 4 only on 80 GB. 
 (default) never starts an MPS daemon and is exactly the single-instance path above.
 
 > [!IMPORTANT]
-> `kegalign` needs the `gpu` profile (`--gpus all` for Docker, `--nv` for
-> Apptainer/Singularity) — there is no CPU fallback, and requesting it without a GPU
-> runtime fails at startup rather than silently reverting to LASTZ. KegAlign does its
+> `kegalign` and `hspz` need the `gpu` (or `zluda`) profile (`--gpus all` for Docker, `--nv` for
+> Apptainer/Singularity) — there is no CPU fallback, and requesting either without a GPU
+> runtime fails at startup rather than silently reverting to LASTZ. Both do their
 > own reference/query partitioning, so `seq1_chunk` / `seq2_chunk` / `seq1_lap` /
-> `seq2_lap` are unused for that backend. The four LASTZ scoring thresholds are
-> shared: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`,
-> `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`.
+> `seq2_lap` are unused for those backends. The four LASTZ scoring thresholds are
+> shared: `lastz_k` → `--hspthresh` (hspZ included — do not pass `-H`, that short
+> flag is `--hspthresh` not BLASTZ inner), `lastz_l` → `--gappedthresh`,
+> `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`
+> or `02_hspz/psl/`.
 
 > [!TIP]
 > On an **AMD GPU**, `bash assets/tests/ci/zluda_setup.sh` plus
