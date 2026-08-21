@@ -1,8 +1,9 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     LASTZ_SEGMENTED — Pairwise sequence alignment for one reference x query segment
-    coming from hspZ high-scoring ungapped alignment. It skips indexing, seeding, 
-    gap-free extension or chaining.
+    coming from hspZ high-scoring ungapped alignment. It skips indexing, seeding,
+    gap-free extension or chaining. Flags match KegAlign's generated LASTZ
+    command: --gappedthresh=L, --inner=H, --ydrop=Y, --strand from the partition.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -33,6 +34,22 @@ process LASTZ_SEGMENTED {
     # one buffer capped at 2^31-11 bp, which whole-genome 2bits overflow. The
     # segments file names its sequences, so run one lastz per (reference,
     # query) chromosome pair with single-contig selection instead.
+    #
+    # Strand, L, H, Y and traceback match KegAlign's generated LASTZ commands
+    # (run_keg_lastz.py / lastz-commands.txt). lastz_l is gappedthresh; lastz_h
+    # is inner only. --strand is required for minus-strand query coordinates.
+    case "${meta.id}" in
+        *.minus*) strand=minus ;;
+        *.plus*)  strand=plus  ;;
+        *)
+            strand=\$(awk -F'\\t' 'NF>=7 { print (\$7=="-" ? "minus" : "plus"); exit }' ${segment})
+            ;;
+    esac
+    if [ -z "\$strand" ]; then
+        echo "LASTZ_SEGMENTED: cannot derive --strand from ${segment} (id=${meta.id})" >&2
+        exit 1
+    fi
+
     awk -F'\\t' 'NF { print \$1 "\\t" \$4 }' ${segment} | sort -u > pairs.txt
     mkdir -p pairs
     while IFS=\$'\\t' read -r ref query; do
@@ -41,10 +58,11 @@ process LASTZ_SEGMENTED {
         lastz \\
           --segments="pairs/\${safe}.segments" \\
           --format=axt+ \\
-          --traceback=800.0M \\
-          --gappedthresh=${lastz_h} \\
+          --allocate:traceback=1.99G \\
+          --gappedthresh=${lastz_l} \\
           --inner=${lastz_h} \\
           --ydrop=${lastz_y} \\
+          --strand=\$strand \\
           --output="pairs/\${safe}.axt" \\
           ${reference_twobit}/\$ref ${query_twobit}/\$query
     done < pairs.txt
