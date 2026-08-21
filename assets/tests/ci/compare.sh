@@ -16,6 +16,28 @@ REPORT=assets/tests/work/diff_report
 rm -rf "$REPORT"
 mkdir -p "$REPORT"
 
+# ── hspZ / LASTZ_SEGMENTED scoring wiring (no GPU; catches the K=3000 default) ─
+echo ">> wiring: hspZ lastz_k and LASTZ_SEGMENTED"
+if ! grep -Fq -- '--hspthresh ${lastz_k}' modules/local/hspz/run/main.nf; then
+  echo "!! HSPZ must pass --hspthresh \${lastz_k} (hspZ default is 3000; do not use -H, that is BLASTZ inner)"
+  FAIL=1
+fi
+if ! grep -Fq -- '--gappedthresh=${lastz_l}' modules/local/lastz_segmented/main.nf; then
+  echo "!! LASTZ_SEGMENTED must use lastz_l for --gappedthresh"
+  FAIL=1
+fi
+if grep -Fq -- '--gappedthresh=${lastz_h}' modules/local/lastz_segmented/main.nf; then
+  echo "!! LASTZ_SEGMENTED still uses lastz_h for --gappedthresh"
+  FAIL=1
+fi
+if ! grep -q -- '--strand=' modules/local/lastz_segmented/main.nf; then
+  echo "!! LASTZ_SEGMENTED must pass --strand"
+  FAIL=1
+fi
+if [ "$FAIL" -eq 0 ]; then
+  echo "   hspZ --hspthresh / LASTZ_SEGMENTED L+strand   OK"
+fi
+
 # ── e2e full pipeline ────────────────────────────────────────────────────────
 echo ">> compare: e2e full pipeline"
 rm -rf assets/tests/work/e2e_results

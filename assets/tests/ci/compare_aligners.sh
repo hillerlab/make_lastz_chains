@@ -5,15 +5,18 @@
 #   1. --aligner lastz                                          (CPU)
 #   2. --aligner kegalign --kegalign_executor batched            (GPU + one CPU task)
 #   3. --aligner kegalign --kegalign_executor distributed        (GPU + one task/partition)
-#   4. assert each completed with non-empty PSL and non-empty final chains
-#   5. compare robust metrics (aligned bases / coverage / chain count) within tolerance
-#   6. batched vs distributed run the identical KegAlign partitions, so their
+#   4. --aligner hspz                                           (GPU seeding + LASTZ_SEGMENTED)
+#   5. assert each completed with non-empty PSL and non-empty final chains
+#   6. compare robust metrics (aligned bases / coverage / chain count) within tolerance
+#   7. batched vs distributed run the identical KegAlign partitions, so their
 #      normalised PSL and final chains must match EXACTLY — any difference is a bug
-#   7. report the lastz-vs-kegalign normalised chain diff (informational only —
+#   8. hspz vs kegalign: same lastz_k, so chain aligned bases must agree within
+#      TOLERANCE (the K=3000-default bug missed 19k HSPs on chr21×chr16)
+#   9. report the lastz-vs-kegalign normalised chain diff (informational only —
 #      the two backends partition differently, so byte identity is not required)
 #
-# Needs a GPU: KegAlign has no CPU fallback. Skips (exit 0) when none is present,
-# so this script is safe to call from a CPU-only CI job.
+# Needs a GPU: KegAlign/hspZ have no CPU fallback. Skips (exit 0) when none is
+# present, so this script is safe to call from a CPU-only CI job.
 #
 # Usage: bash assets/tests/ci/compare_aligners.sh   (run from anywhere)
 set -u
@@ -27,7 +30,7 @@ TOLERANCE="${TOLERANCE:-0.20}"
 OUT=assets/tests/work/aligner_compare
 
 if ! command -v nvidia-smi >/dev/null 2>&1 || ! nvidia-smi >/dev/null 2>&1; then
-  echo ">> SKIP: no usable GPU (nvidia-smi absent or failing) — KegAlign cannot run."
+  echo ">> SKIP: no usable GPU (nvidia-smi absent or failing) — KegAlign/hspZ cannot run."
   exit 0
 fi
 
@@ -78,7 +81,7 @@ run_backend() {
     || { echo "!! ${label} run FAILED — see $OUT/${label}.log"; FAIL=1; return 1; }
 
   local psl_files
-  psl_files=$(find "$results" -path '*_psl/*.psl' 2>/dev/null)
+  psl_files=$(find "$results" \( -path '*_psl/*.psl' -o -path '*/02_hspz/psl/*.psl' \) 2>/dev/null)
   if [ -z "$psl_files" ]; then
     echo "!! ${label}: no PSL published"; FAIL=1; return 1
   fi
@@ -109,6 +112,7 @@ run_backend() {
 run_backend lastz       lastz    batched     docker
 run_backend batched     kegalign batched     docker,gpu
 run_backend distributed kegalign distributed docker,gpu
+run_backend hspz        hspz     batched     docker,gpu
 
 if [ "$FAIL" -ne 0 ]; then
   echo; echo "!! ALIGNER COMPARISON FAILED (a run did not produce usable output)"
@@ -142,8 +146,10 @@ fi
 # ── report + tolerance check ─────────────────────────────────────────────────
 read -r l_psl_n l_psl_bases l_psl_ref l_psl_qry < "$OUT/lastz.psl_metrics"
 read -r k_psl_n k_psl_bases k_psl_ref k_psl_qry < "$OUT/batched.psl_metrics"
+read -r h_psl_n h_psl_bases h_psl_ref h_psl_qry < "$OUT/hspz.psl_metrics"
 read -r l_ch_n l_ch_bases l_ch_ref l_ch_qry < "$OUT/lastz.chain_metrics"
 read -r k_ch_n k_ch_bases k_ch_ref k_ch_qry < "$OUT/batched.chain_metrics"
+read -r h_ch_n h_ch_bases h_ch_ref h_ch_qry < "$OUT/hspz.chain_metrics"
 
 printf '\n%-26s %14s %14s %9s\n' metric lastz kegalign 'rel diff'
 report_row() {
@@ -177,6 +183,24 @@ awk -v a="$l_ch_bases" -v b="$k_ch_bases" -v tol="$TOLERANCE" 'BEGIN {
     exit 1
   }
   printf ">> chain aligned bases agree within %.1f%% (tolerance %.1f%%)\n", d * 100, tol * 100
+}' || exit 1
+
+printf '\n%-26s %14s %14s %9s\n' metric kegalign hspz 'rel diff'
+report_row 'psl records'          "$k_psl_n"     "$h_psl_n"
+report_row 'psl aligned bases'    "$k_psl_bases" "$h_psl_bases"
+report_row 'chain count'          "$k_ch_n"      "$h_ch_n"
+report_row 'chain aligned bases'  "$k_ch_bases"  "$h_ch_bases"
+
+echo
+awk -v a="$k_ch_bases" -v b="$h_ch_bases" -v tol="$TOLERANCE" 'BEGIN {
+  if (a <= 0) { print "!! kegalign produced zero aligned chain bases"; exit 1 }
+  d = (b - a) / a; if (d < 0) d = -d
+  if (d > tol) {
+    printf "!! hspz vs kegalign chain aligned bases differ by %.1f%% (tolerance %.1f%%)\n", d * 100, tol * 100
+    print "   Same lastz_k is required; a silent hspZ default of 3000 vs kegalign 2400 is a bug."
+    exit 1
+  }
+  printf ">> hspz vs kegalign chain aligned bases agree within %.1f%% (tolerance %.1f%%)\n", d * 100, tol * 100
 }' || exit 1
 
 echo ">> ALL BACKENDS AND EXECUTORS OK"

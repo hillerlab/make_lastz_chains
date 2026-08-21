@@ -11,16 +11,22 @@ diffs the published outputs against committed "golden" files:
    CBAs, so this fixture is the one that exercises the removal code path.
 
 A third script, `assets/tests/ci/compare_aligners.sh`, runs the same synthetic fixture
-three ways — `--aligner lastz`, `--aligner kegalign --kegalign_executor batched`,
-and `--aligner kegalign --kegalign_executor distributed` — and checks that each
-completes with non-empty PSL and a non-empty final chain. Then:
+four ways — `--aligner lastz`, `--aligner kegalign` batched, `--aligner kegalign`
+distributed, and `--aligner hspz` — and checks that each completes with non-empty
+PSL and a non-empty final chain. Then:
 
 - **lastz vs kegalign**: chain aligned bases must agree within `TOLERANCE`
   (default 20%); the normalised chain diff is printed for inspection only, since
   KegAlign partitions differently from LASTZ and byte identity is not claimed.
+- **hspz vs kegalign**: same `lastz_k`, so chain aligned bases must also agree
+  within `TOLERANCE`. This is the check that fails if hspZ silently defaults to
+  `--hspthresh 3000` while KegAlign uses 2400.
 - **batched vs distributed**: normalised PSL and final chains must match
   **exactly**. Both executors run the identical KegAlign-generated LASTZ
   commands, so any difference is a bug, not a tolerance question.
+
+`compare.sh` also greps the hspZ / `LASTZ_SEGMENTED` modules so a dropped
+`--hspthresh ${lastz_k}` or `--gappedthresh=${lastz_l}` fails CPU CI.
 
 KegAlign has no CPU fallback, so the script **skips (exit 0) when no GPU is
 present** and is deliberately not part of the GitHub-hosted CI jobs above.

@@ -79,7 +79,7 @@ jobs:
       - *install-nextflow
       - name: Verify GPU
         run: nvidia-smi
-      - name: Compare aligners (CPU, GPU batched, GPU distributed)
+      - name: Compare aligners (CPU, GPU batched, GPU distributed, hspz)
         run: bash assets/tests/ci/compare_aligners.sh
 
       - name: Upload comparison report on failure
