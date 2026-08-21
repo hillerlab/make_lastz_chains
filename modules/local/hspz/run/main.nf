@@ -25,6 +25,7 @@ process HSPZ {
     input:
     tuple val(reference_name), path(reference_sequence) // fa|gz|2bit
     tuple val(query_name),     path(query_sequence)     // fa|gz|2bit
+    val   lastz_k                              // K = --hspthresh (hspZ -H is THIS, not BLASTZ H)
 
     output:
     tuple val(reference_name), val(query_name), path("*/*.segments"),  emit: segments, optional: true
@@ -41,6 +42,7 @@ process HSPZ {
     hspZ \\
       run \\
       $args \\
+      --hspthresh ${lastz_k} \\
       -r ${reference_sequence} \\
       -q ${query_sequence} \\
       -o segments \\

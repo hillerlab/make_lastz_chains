@@ -9,9 +9,9 @@ Distributed under the terms of the Apache License, Version 2.0.
     1. GPU seeding + HSP filtering returned as .segments [optionally tarball]:
          HSPZ     — GPU backend, one/many instances, returns segments
     2. CPU gapped extension of those segments, one executor only:
-         distributed — LASTZ_SEGMENTED → one lastZ task per partition → PSL
-       Both consume the identical lastZ package, so they are directly
-       comparable; only the execution loop differs.
+         LASTZ_SEGMENTED → one lastZ task per partition → PSL
+       Scoring matches KegAlign: lastz_k → hspZ --hspthresh, then LASTZ
+       --gappedthresh/--inner/--ydrop/--strand from lastz_l/h/y + partition.
 
     lastZ does its own reference/query partitioning, so this subworkflow
     deliberately does not reuse PARTITION_REFERENCE / PARTITION_QUERY, and never
@@ -43,7 +43,8 @@ workflow HSPZ_ALIGNMENT {
     // ── hspZ [GPU stage] ───────────────────────────────────────────────────────────────
     HSPZ (
       reference_prepared.map { n, tb, _cs -> [ n, tb ] },
-      query_prepared.map     { n, tb, _cs -> [ n, tb ] }
+      query_prepared.map     { n, tb, _cs -> [ n, tb ] },
+      params.lastz_k
     )
 
     // ── CPU gapped extension (GPU already released) ─────────────────────────
