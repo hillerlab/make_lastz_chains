@@ -151,6 +151,15 @@ Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean 
 
 - Raised the `process_fast`/`process_low`/`process_medium` time ceilings (0.5–2 h → 4 h) and gave `process_gpu` an explicit `16 h` time and `32 GB` memory allocation, so the global `errorStrategy` retries a slow or memory-starved GPU task on the same or a bigger allocation instead of failing a run that merely outgrew the old ceilings.
 
+### Final chain statistics
+
+- Added `CHAINTOOLS_STATS` (`modules/local/chaintools/stats/main.nf`, ported from `core/modules/nextflow/chaintools/stats`) — runs `chaintools stats` on the final published chain (`*.allfilled.chain.gz`) and publishes `${reference}.${query}.stats.txt` (`*.stats.txt`) to `${outdir}/07_final/stats/`. Wired into every entry point in `main.nf` (`FULL_RUN`, `FROM_CHAIN_ANTIREPEAT`, `FROM_SEGMENTS`, `FROM_FILL_CHAINS`, `FROM_CLEAN_CHAINS`) so stats are produced regardless of checkpoint (`-entry`). Reuses the existing `process_low` label; `nextflow.config` adds `withName: '.*:CHAINTOOLS_STATS'` publishDir to `07_final/stats`.
+
+### Config / plumbing fixes
+
+- Fixed missing `params.use_container` default in `nextflow.config` (`use_container = true`) — previously caused `Unknown config attribute 'params.use_container'` on Nextflow 25.10+ and blocked all runs.
+- Raised `REPEAT_FILLER` wall time from `1.h` to `6.h` (× `task.attempt`) to accommodate long fill jobs without hitting the ceiling and triggering premature retries.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.
