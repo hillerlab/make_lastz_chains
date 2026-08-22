@@ -120,6 +120,7 @@ include { SEGMENTS_TO_PSL } from './subworkflows/local/segments_to_psl/main'
 include { CHAIN_BUILD } from './subworkflows/local/chain_build/main'
 include { CHAINTOOLS_ANTIREPEAT } from './modules/local/chaintools/antirepeat/main'
 include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
+include { CHAINTOOLS_STATS } from './modules/local/chaintools/stats/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -295,6 +296,9 @@ workflow FULL_RUN {
         params.reference_genome,
         params.query_genome
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(CHAINS.out.final_chain)
 }
 
 // ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
@@ -369,6 +373,9 @@ workflow FROM_CHAIN_ANTIREPEAT {
         params.reference_name,
         params.query_name
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
 }
 
 // ── Checkpoint: start from pre-generated hspZ .segments (CPU-only) ──────
@@ -463,6 +470,9 @@ workflow FROM_SEGMENTS {
         params.reference_name,
         params.query_name
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
 }
 
 // ── Checkpoint: start from merged chain (skip LASTZ + chain building) ──────
@@ -520,6 +530,9 @@ workflow FROM_FILL_CHAINS {
         params.reference_name,
         params.query_name
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
 }
 
 // ── Checkpoint: start from filled chain (skip LASTZ + chain build + fill) ──
@@ -578,6 +591,9 @@ workflow FROM_CLEAN_CHAINS {
         CHAINC.out.chain,
         params.min_chain_score,
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz)
 }
 
 
