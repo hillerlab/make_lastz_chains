@@ -38,7 +38,7 @@
         <br>
         <a href="https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
         <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
-        <a href="https://github.com/hillerlab/make_lastz_chains/blob/main./pipeline/make_lastz_chains.mermaid">pipeline</a> 
+        <a href="https://github.com/hillerlab/make_lastz_chains/blob/main./pipeline/make_lastz_chains.mermaid">pipeline</a>
     </samp>
   </p>
 
@@ -90,7 +90,7 @@ Two more upstream limitations are worked around rather than patched, since the s
 Every route run end to end on the bundled synthetic fixture, from scratch:
 
 | route | exit | PSL | chains | GPU-stage evidence |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `lastz` (CPU baseline) | 0 | 67 rec | 31 | — |
 | `kegalign batched` | 0 | 75 rec | 31 | real KegAlign on the GPU |
 | `kegalign distributed` | 0 | 75 rec | 31 | `partition integrity check passed: 4/4` |
@@ -107,7 +107,7 @@ On a 5 Mb synthetic pair (20 independent homologous chromosome pairs, ~10% diver
 Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean skipped. `wall` is whole-pipeline; `align cpu-time` is the summed task time of the alignment stage only (`LASTZ`, or `KEGALIGN` + `KEGALIGN_LASTZ`/`KEG_LASTZ`):
 
 | genome pair | route | wall | align cpu-time |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 5 Mb | `lastz` (default chunking → 1 task) | 247 s | 173 s |
 | 5 Mb | `lastz` (1 Mb chunks → 63 tasks) | 453 s | 194 s |
 | 5 Mb | `kegalign batched` | **25 s** | **8.2 s** (5.2 GPU + 3.0 CPU) |
@@ -211,7 +211,6 @@ Fixed two issues that could silently corrupt or crash the pipeline: chain IDs we
 
 - Bumped manifest version from `3.1.5` to `3.1.6`.
 
-
 # 3.1.5
 
 Replaced the UCSC `pslSortAcc` and the shell-based `CAT_PSL` module with `psltools`, a dedicated Rust library for working with PSL files, and introduced weighted repeat-filler distribution via `chaintools split --randomize`.
@@ -257,7 +256,6 @@ Replaced the UCSC `pslSortAcc` and the shell-based `CAT_PSL` module with `psltoo
 - Wrapped the smoke-test command in a `[!TIP]` callout to distinguish it from the main execution examples.
 - Added `test.json` and `big_test.json` to `.gitignore` to prevent accidental commits of ad-hoc test configuration files.
 
-
 # 3.1.4
 
 New `--from chain_antirepeat` checkpoint that lets users resume from the axtChain bundle outputs, skipping LASTZ alignment, alongside a bug fix for `.2bit` path resolution in the wrapper layer and a CPU allocation for the anti-repeat process.
@@ -290,7 +288,6 @@ New `--from chain_antirepeat` checkpoint that lets users resume from the axtChai
 
 - Bumped manifest version from `3.1.3` to `3.1.4`.
 
-
 # 3.1.3
 
 Refactored the LASTZ alignment wrappers and completed the `target` → `reference` terminology migration across the alignment pipeline, alongside a Python container upgrade and internal code quality improvements.
@@ -322,7 +319,6 @@ Refactored the LASTZ alignment wrappers and completed the `target` → `referenc
 
 - Bumped manifest version from `3.1.2` to `3.1.3`.
 
-
 # 3.1.2
 
 Introduced a new `chaintools sort` step to sort filled chains before the chain cleaning stage, fixing a `chainNet` error that occurred when unsorted chains reached the cleaning subworkflow.
@@ -337,7 +333,6 @@ Introduced a new `chaintools sort` step to sort filled chains before the chain c
 - Reassigned the `CHAINTOOLS_MERGE` process label to `process_medium` and disabled its `publishDir` (merged intermediates no longer need to be published) — publication is now handled by `CHAINTOOLS_SORT_MERGED_FILLED_CHAINS`, which also uses `process_medium`.
 - Updated the publish directory pattern for sorted merged chains from `*.all.chain.gz` to `*.chain*` to capture the new sorted chain outputs.
 - Bumped manifest version from `3.1.1` to `3.1.2`.
-
 
 # 3.1.1
 
@@ -364,8 +359,7 @@ Container re-architecture with a new `use_container` parameter that lets users d
 - Fixed the pipeline diagram link in `README.md` (double `https://`).
 - Updated `assets/scripts/run_nf_slurm_example.sh` to use the new `reference_name` / `reference_genome` parameter names introduced in v3.1.0 and point to the Hiller Lab container.
 
-
-# 3.1.0 
+# 3.1.0
 
 Complete overhaul of `make_lastz_chains` from a hybrid Python + Nextflow v2 pipeline to a pure nf-core-style Nextflow v3 pipeline. Drops the legacy Python entry point, replaces monolithic UCSC containers with granular per-tool containers, introduces a new `--from` checkpoint system, swaps `target` terminology for `reference` across the entire codebase, and replaces several UCSC Kent tools with the lighter `chaintools` utility.
 
@@ -458,7 +452,6 @@ Complete overhaul of `make_lastz_chains` from a hybrid Python + Nextflow v2 pipe
 - Extended `nextflow_schema.json` to include all new pipeline parameters.
 - Refactored `nextflow.config` with grandchild process-level resource overrides, new container mappings, and updated default parameter values.
 - Updated `params.json` example to reflect all new parameters.
-
 
 # 3.0.0 — nf-core DSL2 refactor
 
