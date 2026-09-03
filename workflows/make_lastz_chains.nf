@@ -38,9 +38,11 @@ workflow MAKE_LASTZ_CHAINS {
     ch_versions = Channel.empty()
 
     // ── 1. Prepare genomes ─────────────────────────────────────────────────
-    // Per-chromosome FASTA extraction only feeds LASTZ_ALIGNMENT; KegAlign gets
-    // one whole-genome FASTA instead, so skip it for that backend.
-    def extract_chroms = params.aligner == 'lastz'
+    // Per-chromosome FASTA extraction feeds LASTZ_ALIGNMENT (per-partition
+    // tasks) and the hspZ CPU extension stage (LASTZ_SEGMENTED) — both read
+    // v1 .2bit through those FASTAs. KegAlign gets one whole-genome FASTA
+    // from TWO_BIT_TO_FA instead, so skip it for that backend.
+    def extract_chroms = params.aligner in ['lastz', 'hspz']
 
     PREPARE_REFERENCE_GENOME (
         reference_name,
@@ -71,7 +73,9 @@ workflow MAKE_LASTZ_CHAINS {
         case 'hspz':
             HSPZ_ALIGNMENT (
                 reference_prepared,
-                query_prepared
+                query_prepared,
+                reference_chroms_dir,
+                query_chroms_dir
             )
             ch_alignment_psl = HSPZ_ALIGNMENT.out.psl_gz
             ch_versions      = ch_versions.mix(HSPZ_ALIGNMENT.out.versions)

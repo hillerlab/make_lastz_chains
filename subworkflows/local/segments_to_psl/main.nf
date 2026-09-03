@@ -11,6 +11,9 @@ Distributed under the terms of the Apache License, Version 2.0.
     converts axt+ to PSL, and shapes the PSL channel exactly like
     LASTZ_ALIGNMENT.out.psl_gz so CHAIN_BUILD cannot tell the difference.
 
+    The chroms_dir inputs carry the pre-extracted per-chrom FASTAs for v1
+    .2bit genomes (empty sentinel dir for v0), mirroring LASTZ_ALIGNMENT.
+
     Emits: psl_gz — same (meta, psl_files) contract LASTZ_ALIGNMENT emits.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
@@ -23,6 +26,8 @@ workflow SEGMENTS_TO_PSL {
     ch_segments          // tuple: [ meta, segment ]
     reference_twobit     // path: reference .2bit
     query_twobit         // path: query .2bit
+    reference_chroms_dir // path: dir of pre-extracted <chrom>.fa (v1) or empty dir (v0)
+    query_chroms_dir     // path: dir of pre-extracted <chrom>.fa (v1) or empty dir (v0)
     reference_sizes      // path: reference chrom.sizes
     query_sizes          // path: query chrom.sizes
     reference_name       // val
@@ -38,6 +43,8 @@ workflow SEGMENTS_TO_PSL {
         ch_segments,
         reference_twobit,
         query_twobit,
+        reference_chroms_dir,
+        query_chroms_dir,
         lastz_h,
         lastz_l,
         lastz_y

@@ -399,25 +399,29 @@ workflow FROM_SEGMENTS {
     """.stripIndent()
 
     // ── 1. Prepare genomes ─────────────────────────────────────────────────
+    // extract=true because LASTZ_SEGMENTED needs the per-chrom FASTA dir for
+    // v1 .2bit genomes, same as the hspZ backend it resumes.
     PREPARE_REFERENCE_GENOME (
         params.reference_name,
         params.reference_genome,
-        false
+        true
     )
     PREPARE_QUERY_GENOME (
         params.query_name,
         params.query_genome,
-        false
+        true
     )
 
     // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
     reference_prepared    = PREPARE_REFERENCE_GENOME.out.prepared
     reference_twobit      = reference_prepared.map { _n, tb, _cs -> tb }.first()
     reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
+    reference_chroms_dir  = PREPARE_REFERENCE_GENOME.out.chroms_dir.map { _n, d -> d }.first()
 
     query_prepared    = PREPARE_QUERY_GENOME.out.prepared
     query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
     query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+    query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir.map { _n, d -> d }.first()
 
     // ── 2. Collect segments ────────────────────────────────────────────────
     Channel.fromPath(params.segments_path, type: 'dir', checkIfExists: true)
@@ -441,6 +445,8 @@ workflow FROM_SEGMENTS {
         ch_segments,
         reference_twobit,
         query_twobit,
+        reference_chroms_dir,
+        query_chroms_dir,
         reference_chrom_sizes,
         query_chrom_sizes,
         params.reference_name,

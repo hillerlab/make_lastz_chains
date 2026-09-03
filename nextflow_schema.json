@@ -64,7 +64,7 @@
                 "force_long_2bit": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Always pass -long to faToTwoBit, producing a v1 (64-bit) .2bit file regardless of FASTA size. Forces lastz to take the v1 FASTA-extraction path. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs.",
+                    "description": "Force the big-genome path regardless of FASTA size: v1 (64-bit) .2bit for the lastz/hspz backends (lastz then reads per-chromosome FASTAs), per-block FASTA CPU commands for the kegalign backend. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs.",
                 },
                 "zluda": {
                     "type": "boolean",

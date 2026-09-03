@@ -4,6 +4,10 @@
     coming from hspZ high-scoring ungapped alignment. It skips indexing, seeding,
     gap-free extension or chaining. Flags match KegAlign's generated LASTZ
     command: --gappedthresh=L, --inner=H, --ydrop=Y, --strand from the partition.
+
+    Sequence inputs resolve per chromosome: a pre-extracted <chrom>.fa from
+    EXTRACT_CHROMS when present (v1 .2bit, which lastz cannot read), otherwise
+    the native .2bit single-contig selection (v0).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -20,6 +24,8 @@ process LASTZ_SEGMENTED {
     tuple val(meta), path(segment)
     path  reference_twobit
     path  query_twobit
+    path  reference_chroms_dir                 // dir of pre-extracted <chrom>.fa (v1) or empty (v0)
+    path  query_chroms_dir
     val   lastz_h
     val   lastz_l
     val   lastz_y
@@ -55,6 +61,19 @@ process LASTZ_SEGMENTED {
     while IFS=\$'\\t' read -r ref query; do
         safe=\$(printf '%s__%s' "\$ref" "\$query" | tr -c 'A-Za-z0-9_.-' '_')
         awk -F'\\t' -v r="\$ref" -v q="\$query" '\$1==r && \$4==q' ${segment} > "pairs/\${safe}.segments"
+
+        # Pre-extracted per-chrom FASTA wins (v1 .2bit is unreadable by lastz);
+        # otherwise the v0 .2bit single-contig selection, as before.
+        if [ -s "${reference_chroms_dir}/\${ref}.fa" ]; then
+            refseq="${reference_chroms_dir}/\${ref}.fa"
+        else
+            refseq="${reference_twobit}/\${ref}"
+        fi
+        if [ -s "${query_chroms_dir}/\${query}.fa" ]; then
+            qseq="${query_chroms_dir}/\${query}.fa"
+        else
+            qseq="${query_twobit}/\${query}"
+        fi
         lastz \\
           --segments="pairs/\${safe}.segments" \\
           --format=axt+ \\
@@ -64,7 +83,7 @@ process LASTZ_SEGMENTED {
           --ydrop=${lastz_y} \\
           --strand=\$strand \\
           --output="pairs/\${safe}.axt" \\
-          ${reference_twobit}/\$ref ${query_twobit}/\$query
+          \$refseq \$qseq
     done < pairs.txt
     cat pairs/*.axt > ${meta.id}.axt
 

@@ -34,13 +34,37 @@ process KEGALIGN {
     path "versions.yml",                                               emit: versions
 
     script:
-    // KegAlign's LASTZ commands reference "<data_folder>ref.2bit" and
-    // "<data_folder>query.2bit" by those exact names (hardcoded in KegAlign's
-    // segment_printer), and runner.py hardcodes the data folder as "work/".
+    // Whole genomes whose .2bit would overflow the v0 32-bit layout (> ~4 GB
+    // of FASTA, or --force_long_2bit) take the big-genome path: no .2bit hop
+    // at all. The kegalign binary reads the positional FASTAs (kseq) and never
+    // opens work/*.2bit, and the CPU lastz commands are rewritten to per-block
+    // FASTAs below — lastz cannot read the v1 .2bit faToTwoBit -long would
+    // emit. Small genomes keep the exact upstream flow (v0 .2bit, commands
+    // verbatim). If package_output.py ever requires work/*.2bit to exist,
+    // re-add `faToTwoBit -long` per file on this path instead of skipping it.
+    //
+    // Hard upstream ceiling: kegalign's query DRAM buffer holds ~6 GB, so big
+    // queries fail inside the GPU stage regardless of format — enforced here
+    // with the reason instead. (KEGALIGN_MPS queries bins, not the genome, so
+    // the guard lives here only; a single >6 GB chromosome still dies there
+    // with the binary's own clear DRAM message.)
+    def big_genome = params.force_long_2bit \
+        || reference_fa.size() > 4L * 1024 * 1024 * 1024 \
+        || query_fa.size() > 4L * 1024 * 1024 * 1024
     """
     mkdir -p work
-    faToTwoBit ${reference_fa} work/ref.2bit
-    faToTwoBit ${query_fa}     work/query.2bit
+
+    if [ \$(stat -c%s ${query_fa}) -gt 6442450944 ]; then
+        echo "KegAlign cannot align query genomes above ~6 GB (its query DRAM buffer): ${query_fa} is \$(stat -c%s ${query_fa}) bytes. Use --aligner lastz (or hspz, query permitting) for this pair." >&2
+        exit 1
+    fi
+
+    if [ "${big_genome}" = "true" ]; then
+        echo "Big-genome path: skipping the .2bit hop, CPU commands will read per-block FASTAs." >&2
+    else
+        faToTwoBit ${reference_fa} work/ref.2bit
+        faToTwoBit ${query_fa}     work/query.2bit
+    fi
 
     # runner.py shells out to <tool_directory>/diagonal_partition.py and
     # package_output.py reads <tool_directory>/lastz-cmd.ini; both ship next to
@@ -69,6 +93,17 @@ process KEGALIGN {
         echo "Nothing to align for ${reference_name} vs ${query_name}." >&2
         exit 1
     }
+
+    if [ "${big_genome}" = "true" ]; then
+        # One streaming pass per genome over the FASTA runner.py received; the
+        # kegalign binary reads those FASTAs itself, so work/*.2bit is
+        # unreferenced after this and the keg ships block FASTAs instead.
+        rewrite_keg_commands.py \\
+            --commands lastz-commands.txt \\
+            --ref-fasta ${reference_fa} \\
+            --query-fasta ${query_fa} \\
+            --data-folder work
+    fi
 
     package_output.py --tool_directory "\$tool_dir" --format_selector axt+
     mv data_package.tgz ${reference_name}.${query_name}.kegalign.tgz

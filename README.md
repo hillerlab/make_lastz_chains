@@ -239,6 +239,19 @@ of VRAM per instance — start with 2 on a 32–40 GB GPU, try 4 only on 80 GB. 
 > `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`
 > or `02_hspz/psl/`.
 
+### Big genomes (whose .2bit would exceed the v0 32-bit layout)
+
+| backend    | reference ≤ ~16 Gbp, query < 6 GB | bigger than that |
+|------------|-----------------------------------|------------------|
+| `lastz`    | ✅ v1 .2bit via per-chrom FASTAs   | ✅ same path     |
+| `hspz`     | ✅ FASTA to the GPU, per-chrom FASTAs to LASTZ | ✅ same path (query permitting) |
+| `kegalign` | ✅ `.2bit` hop skipped, keg CPU commands read per-block FASTAs | ❌ queries > ~6 GB hit KegAlign's query DRAM buffer — the task fails fast naming `--aligner lastz`/`hspz` as v1-capable |
+
+`kegalign --kegalign_mps_workers > 1` is unaffected: bins are chromosome-granular and
+always v0-safe, so MPS never touches the big-genome path (a single > ~6 GB chromosome
+still dies in the binary with its own DRAM message). `--force_long_2bit` exercises
+every row's big-genome path on small test data.
+
 > [!TIP]
 > On an **AMD GPU**, `bash assets/tests/ci/zluda_setup.sh` plus
 > `-profile docker,gpu,zluda` runs the KegAlign stages natively against a local
