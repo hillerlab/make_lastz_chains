@@ -57,5 +57,11 @@
 
     "//6": "── Clean chains (set skip_clean_chain to true to disable this step) ────",
     "skip_clean_chain": false,
-    "clean_chain_parameters": "--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000"
+    "clean_chain_parameters": "--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000",
+
+    "//7": "── Alignment chain QC control (optional) ─────────────────────────────",
+    "//7a": "Set annotation to a BED/GTF/GFF file to measure annotation feature coverage by the final chains (skipped when null)",
+    "annotation": null,
+    "annotation_side": "reference",
+    "annotation_feature": "cds"
 }

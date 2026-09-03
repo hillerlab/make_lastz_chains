@@ -307,6 +307,31 @@
                 },
             },
         },
+        "chain_qc": {
+            "title": "Alignment chain QC control (optional)",
+            "type": "object",
+            "description": "Optional QC measuring annotation feature coverage by the final chains. Skipped entirely when annotation is null.",
+            "properties": {
+                "annotation": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "format": "file-path",
+                    "description": "Path to a BED/GTF/GFF annotation file. When set, CHAINTOOLS_COVERAGE measures how many bases of its features are covered by the final chain alignment blocks.",
+                },
+                "annotation_side": {
+                    "type": "string",
+                    "default": "reference",
+                    "enum": ["reference", "query"],
+                    "description": "Which chain side the annotation describes.",
+                },
+                "annotation_feature": {
+                    "type": "string",
+                    "default": "cds",
+                    "enum": ["cds", "exon", "intron", "utr"],
+                    "description": "Which annotation feature type to measure coverage for.",
+                },
+            },
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -372,6 +397,7 @@
         {"$ref": "#/definitions/chain_building"},
         {"$ref": "#/definitions/fill_chains"},
         {"$ref": "#/definitions/clean_chains"},
+        {"$ref": "#/definitions/chain_qc"},
         {"$ref": "#/definitions/generic_options"},
     ],
 }

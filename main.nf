@@ -86,6 +86,7 @@ if (params.help) {
         --chain_linear_gap    STR     linearGap model: loose|medium [default: loose]
         --skip_fill_chains            Skip the fill-chains step
         --skip_clean_chain            Skip the chain-cleaning step
+        --annotation          PATH    BED/GTF/GFF annotation for chain coverage QC (optional, skipped when unset)
 
     Profiles:
         local       Run on local machine (default)
@@ -121,6 +122,7 @@ include { CHAIN_BUILD } from './subworkflows/local/chain_build/main'
 include { CHAINTOOLS_ANTIREPEAT } from './modules/local/chaintools/antirepeat/main'
 include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
 include { CHAINTOOLS_STATS } from './modules/local/chaintools/stats/main'
+include { CHAINTOOLS_COVERAGE } from './modules/local/chaintools/coverage/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -175,6 +177,10 @@ def validateFullRun() {
     if (!params.query_genome)  errors << "  --query_genome is required"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
+    if (params.annotation && !(['reference', 'query'].contains(params.annotation_side)))
+        errors << "  --annotation_side must be 'reference' or 'query' (got '${params.annotation_side}')"
+    if (params.annotation && !(['cds', 'exon', 'intron', 'utr'].contains(params.annotation_feature)))
+        errors << "  --annotation_feature must be 'cds', 'exon', 'intron' or 'utr' (got '${params.annotation_feature}')"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
         System.exit(1)
@@ -190,6 +196,10 @@ def validateAliasBase() {
     if (!params.query_genome)       errors << "  --query_twobit is required (path to query .2bit)"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
+    if (params.annotation && !(['reference', 'query'].contains(params.annotation_side)))
+        errors << "  --annotation_side must be 'reference' or 'query' (got '${params.annotation_side}')"
+    if (params.annotation && !(['cds', 'exon', 'intron', 'utr'].contains(params.annotation_feature)))
+        errors << "  --annotation_feature must be 'cds', 'exon', 'intron' or 'utr' (got '${params.annotation_feature}')"
     return errors
 }
 
@@ -299,6 +309,16 @@ workflow FULL_RUN {
 
     // — stats — keep in sync across all entry workflows
     CHAINTOOLS_STATS(CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
@@ -376,6 +396,16 @@ workflow FROM_CHAIN_ANTIREPEAT {
 
     // — stats — keep in sync across all entry workflows
     CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            FILL_CLEAN_CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from pre-generated hspZ .segments (CPU-only) ──────
@@ -479,6 +509,16 @@ workflow FROM_SEGMENTS {
 
     // — stats — keep in sync across all entry workflows
     CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            FILL_CLEAN_CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from merged chain (skip LASTZ + chain building) ──────
@@ -539,6 +579,16 @@ workflow FROM_FILL_CHAINS {
 
     // — stats — keep in sync across all entry workflows
     CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            FILL_CLEAN_CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from filled chain (skip LASTZ + chain build + fill) ──
@@ -600,6 +650,16 @@ workflow FROM_CLEAN_CHAINS {
 
     // — stats — keep in sync across all entry workflows
     CHAINTOOLS_STATS(CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 
