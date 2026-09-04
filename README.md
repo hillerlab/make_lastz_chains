@@ -71,7 +71,7 @@
 > To ensure that the pipeline runs on your system.
 
 > [!NOTE]
-> Requirements: Nextflow ≥ 25.04.6, Docker or Apptainer, Java.
+> Requirements: Nextflow ≥ 25.04.6 < 26, Docker or Apptainer, Java.
 
 ```bash
 git clone https://github.com/hillerlab/make_lastz_chains.git
