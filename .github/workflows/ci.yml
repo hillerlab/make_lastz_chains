@@ -17,7 +17,12 @@ on:
     branches: [ main ]
     tags: [ '**' ]
   pull_request:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      run_gpu_tests:
+        description: 'Run CPU/GPU batched/GPU distributed aligner comparison (needs a GPU runner group)'
+        type: boolean
+        default: false
 
 jobs:
   test-profile:
@@ -31,7 +36,7 @@ jobs:
       # Bundled smoke test: full pipeline on test_data with per-module granular
       # containers (use_container=false). Exercises every module's container.
       - name: Run test profile
-        run: nextflow run main.nf -profile test,docker -w tests/work/nf_work_test
+        run: nextflow run main.nf -profile test,docker -w assets/tests/work/nf_work_test
 
       - name: Check final chain
         run: test -f test_results/07_final/*.chain.gz
@@ -45,15 +50,42 @@ jobs:
         run: docker info
 
       # Runs the pipeline (chainc) and diffs against committed chainCleaner
-      # baselines (tests/golden/), surfacing any change. Regenerate goldens via
-      # tests/ci/make_golden.sh only after an intentional, approved change.
+      # baselines (assets/tests/golden/), surfacing any change. Regenerate goldens via
+      # assets/tests/ci/make_golden.sh only after an intentional, approved change.
       - name: Golden comparison (e2e + CBA clean step)
-        run: bash tests/ci/compare.sh
+        run: bash assets/tests/ci/compare.sh
 
       - name: Upload diff report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: golden-diff-report
-          path: tests/work/diff_report/
+          path: assets/tests/work/diff_report/
+          if-no-files-found: ignore
+
+  # Manual only: GPU larger runners are metered (billed per-minute, public repos
+  # included) and must be created by an org admin as a runner group with the
+  # NVIDIA GPU-Optimized image (Tesla T4). Runs the three alignment backends —
+  # CPU lastz, GPU kegalign batched, GPU kegalign distributed — and asserts
+  # batched == distributed exactly, lastz vs kegalign within TOLERANCE.
+  # Create the runner group, then trigger this job via workflow_dispatch
+  # (run_gpu_tests checkbox). The job is skipped on push/PR.
+  gpu-aligner-comparison:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_gpu_tests
+    runs-on:
+      group: gpu
+    steps:
+      - uses: actions/checkout@v4
+      - *install-nextflow
+      - name: Verify GPU
+        run: nvidia-smi
+      - name: Compare aligners (CPU, GPU batched, GPU distributed, hspz)
+        run: bash assets/tests/ci/compare_aligners.sh
+
+      - name: Upload comparison report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aligner-comparison-report
+          path: assets/tests/work/aligner_compare/
           if-no-files-found: ignore

@@ -38,13 +38,143 @@
         <br>
         <a href="https://genome.ucsc.edu/goldenPath/help/chain.html">format</a> .
         <a href="http://genomewiki.ucsc.edu/index.php/Chains_Nets">chains</a> .
-        <a href="https://github.com/hillerlab/make_lastz_chains/blob/main./pipeline/make_lastz_chains.mermaid">pipeline</a> 
+        <a href="https://github.com/hillerlab/make_lastz_chains/blob/main./pipeline/make_lastz_chains.mermaid">pipeline</a>
     </samp>
   </p>
 
 </p>
 
 ---
+
+# 4.0.0
+
+Added two GPU alignment backends — [KegAlign](https://github.com/hillerlab/kegalign) (CUDA seeding + HSP filtering) with two CPU gapped-extension executors, and hspZ 0.0.1 (GPU seeding, CPU gapped extension) — and fixed the PSL-splitting path that broke at whole-genome scale.
+
+### GPU alignment backend
+
+- `--aligner kegalign` routes the alignment stage through `KEGALIGN_ALIGNMENT` (`subworkflows/local/kegalign_alignment/`): `.2bit` genomes are round-tripped to FASTA, KegAlign runs on the GPU (`KEGALIGN`, `quay.io/biocontainers/kegalign-full`), and the emitted AXT packages are converted to PSL (`AXT_TO_PSL`). Downstream chain building is unchanged and consumes the identical `psl_gz` contract.
+- `--kegalign_executor batched` (default) runs the whole CPU gapped-extension stage as one `KEGALIGN_LASTZ` task. `--kegalign_executor distributed` fans the KegAlign partitions out as one `KEG_LASTZ` task each (`run_keg_lastz.py`), spreading work across nodes and SLURM job arrays.
+- KegAlign requires the `gpu` profile (`--gpus all` / `--nv`); requesting `--aligner kegalign` without it fails at startup rather than silently falling back to LASTZ.
+- New modules: `kegalign`, `kegalign_lastz`, `kegalign_expand`, `keg_lastz`, `two_bit_to_fa`, `axt_to_psl`. The four LASTZ scoring thresholds are shared with the CPU path: `lastz_k` → `--hspthresh`, `lastz_l` → `--gappedthresh`, `lastz_h` → `--inner`, `lastz_y` → `--ydrop`.
+
+### GPU multi-instance execution (NVIDIA MPS)
+
+- `--kegalign_mps_workers N` (1–4, default `1`) runs N KegAlign instances concurrently on the **single allocated GPU** through the NVIDIA MPS daemon: one SLURM job, one GPU, N `kegalign` processes. `1` never starts an MPS daemon and is by construction the unchanged single-instance path — `run_mig.py` starts a daemon even for `--MPS 1`, so the branch in `KEGALIGN_ALIGNMENT` routes workers=1 through `KEGALIGN` and never through MPS.
+- New `KEGALIGN_MPS` module (`modules/local/kegalign_mps/`): GPU/MPS preflight → upstream `split_input.py` bins both genomes (`--goal_bp 200000000 --max_chunks 20`, chromosomes never split) → upstream `run_mig.py` schedules the reference-bin × query-bin pairs → one keg per pair. Scoring, format and diagonal partitioning are untouched: MPS changes work scheduling only, and the four thresholds are forwarded through `run_mig --opt_cmd` (the worker makes them `required`, so a lost `--opt_cmd` fails instead of silently using KegAlign defaults).
+- New `bin/run_kegalign_mps_pair.py` — a GPU-only worker passed to `run_mig.py --kegalign_cmd`, replacing upstream's `run_kegalign_symlink_sort`, which starts LASTZ processes while KegAlign is still on the GPU. It runs one chunk pair in an isolated `pair_NNNN/` (`runner.py --diagonal-partition` → `package_output.py`) and stops at `keg_NNNN.tgz`. **No LASTZ runs inside the GPU allocation.** `--self-check` asserts the argv contract `run_mig.py` builds.
+- Vendored `bin/split_input.py` and `bin/run_mig.py` from KegAlign `ea16d54` (MIT, provenance in the file headers): the `kegalign-full` conda package does not ship `scripts/mps-mig/`. Nextflow puts `bin/` on the task PATH.
+- **Integrity guard (mandatory).** `run_mig.py` exits 0 even when it loses chunk pairs — it only prints `Missing N output parts` and swallows the combine failure — so `KEGALIGN_MPS` fails unless `keg count == reference bins × query bins`, the same last-line defence the distributed executor keeps over its partition list. A chunk pair that legitimately yields no HSP above `--hspthresh` leaves a `keg_*.empty` marker so the count still balances instead of aborting a whole run (unlike a whole-genome run, an empty *bin pair* is normal).
+- The CPU stage is per keg either way: `KEGALIGN_LASTZ` / `AXT_TO_PSL` now name their output after the keg rather than after `(reference, query)`, so the one-task-per-keg fan-out cannot collide in `02_kegalign_psl/`. A single keg keeps exactly the previous `${reference}.${query}` names.
+- `--kegalign_mps_workers > 1` requires `--kegalign_executor batched` and is rejected with `distributed`, whose job ids and package directory are global to one keg. Preflight fails early when `nvidia-smi`, `nvidia-cuda-mps-control`, `pynvml` or a visible GPU is missing, and warns when VRAM / workers is under 14 GiB (upstream reports 12–16 GiB per instance).
+
+### Upstream KegAlign bugs fixed locally
+
+Both are fatal and marked `make_lastz_chains patch` inline; `split_input.py` is byte-verbatim. Found by running the MPS path, not by reading it — worth reporting upstream:
+
+- `run_mig.py` `NamedPopen.__init__` forwarded `name=` into `subprocess.Popen`, which rejects the keyword: `TypeError` on the first submitted pair. Upstream cannot schedule anything as shipped.
+- `run_mig.py` `GPU_queue.__len__` read a module-level `gpu_queue` that does not exist (it is a local in `main()`): `NameError` as soon as a pair is submitted.
+
+Two more upstream limitations are worked around rather than patched, since the scripts live in the container:
+
+- `package_output.py` `realpath()`s the *archive name* as well as the source, so a symlinked `work/ref.2bit` resolving outside the pair directory aborts with `path fail`. The worker hard-links instead (zero copy, falls back to a copy across filesystems).
+- `runner.py` sizes diagonal partitions with `statistics.quantiles`, which needs ≥2 `.segments` groups; a sparse bin pair has one or none and it dies there. The worker retries that pair unpartitioned — same alignments, one LASTZ command instead of several. **The single-instance `KEGALIGN` module has the same latent failure for small or sparse genome pairs** and is left untouched here.
+
+### ZLUDA profile — GPU backend on AMD hardware
+
+- `-profile docker,gpu,zluda` runs the three KegAlign processes natively against a local [ZLUDA](https://github.com/vosen/ZLUDA) build while every other stage stays containerised, so the GPU backend is developable and testable without NVIDIA hardware. `assets/tests/ci/zluda_setup.sh` builds what it needs into `~/.cache/make_lastz_chains/zluda`: a `kegalign` shim carrying the ZLUDA recipe (`LD_PRELOAD` reaches only the GPU binary, never the musl-linked UCSC tools), musl-loader wrappers for the pipeline image's `faToTwoBit`/`lastz`, the KegAlign helper scripts, and `bashlex` on `PYTHONPATH` (Nextflow exports `PYTHONNOUSERSITE=1`, so a `pip --user` install is invisible to tasks).
+- Implementation notes worth keeping: the process-level part lives in **SECTION 5b**, after SECTION 5, because two `withName` selectors matching the same process do not reliably override each other's `container` — SECTION 5's kegalign selector now decides `null` vs the CUDA image itself. `params.zluda` gates it rather than `workflow.profile`, which is not bound while the config is parsed.
+- `-profile ...,zluda_mps_stub` (with `WITH_MPS_STUBS=1`) stubs `nvidia-smi`, the MPS daemon and NVML — the three things ZLUDA cannot provide — so the MPS *plumbing* can be exercised on AMD with real KegAlign on the GPU. It proves nothing about the MPS daemon and makes the preflight pass on a host with no MPS.
+
+### Verification on AMD (RX 6500 XT + ZLUDA, Nextflow 25.04.6)
+
+Every route run end to end on the bundled synthetic fixture, from scratch:
+
+| route | exit | PSL | chains | GPU-stage evidence |
+| --- | --- | --- | --- | --- |
+| `lastz` (CPU baseline) | 0 | 67 rec | 31 | — |
+| `kegalign batched` | 0 | 75 rec | 31 | real KegAlign on the GPU |
+| `kegalign distributed` | 0 | 75 rec | 31 | `partition integrity check passed: 4/4` |
+| `kegalign_mps_workers 2` | 0 | 75 rec | 31 | `1 ref bins x 1 query bins = 1 pairs`; `integrity check passed: 1/1 kegs`; keg contains 4 partitioned `.segments` + unexecuted `commands.json`, no `.axt` |
+
+- **Normalised PSL and final chains are IDENTICAL across batched, distributed and MPS**; `lastz` vs `kegalign` chain aligned bases differ by +0.5% (CI tolerance 20%).
+- Concurrency, with binning forced to 2×2 (`goal_bp` lowered, since the fixture bins to 1×1 at the production 200 Mb goal): **peak 2 concurrent `kegalign` PIDs, 0 `lastz`**, `4/4` pairs accounted for (2 kegs + 2 genuine no-HSP pairs). Those kegs' PSL is aggregate-identical to the single-instance route (same records, matches, insert bases and spans); exactly 1 of 75 records differs, with the same score, endpoints and gap totals but a different equal-scoring internal tie-break — so multiple bins give *equivalent*, not byte-identical, output.
+- Not covered: NVIDIA MPS itself. The daemon, `nvidia-smi` and NVML do not exist on AMD, so the first NVIDIA run remains the real test of the daemon lifecycle and of `CUDA_MPS_PIPE_DIRECTORY` path length under deep work directories.
+
+On a 5 Mb synthetic pair (20 independent homologous chromosome pairs, ~10% divergence, inversions in every third) **all three routes produce byte-identical PSL — including `lastz` vs `kegalign`**: 35 records, 4,600,791 matched bases, 5,000,095 bp of reference span covered by both backends. At 10 Mb (40 pairs) batched and distributed stay byte-identical and `kegalign` finds 0.8% more matched bases than `lastz` (9,278,590 vs 9,202,054).
+
+### Benchmark: is the GPU backend actually worth it
+
+Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean skipped. `wall` is whole-pipeline; `align cpu-time` is the summed task time of the alignment stage only (`LASTZ`, or `KEGALIGN` + `KEGALIGN_LASTZ`/`KEG_LASTZ`):
+
+| genome pair | route | wall | align cpu-time |
+| --- | --- | --- | --- |
+| 5 Mb | `lastz` (default chunking → 1 task) | 247 s | 173 s |
+| 5 Mb | `lastz` (1 Mb chunks → 63 tasks) | 453 s | 194 s |
+| 5 Mb | `kegalign batched` | **25 s** | **8.2 s** (5.2 GPU + 3.0 CPU) |
+| 5 Mb | `kegalign distributed` | 26 s | 12.1 s |
+| 10 Mb | `lastz` (4 tasks) | 413 s | 725 s |
+| 10 Mb | `kegalign batched` | **35 s** | **12.7 s** (10.4 GPU + 2.3 CPU) |
+| 10 Mb | `kegalign distributed` | 38 s | 35.5 s |
+
+- **~10–12× whole-pipeline wall time, ~21–57× less alignment compute**, and the margin widens with size: doubling the genomes multiplied LASTZ compute by 4.2× (173 → 725 s) but the GPU stage by only 2.0× (5.2 → 10.4 s).
+- The honest qualifier: the durable advantage is *total compute* (cores × seconds), not wall time in the abstract. The CPU route's wall time is bounded by its partition count — here one 6m30s LASTZ task dominated the 10 Mb run — so a cluster with enough slots can close much of the wall-time gap while still burning ~50× the CPU. Finer chunking does not help on one machine: 1 Mb chunks made wall time *worse* (453 s vs 247 s) because 63 containerised tasks cost ~3.4 s each in startup and staging, while producing byte-identical PSL.
+- Conservative for the GPU side: an entry-level 4 GB card through a translation layer, where KegAlign targets datacentre GPUs. The ZLUDA HIP shim's tracing is not a factor (3,142 trace lines in the 10 Mb run). `KEGALIGN` peaked at 418 MB RSS and 120% CPU.
+- Synthetic random sequence has no repeats, which is the workload feature that hurts LASTZ most, so real genomes likely widen the gap rather than narrow it.
+
+### PSL splitting fixes
+
+- `PSLTOOLS_SPLIT` no longer pipes PSL file *contents* into `psl.list` (the previous `xargs -0 cat` fed `psLayout version 3` as a filename, failing every split); it now writes the filenames found by `find`.
+- Split inputs are staged in a subdirectory (`stageAs: 'input/*'`) so Nextflow's stage-out glob does not expand to ~100k input symlinks — the previous behaviour hit `E2BIG` ("Argument list too long") at whole-genome scale on scratch executors.
+
+### Container image
+
+- `assets/image/Dockerfile` is rebuildable again: the SHA256SUMS file it greps for is now committed (with real hashes), the stale `modules/chaincleaner/`, `modules/repeat_filler/` and `modules/make_lastz_chains/bin/` COPY paths are fixed (the kent build no longer produces `chainCleaner`), and `repeat_filler` is pulled from its own image via a multi-stage `COPY --from`.
+
+### Tests
+
+- `tests/` and `test_data/` moved under `assets/tests/` (`assets/tests/ci/`, `assets/tests/test_data/`); CI and script paths updated. `assets/tests/ci/compare_aligners.sh` runs the CPU and both GPU executors on the bundled fixture and asserts batched/distributed equivalence.
+
+### hspZ backend — GPU seeding with CUDA or AMD (ZLUDA)
+
+- `--aligner hspz` routes the alignment stage through `HSPZ_ALIGNMENT` (`subworkflows/local/hspz_alignment/`): `HSPZ` runs upstream hspZ 0.0.1 on the GPU (`ghcr.io/hillerlab/hspz:0.0.1`), which returns only high-scoring ungapped alignment blocks; `LASTZ_SEGMENTED` then does the CPU gapped extension per block (`--segments=`, skipping indexing, seeding and gap-free extension), and `AXT_TO_PSL` converts the AXT to PSL. Downstream chain building is unchanged and consumes the identical `psl_gz` contract.
+- Requires the `gpu` (CUDA) or `zluda` (AMD) profile — `--aligner hspz` without either fails at startup. The workflow now dispatches the alignment stage via a `switch` on `--aligner`.
+- `lastz_k` → hspZ `--hspthresh` (same K as KegAlign; do not pass `-H`, that short flag is `--hspthresh` not BLASTZ inner). `LASTZ_SEGMENTED` forwards `lastz_l`/`lastz_h`/`lastz_y` as `--gappedthresh`/`--inner`/`--ydrop` plus `--strand` from the partition. An integrity guard fails the run if any `.segments` block produces no AXT.
+- `-profile docker,zluda` runs HSPZ natively against a local ZLUDA build (`hspz:zluda`): the image's ENTRYPOINT is cleared and the host shim is mounted at `/opt/zluda` on `LD_LIBRARY_PATH`.
+- `environment.yml` removed — conda environments are now declared per module (`LASTZ_SEGMENTED` ships its own).
+- `PSLTOOLS_SPLIT` now publishes the merged per-chromosome PSL to `03_psl/`; hspZ output lands in `02_hspz/{segments,axt,psl}`.
+- New `test_hspz` profile runs the bundled fixture with `--aligner hspz` and `use_container = false`.
+- **Fix:** HSPZ previously passed no scoring flags, so hspZ used its CLI default of 3000 while KegAlign ran at `lastz_k` (2400). On hg38 chr21 × mm39 chr16 that dropped 19k HSPs (the 2400–2999 band) and produced thinner chains.
+- **Fix:** `LASTZ_SEGMENTED` now matches KegAlign's LASTZ command (`--gappedthresh=${lastz_l}` was incorrectly `lastz_h`; `--strand=plus|minus` from the partition; `--allocate:traceback=1.99G`).
+- `assets/tests/ci/compare.sh` asserts that wiring. `compare_aligners.sh` also runs `--aligner hspz` and checks chain aligned bases against KegAlign within `TOLERANCE`.
+
+### Config adjustments
+
+- Raised the `process_fast`/`process_low`/`process_medium` time ceilings (0.5–2 h → 4 h) and gave `process_gpu` an explicit `16 h` time and `32 GB` memory allocation, so the global `errorStrategy` retries a slow or memory-starved GPU task on the same or a bigger allocation instead of failing a run that merely outgrew the old ceilings.
+
+### Final chain statistics
+
+- Added `CHAINTOOLS_STATS` (`modules/local/chaintools/stats/main.nf`, ported from `core/modules/nextflow/chaintools/stats`) — runs `chaintools stats` on the final published chain (`*.allfilled.chain.gz`) and publishes `${reference}.${query}.stats.txt` (`*.stats.txt`) to `${outdir}/07_final/stats/`. Wired into every entry point in `main.nf` (`FULL_RUN`, `FROM_CHAIN_ANTIREPEAT`, `FROM_SEGMENTS`, `FROM_FILL_CHAINS`, `FROM_CLEAN_CHAINS`) so stats are produced regardless of checkpoint (`-entry`). Reuses the existing `process_low` label; `nextflow.config` adds `withName: '.*:CHAINTOOLS_STATS'` publishDir to `07_final/stats`.
+
+### Config / plumbing fixes
+
+- Fixed missing `params.use_container` default in `nextflow.config` (`use_container = true`) — previously caused `Unknown config attribute 'params.use_container'` on Nextflow 25.10+ and blocked all runs.
+- Raised `REPEAT_FILLER` wall time from `1.h` to `6.h` (× `task.attempt`) to accommodate long fill jobs without hitting the ceiling and triggering premature retries.
+
+### Big-genome (.2bit v1) support for the GPU backends
+
+Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previously broke both GPU backends: hspZ's bundled rust `twobit` crate parses v0 only, `KEGALIGN`'s internal `faToTwoBit` (no `-long`) fails outright on such input, and lastz cannot read v1 at all. Three coordinated changes, all gated so the v0 path is byte-identical:
+
+- **hspZ path** (`subworkflows/local/hspz_alignment/main.nf`): `HSPZ` now always receives whole-genome FASTA via the reused `TWO_BIT_TO_FA` module — unconditional, so there is no launcher-side version probe (unsafe on object-store work dirs) and a single code path. `extract_chroms` is now enabled for `hspz` (`workflows/make_lastz_chains.nf:45`), and `LASTZ_SEGMENTED` (`modules/local/lastz_segmented/main.nf`) resolves each `(ref, query)` pair to the pre-extracted `<chrom>.fa` when present, falling back to the native `.2bit/<chrom>` selection for v0. `SEGMENTS_TO_PSL` threads the new `chroms_dir` inputs through to both callers (`HSPZ_ALIGNMENT`, `FROM_SEGMENTS`), so resumed runs keep the fallback.
+- **KegAlign path** (`modules/local/kegalign/main.nf`, new `bin/rewrite_keg_commands.py`): on the big-genome path (`params.force_long_2bit`, or either FASTA > 4 GB) `KEGALIGN` skips the `.2bit` hop entirely — the kegalign binary reads the positional FASTAs (kseq, `main.cpp`) and never opens `work/*.2bit` — and the keg's CPU commands are rewritten from `work/ref.2bit[…][subset=ref_blockN.name]` to per-block FASTAs (`work/ref_blockN.fa[multiple]`, query side without `[multiple]` to match the keg's asymmetric grammar), built in one streaming pass per genome over the FASTA runner.py received. Both CPU executors (`run_lastz_tarball.py`, `run_keg_lastz.py`) execute commands verbatim, so the rewrite is transparent to them. `KEGALIGN_MPS` is untouched by construction: chromosome-granular bins are always v0-safe (`split_input.py` stays byte-verbatim per its header).
+- **KegAlign query ceiling**: the binary's query DRAM buffer holds ~6 GB, so `KEGALIGN` fails fast with the reason (`modules/local/kegalign/main.nf:57`) instead of dying deep inside the GPU stage, naming `--aligner lastz`/`hspz` as v1-capable. MPS queries bins rather than the genome, so the guard lives in `KEGALIGN` only; a single > ~6 GB chromosome still dies there with the binary's own DRAM message.
+
+- `params.force_long_2bit` now means "force the big-genome path" for every backend (schema text updated): v1 `.2bit` plus per-chrom FASTAs for lastz/hspz, per-block FASTA CPU commands for kegalign. `README.md` gains a big-genome support matrix per backend (reference ≤ ~16 Gbp with query < 6 GB vs above).
+- **Verification so far (stub-run + unit asserts, no GPU on this host):** `bin/rewrite_keg_commands.py --self-check` asserts exact rewritten command text, the target/query `[multiple]` asymmetry, and loud errors on unpaired commands or dangling subsets. Stub-run wiring with KegAlign shims (`test_bgpu,gpu` + `--force_long_2bit`): `HSPZ_ALIGNMENT:REFERENCE/QUERY_TO_FA` → `HSPZ` stages both `.fa`; `LASTZ_SEGMENTED` stages the `*_chroms` dirs (`EXTRACT_CHROMS`: "v1 .2bit detected"); `KEGALIGN` completes the guard → skip → rewrite → package flow with the keg shipping block FASTAs and rewritten commands, while the v0 run keeps verbatim commands and v0 `.2bit`s. The 6 GB guard was unit-tested against a sparse 7 GB file (fires) and a small FASTA (silent). Real-GPU acceptance (lastz/hspz/kegalign parity v0↔v1 via `compare_chains.py`, plus a real v1 `.2bit` input run) remains the gate before this is declared production-ready.
+- **Known upstream gaps surfaced, not fixed here:** `chromsize` (`CHROMSIZE`) and `chaintools antirepeat` (`CHAIN_BUILD`) both depend on the v0-only rust `twobit` crate, so real v1 `.2bit` *inputs* and v1 twobits in chain building are expected to fail until those tools gain v1 support (both are `alejandrogzi`-authored; their unpinned `:latest` containers would propagate a fix without pipeline changes). If `package_output.py` turns out to require `work/*.2bit` to exist, the documented one-line fallback in `modules/local/kegalign/main.nf` is to re-add per-file `faToTwoBit -long` on the rewrite path.
+
+### Alignment chain QC control (optional)
+
+- New `params.annotation` (`params.json` section 7, default `null`): when set to a BED/GTF/GFF file, every entry workflow runs the ported `CHAINTOOLS_COVERAGE` (`modules/local/chaintools/coverage/main.nf`, from `hillerlab/core`) on the final chain right after `CHAINTOOLS_STATS`, measuring how many bases of the annotation's features are covered by chain blocks. Skipped entirely when null — one `if (params.annotation)` guard per entry point. `params.annotation_side` (`reference`, default) and `params.annotation_feature` (`cds`, default) select the chain side and feature type; both are validated at startup alongside the other params, and all three carry defaults in `nextflow.config` as well so a bare `--annotation file.bed` works without a params-file. Report lands next to the stats report as `${reference}.${query}.allfilled.coverage.txt` (`07_final/stats/`).
 
 # 3.1.7
 
@@ -97,7 +227,6 @@ Fixed two issues that could silently corrupt or crash the pipeline: chain IDs we
 
 - Bumped manifest version from `3.1.5` to `3.1.6`.
 
-
 # 3.1.5
 
 Replaced the UCSC `pslSortAcc` and the shell-based `CAT_PSL` module with `psltools`, a dedicated Rust library for working with PSL files, and introduced weighted repeat-filler distribution via `chaintools split --randomize`.
@@ -143,7 +272,6 @@ Replaced the UCSC `pslSortAcc` and the shell-based `CAT_PSL` module with `psltoo
 - Wrapped the smoke-test command in a `[!TIP]` callout to distinguish it from the main execution examples.
 - Added `test.json` and `big_test.json` to `.gitignore` to prevent accidental commits of ad-hoc test configuration files.
 
-
 # 3.1.4
 
 New `--from chain_antirepeat` checkpoint that lets users resume from the axtChain bundle outputs, skipping LASTZ alignment, alongside a bug fix for `.2bit` path resolution in the wrapper layer and a CPU allocation for the anti-repeat process.
@@ -176,7 +304,6 @@ New `--from chain_antirepeat` checkpoint that lets users resume from the axtChai
 
 - Bumped manifest version from `3.1.3` to `3.1.4`.
 
-
 # 3.1.3
 
 Refactored the LASTZ alignment wrappers and completed the `target` → `reference` terminology migration across the alignment pipeline, alongside a Python container upgrade and internal code quality improvements.
@@ -208,7 +335,6 @@ Refactored the LASTZ alignment wrappers and completed the `target` → `referenc
 
 - Bumped manifest version from `3.1.2` to `3.1.3`.
 
-
 # 3.1.2
 
 Introduced a new `chaintools sort` step to sort filled chains before the chain cleaning stage, fixing a `chainNet` error that occurred when unsorted chains reached the cleaning subworkflow.
@@ -223,7 +349,6 @@ Introduced a new `chaintools sort` step to sort filled chains before the chain c
 - Reassigned the `CHAINTOOLS_MERGE` process label to `process_medium` and disabled its `publishDir` (merged intermediates no longer need to be published) — publication is now handled by `CHAINTOOLS_SORT_MERGED_FILLED_CHAINS`, which also uses `process_medium`.
 - Updated the publish directory pattern for sorted merged chains from `*.all.chain.gz` to `*.chain*` to capture the new sorted chain outputs.
 - Bumped manifest version from `3.1.1` to `3.1.2`.
-
 
 # 3.1.1
 
@@ -250,8 +375,7 @@ Container re-architecture with a new `use_container` parameter that lets users d
 - Fixed the pipeline diagram link in `README.md` (double `https://`).
 - Updated `assets/scripts/run_nf_slurm_example.sh` to use the new `reference_name` / `reference_genome` parameter names introduced in v3.1.0 and point to the Hiller Lab container.
 
-
-# 3.1.0 
+# 3.1.0
 
 Complete overhaul of `make_lastz_chains` from a hybrid Python + Nextflow v2 pipeline to a pure nf-core-style Nextflow v3 pipeline. Drops the legacy Python entry point, replaces monolithic UCSC containers with granular per-tool containers, introduces a new `--from` checkpoint system, swaps `target` terminology for `reference` across the entire codebase, and replaces several UCSC Kent tools with the lighter `chaintools` utility.
 
@@ -344,7 +468,6 @@ Complete overhaul of `make_lastz_chains` from a hybrid Python + Nextflow v2 pipe
 - Extended `nextflow_schema.json` to include all new pipeline parameters.
 - Refactored `nextflow.config` with grandchild process-level resource overrides, new container mappings, and updated default parameter values.
 - Updated `params.json` example to reflect all new parameters.
-
 
 # 3.0.0 — nf-core DSL2 refactor
 

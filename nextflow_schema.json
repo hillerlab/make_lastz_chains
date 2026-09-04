@@ -64,7 +64,31 @@
                 "force_long_2bit": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Always pass -long to faToTwoBit, producing a v1 (64-bit) .2bit file regardless of FASTA size. Forces lastz to take the v1 FASTA-extraction path. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs.",
+                    "description": "Force the big-genome path regardless of FASTA size: v1 (64-bit) .2bit for the lastz/hspz backends (lastz then reads per-chromosome FASTAs), per-block FASTA CPU commands for the kegalign backend. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs.",
+                },
+                "zluda": {
+                    "type": "boolean",
+                    "default": false,
+                    "hidden": true,
+                    "description": "Set by -profile zluda; do not set by hand. Runs the KegAlign stages natively against a local ZLUDA build (AMD GPU) instead of in the CUDA container. See assets/tests/ci/zluda_setup.sh.",
+                },
+                "zluda_mps_stub": {
+                    "type": "boolean",
+                    "default": false,
+                    "hidden": true,
+                    "description": "Set by -profile zluda_mps_stub; do not set by hand. Puts stub nvidia-smi / MPS-daemon / NVML on the GPU task's PATH so the --kegalign_mps_workers plumbing can be exercised where NVIDIA MPS does not exist. Proves nothing about MPS itself.",
+                },
+                "zluda_cpus": {
+                    "type": "integer",
+                    "default": 16,
+                    "hidden": true,
+                    "description": "CPU ceiling the zluda profile clamps every task to, since the cluster-sized requests do not fit one workstation.",
+                },
+                "zluda_memory": {
+                    "type": "string",
+                    "default": "60.GB",
+                    "hidden": true,
+                    "description": "Memory ceiling the zluda profile clamps every task to.",
                 },
             },
         },
@@ -97,30 +121,57 @@
                 },
             },
         },
+        "alignment_backend": {
+            "title": "Alignment backend",
+            "type": "object",
+            "description": "Selects which pairwise aligner produces the PSL alignments fed to chain building.",
+            "properties": {
+                "aligner": {
+                    "type": "string",
+                    "default": "lastz",
+                    "enum": ["lastz", "kegalign"],
+                    "description": "Alignment backend. 'lastz' runs CPU LASTZ over partitioned chunks. 'kegalign' runs KegAlign's GPU seeding/HSP-filtering stage followed by CPU LASTZ gapped extension; it requires -profile gpu and does its own partitioning (seq1_chunk / seq2_chunk / seq1_lap / seq2_lap are unused).",
+                    "fa_icon": "fas fa-microchip",
+                },
+                "kegalign_executor": {
+                    "type": "string",
+                    "default": "batched",
+                    "enum": ["batched", "distributed"],
+                    "description": "How the KegAlign backend runs its CPU gapped-extension stage. 'batched' runs every KegAlign partition in one Nextflow task through KegAlign's own process pool. 'distributed' fans the partitions out as one Nextflow task each, so they cache, retry and escalate resources independently and can spread across nodes. Both consume the identical KegAlign package. Ignored when --aligner is lastz.",
+                },
+                "kegalign_mps_workers": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "maximum": 4,
+                    "description": "Number of KegAlign instances run concurrently on the single allocated GPU through the NVIDIA MPS daemon. 1 (default) disables MPS and is byte-for-byte today's single-instance execution. Above 1, both genomes are split into similarly sized chromosome bins (upstream split_input.py, ~200 Mb goal) and bin pairs are aligned concurrently inside one Nextflow GPU task, emitting one KegAlign package per pair. Alignment parameters are unchanged — MPS affects scheduling only. Each instance can use 12-16 GiB of VRAM, so size it to the physical GPU; requires --kegalign_executor batched. Ignored when --aligner is lastz.",
+                },
+            },
+        },
         "lastz_alignment": {
             "title": "LASTZ alignment",
             "type": "object",
-            "description": "Parameters for the LASTZ pairwise sequence aligner.",
+            "description": "Scoring parameters for the LASTZ pairwise sequence aligner. Shared by all backends: KegAlign and hspZ forward lastz_k as --hspthresh; LASTZ_SEGMENTED (hspZ CPU stage) and KegAlign LASTZ use L=--gappedthresh, H=--inner, Y=--ydrop. Do not pass lastz_h as hspZ -H — that short flag is --hspthresh, not BLASTZ inner.",
             "properties": {
                 "lastz_y": {
                     "type": "integer",
                     "default": 9400,
-                    "description": "LASTZ gap extension penalty (Y parameter).",
+                    "description": "LASTZ Y parameter (--ydrop): y-drop threshold for gapped extension.",
                 },
                 "lastz_h": {
                     "type": "integer",
                     "default": 2000,
-                    "description": "LASTZ seed hit count (H parameter).",
+                    "description": "LASTZ H parameter (--inner): score threshold for HSPs found during interpolation.",
                 },
                 "lastz_l": {
                     "type": "integer",
                     "default": 3000,
-                    "description": "LASTZ step length (L parameter).",
+                    "description": "LASTZ L parameter (--gappedthresh): score threshold for gapped alignments.",
                 },
                 "lastz_k": {
                     "type": "integer",
                     "default": 2400,
-                    "description": "LASTZ minimum anchor score (K parameter).",
+                    "description": "LASTZ K parameter (--hspthresh): score threshold for ungapped high-scoring pairs.",
                 },
                 "lastz_q": {
                     "type": "string",
@@ -256,6 +307,31 @@
                 },
             },
         },
+        "chain_qc": {
+            "title": "Alignment chain QC control (optional)",
+            "type": "object",
+            "description": "Optional QC measuring annotation feature coverage by the final chains. Skipped entirely when annotation is null.",
+            "properties": {
+                "annotation": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "format": "file-path",
+                    "description": "Path to a BED/GTF/GFF annotation file. When set, CHAINTOOLS_COVERAGE measures how many bases of its features are covered by the final chain alignment blocks.",
+                },
+                "annotation_side": {
+                    "type": "string",
+                    "default": "reference",
+                    "enum": ["reference", "query"],
+                    "description": "Which chain side the annotation describes.",
+                },
+                "annotation_feature": {
+                    "type": "string",
+                    "default": "cds",
+                    "enum": ["cds", "exon", "intron", "utr"],
+                    "description": "Which annotation feature type to measure coverage for.",
+                },
+            },
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -316,10 +392,12 @@
     "allOf": [
         {"$ref": "#/definitions/input_output_options"},
         {"$ref": "#/definitions/genome_partitioning"},
+        {"$ref": "#/definitions/alignment_backend"},
         {"$ref": "#/definitions/lastz_alignment"},
         {"$ref": "#/definitions/chain_building"},
         {"$ref": "#/definitions/fill_chains"},
         {"$ref": "#/definitions/clean_chains"},
+        {"$ref": "#/definitions/chain_qc"},
         {"$ref": "#/definitions/generic_options"},
     ],
 }

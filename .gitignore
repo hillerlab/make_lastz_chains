@@ -34,8 +34,8 @@ HL_kent_binaries/twoBitToFa
 # test data
 test_out/
 test_out_2/
-test_data/humanChrX.fa
-test_data/mm39ChrX.fa
+assets/tests/test_data/humanChrX.fa
+assets/tests/test_data/mm39ChrX.fa
 test_out_new/
 test_out_old/
 test.json
@@ -43,7 +43,7 @@ big_test.json
 test_results/
 
 # CI/local test run outputs
-tests/work/
+assets/tests/work/
 results/
 work/
 .nextflow*

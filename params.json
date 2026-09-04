@@ -7,27 +7,42 @@
     "query_genome": null,
     "outdir": "./results",
     "use_container": true,
+
     "//1": "── Checkpoint entry point inputs ───────────────────────────────────────",
     "//1a": "Used with --from chain_antirepeat (STEP 04_axtchain), --from fill_chains (STEP 04_axtchain_merged_chains) or --from clean_chains (STEP 05_filled_chains)",
+
     "from": null,
     "axtchain_path": null,
     "merged_chain_path": null,
     "filled_chain_path": null,
+    "segments_path": null,
+
     "//2": "── Genome partitioning ─────────────────────────────────────────────────",
     "seq1_chunk": 175000000,
     "seq2_chunk": 50000000,
     "seq1_lap": 0,
     "seq2_lap": 10000,
-    "//3": "── LASTZ alignment ─────────────────────────────────────────────────────",
+
+    "//2a": "── Alignment backend: lastz (CPU, default) or kegalign (needs -profile gpu) ─",
+    "//2b": "kegalign_executor: batched (one task) or distributed (one task per KegAlign partition)",
+    "//2c": "kegalign_mps_workers: 1 = no MPS; >1 shares the one GPU between that many KegAlign instances (needs batched)",
+    "aligner": "lastz",
+    "kegalign_executor": "batched",
+    "kegalign_mps_workers": 1,
+
+    "//3": "── LASTZ scoring, shared by both backends ──────────────────────────────",
+    "//3a": "K=--hspthresh, L=--gappedthresh, H=--inner, Y=--ydrop",
     "lastz_y": 9400,
     "lastz_h": 2000,
     "lastz_l": 3000,
     "lastz_k": 2400,
     "lastz_q": null,
+
     "//4": "── Chain building ──────────────────────────────────────────────────────",
     "min_chain_score": 1000,
     "chain_linear_gap": "loose",
     "bundle_psl_max_bases": 1000000,
+
     "//5": "── Fill chains (set skip_fill_chains to true to disable this step) ─────",
     "skip_fill_chains": false,
     "skip_fill_unmask": false,
@@ -39,7 +54,14 @@
     "fill_gap_min_size_q": 30,
     "fill_lastz_k": 2000,
     "fill_lastz_l": 3000,
+
     "//6": "── Clean chains (set skip_clean_chain to true to disable this step) ────",
     "skip_clean_chain": false,
     "clean_chain_parameters": "--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000",
+
+    "//7": "── Alignment chain QC control (optional) ─────────────────────────────",
+    "//7a": "Set annotation to a BED/GTF/GFF file to measure annotation feature coverage by the final chains (skipped when null)",
+    "annotation": null,
+    "annotation_side": "reference",
+    "annotation_feature": "cds"
 }

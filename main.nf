@@ -45,12 +45,16 @@ if (params.help) {
     Checkpoint entry points (resume from a published intermediate):
         -entry FROM_FILL_CHAINS   Start from *.all.chain.gz  (skips LASTZ + chain building)
         -entry FROM_CLEAN_CHAINS  Start from *.filled.chain.gz (skips fill step)
+        -entry FROM_SEGMENTS      Start from hspZ *.segments  (skips GPU stage)
 
         Required extra params for FROM_FILL_CHAINS (--from fill_chains):
             --merged_chain           PATH  Path to *.all.chain.gz
 
         Required extra params for FROM_CLEAN_CHAINS (--from clean_chains):
             --filled_chain           PATH  Path to *.filled.chain.gz
+
+        Required extra params for FROM_SEGMENTS (--from segments):
+            --segments_path          PATH  Path to directory with *.segments
 
 
     Pass all parameters from a JSON file (replaces old --params_from_file):
@@ -64,16 +68,25 @@ if (params.help) {
 
     Optional parameters (common):
         --outdir              PATH    Output directory [default: ./results]
+        --aligner             STR     Alignment backend: lastz|kegalign|hspz [default: lastz]
+                                      kegalign is GPU-only — add -profile gpu
+        --kegalign_executor   STR     KegAlign CPU stage: batched|distributed [default: batched]
+                                      distributed = one Nextflow task per KegAlign partition
+        --kegalign_mps_workers INT    Concurrent KegAlign instances on the one allocated
+                                      GPU via NVIDIA MPS, 1-4 [default: 1 = no MPS]
+                                      > 1 needs --kegalign_executor batched and 12-16 GiB
+                                      VRAM per worker
         --seq1_chunk          INT     reference chunk size in bp [default: 175000000]
         --seq2_chunk          INT     Query chunk size in bp  [default: 50000000]
-        --lastz_y             INT     LASTZ gap extension penalty [default: 9400]
-        --lastz_h             INT     LASTZ seed hit count [default: 2000]
-        --lastz_k             INT     LASTZ minimum anchor score [default: 2400]
-        --lastz_l             INT     LASTZ step length [default: 3000]
+        --lastz_y             INT     LASTZ Y = --ydrop, y-drop threshold [default: 9400]
+        --lastz_h             INT     LASTZ H = --inner, HSP interpolation threshold [default: 2000]
+        --lastz_k             INT     LASTZ K = --hspthresh, ungapped HSP threshold [default: 2400]
+        --lastz_l             INT     LASTZ L = --gappedthresh, gapped alignment threshold [default: 3000]
         --min_chain_score     INT     Minimum chain score [default: 1000]
         --chain_linear_gap    STR     linearGap model: loose|medium [default: loose]
         --skip_fill_chains            Skip the fill-chains step
         --skip_clean_chain            Skip the chain-cleaning step
+        --annotation          PATH    BED/GTF/GFF annotation for chain coverage QC (optional, skipped when unset)
 
     Profiles:
         local       Run on local machine (default)
@@ -82,6 +95,9 @@ if (params.help) {
         apptainer   Use Apptainer containers
         singularity Use Singularity containers
         docker      Use Docker containers
+        gpu         Expose host GPUs to containers (required by --aligner kegalign)
+        zluda       Local dev on an AMD GPU via ZLUDA: runs the KegAlign stages
+                    natively (see assets/tests/ci/zluda_setup.sh), rest in containers
         test        Run with bundled test data
 
     Use --help to show this message.
@@ -101,8 +117,12 @@ include { CHAINC } from './modules/local/chainc/main'
 include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from './modules/local/chaintools/filter/main'
 include { PREPARE_GENOMES as PREPARE_REFERENCE_GENOME } from './subworkflows/local/prepare_genomes/main'
 include { PREPARE_GENOMES as PREPARE_QUERY_GENOME } from './subworkflows/local/prepare_genomes/main'
+include { SEGMENTS_TO_PSL } from './subworkflows/local/segments_to_psl/main'
+include { CHAIN_BUILD } from './subworkflows/local/chain_build/main'
 include { CHAINTOOLS_ANTIREPEAT } from './modules/local/chaintools/antirepeat/main'
 include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
+include { CHAINTOOLS_STATS } from './modules/local/chaintools/stats/main'
+include { CHAINTOOLS_COVERAGE } from './modules/local/chaintools/coverage/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,14 +130,57 @@ include { CHAINTOOLS_MERGE } from './modules/local/chaintools/merge/main'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-def validateFullRun() {
+def validateAligner() {
+    // Returns error strings; the KegAlign backend is GPU-only by design — a
+    // silent fallback to CPU LASTZ would hide a misconfigured runtime.
     def errors = []
+    if (!(['lastz', 'kegalign', 'hspz'].contains(params.aligner))) {
+        errors << "  --aligner must be 'lastz' or 'kegalign' or 'hspz' (got '${params.aligner}')"
+    }
+    else if (params.aligner == 'kegalign' && !(['gpu', 'zluda'].intersect(workflow.profile.tokenize(',')))) {
+        errors << "  --aligner kegalign requires the gpu or zluda profile (e.g. -profile docker,gpu/zluda or apptainer,gpu/zluda)."
+        errors << "  Clusters that grant GPU access through their own config should still include -profile gpu."
+    } 
+    else if (params.aligner == 'hspz' && !(['gpu', 'zluda'].intersect(workflow.profile.tokenize(',')))) {
+        errors << "  --aligner hspz requires the gpu or zluda profile (e.g. -profile docker,gpu or docker,zluda)."
+        errors << "  Clusters that grant GPU access through their own config should still include -profile gpu or zluda."
+    }
+
+    if (!(['batched', 'distributed'].contains(params.kegalign_executor))) {
+        errors << "  --kegalign_executor must be 'batched' or 'distributed' (got '${params.kegalign_executor}')"
+    }
+
+    // MPS shares one GPU between concurrent KegAlign instances. The 4 ceiling is
+    // upstream's VRAM guidance, not a hard limit — raise it once benchmarked.
+    def mps = params.kegalign_mps_workers.toString()
+    if (!mps.isInteger() || mps.toInteger() < 1 || mps.toInteger() > 4) {
+        errors << "  --kegalign_mps_workers must be an integer 1..4 (got '${params.kegalign_mps_workers}')"
+    }
+    else if (mps.toInteger() > 1) {
+        if (params.aligner != 'kegalign') {
+            errors << "  --kegalign_mps_workers > 1 only applies to --aligner kegalign"
+        }
+        if (params.kegalign_executor != 'batched') {
+            errors << "  --kegalign_mps_workers > 1 requires --kegalign_executor batched:"
+            errors << "  the distributed CPU stage expands a single keg, while MPS emits one per chunk pair."
+        }
+    }
+
+    return errors
+}
+
+def validateFullRun() {
+    def errors = validateAligner()
     if (!params.reference_name)   errors << "  --reference_name is required"
     if (!params.query_name)    errors << "  --query_name is required"
     if (!params.reference_genome) errors << "  --reference_genome is required"
     if (!params.query_genome)  errors << "  --query_genome is required"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
+    if (params.annotation && !(['reference', 'query'].contains(params.annotation_side)))
+        errors << "  --annotation_side must be 'reference' or 'query' (got '${params.annotation_side}')"
+    if (params.annotation && !(['cds', 'exon', 'intron', 'utr'].contains(params.annotation_feature)))
+        errors << "  --annotation_feature must be 'cds', 'exon', 'intron' or 'utr' (got '${params.annotation_feature}')"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
         System.exit(1)
@@ -133,12 +196,25 @@ def validateAliasBase() {
     if (!params.query_genome)       errors << "  --query_twobit is required (path to query .2bit)"
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
+    if (params.annotation && !(['reference', 'query'].contains(params.annotation_side)))
+        errors << "  --annotation_side must be 'reference' or 'query' (got '${params.annotation_side}')"
+    if (params.annotation && !(['cds', 'exon', 'intron', 'utr'].contains(params.annotation_feature)))
+        errors << "  --annotation_feature must be 'cds', 'exon', 'intron' or 'utr' (got '${params.annotation_feature}')"
     return errors
 }
 
 def validateFromChainAntirepeat() {
     def errors = validateAliasBase()
     if (!params.axtchain_path) errors << "  --axtchain_path is required (path to *.chain)"
+    if (errors) {
+        log.error "Parameter validation failed:\n${errors.join('\n')}"
+        System.exit(1)
+    }
+}
+
+def validateFromSegments() {
+    def errors = validateAliasBase()
+    if (!params.segments_path) errors << "  --segments_path is required (path to dir with *.segments)"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
         System.exit(1)
@@ -182,6 +258,10 @@ workflow MAKE_LASTZ_CHAINS {
         // ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
         log.info "Resuming from ${params.from} checkpoint — skipping LASTZ"
         FROM_CHAIN_ANTIREPEAT()
+    } else if (params.from == "segments") {
+        // ── Checkpoint: start from pre-generated hspZ .segments ──────────────
+        log.info "Resuming from ${params.from} checkpoint — starting at LASTZ_SEGMENTED (CPU-only)"
+        FROM_SEGMENTS()
     } else {
         // ── Default: full pipeline ─────────────────────────────────────────────────
         log.info "Starting full pipeline — skipping checkpoints"
@@ -213,6 +293,7 @@ workflow FULL_RUN {
 
       Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.query_name}   (${params.query_genome})
+      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
@@ -225,6 +306,19 @@ workflow FULL_RUN {
         params.reference_genome,
         params.query_genome
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from axtChain bundle outputs (skip LASTZ) ──────
@@ -299,6 +393,132 @@ workflow FROM_CHAIN_ANTIREPEAT {
         params.reference_name,
         params.query_name
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            FILL_CLEAN_CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
+}
+
+// ── Checkpoint: start from pre-generated hspZ .segments (CPU-only) ──────
+// Input: results/02_hspz/segments/*.segments from a previous --aligner hspz run
+workflow FROM_SEGMENTS {
+    validateFromSegments()
+
+    log.info """
+    make_lastz_chains v${workflow.manifest.version} — FROM_SEGMENTS
+
+    Authors: ${workflow.manifest.author}
+    Github:  ${workflow.manifest.homePage}
+
+      Reference : ${params.reference_name}
+      Query  : ${params.query_name}
+      Input  : ${params.segments_path}
+      Outdir : ${params.outdir}
+      Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
+      Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
+      Profile: ${workflow.profile}
+    """.stripIndent()
+
+    // ── 1. Prepare genomes ─────────────────────────────────────────────────
+    // extract=true because LASTZ_SEGMENTED needs the per-chrom FASTA dir for
+    // v1 .2bit genomes, same as the hspZ backend it resumes.
+    PREPARE_REFERENCE_GENOME (
+        params.reference_name,
+        params.reference_genome,
+        true
+    )
+    PREPARE_QUERY_GENOME (
+        params.query_name,
+        params.query_genome,
+        true
+    )
+
+    // INFO: (reference_name, reference_twobit, reference_chrom_sizes)
+    reference_prepared    = PREPARE_REFERENCE_GENOME.out.prepared
+    reference_twobit      = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
+    reference_chroms_dir  = PREPARE_REFERENCE_GENOME.out.chroms_dir.map { _n, d -> d }.first()
+
+    query_prepared    = PREPARE_QUERY_GENOME.out.prepared
+    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
+    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+    query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir.map { _n, d -> d }.first()
+
+    // ── 2. Collect segments ────────────────────────────────────────────────
+    Channel.fromPath(params.segments_path, type: 'dir', checkIfExists: true)
+        .flatMap { dir ->
+            def files = []
+            file(dir).eachFileRecurse { f ->
+                if (f.name.endsWith('.segments')) files << f
+            }
+            files
+        }
+        .map { segment ->
+            tuple(
+                [ id: segment.baseName, reference: params.reference_name, query: params.query_name ],
+                segment
+            )
+        }
+        .set { ch_segments }
+
+    // ── 3. Segments → PSL ──────────────────────────────────────────────────
+    SEGMENTS_TO_PSL (
+        ch_segments,
+        reference_twobit,
+        query_twobit,
+        reference_chroms_dir,
+        query_chroms_dir,
+        reference_chrom_sizes,
+        query_chrom_sizes,
+        params.reference_name,
+        params.query_name,
+        params.lastz_h,
+        params.lastz_l,
+        params.lastz_y
+    )
+
+    // ── 4. Chain build ─────────────────────────────────────────────────────
+    CHAIN_BUILD (
+        SEGMENTS_TO_PSL.out.psl_gz,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        params.reference_name,
+        params.query_name
+    )
+
+    // ── 5. Fill / clean chains ─────────────────────────────────────────────
+    FILL_CLEAN_CHAINS (
+        CHAIN_BUILD.out.merged_chain,
+        reference_twobit,
+        query_twobit,
+        reference_chrom_sizes,
+        query_chrom_sizes,
+        params.reference_name,
+        params.query_name
+    )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            FILL_CLEAN_CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from merged chain (skip LASTZ + chain building) ──────
@@ -356,6 +576,19 @@ workflow FROM_FILL_CHAINS {
         params.reference_name,
         params.query_name
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(FILL_CLEAN_CHAINS.out.final_chain)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            FILL_CLEAN_CHAINS.out.final_chain,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 // ── Checkpoint: start from filled chain (skip LASTZ + chain build + fill) ──
@@ -414,6 +647,19 @@ workflow FROM_CLEAN_CHAINS {
         CHAINC.out.chain,
         params.min_chain_score,
     )
+
+    // — stats — keep in sync across all entry workflows
+    CHAINTOOLS_STATS(CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz)
+
+    // — coverage — same final chain, runs only when an annotation is provided
+    if (params.annotation) {
+        CHAINTOOLS_COVERAGE(
+            CHAINTOOLS_FILTER_CLEANED_CHAINS.out.chain_gz,
+            Channel.fromPath(params.annotation, checkIfExists: true),
+            params.annotation_side,
+            params.annotation_feature
+        )
+    }
 }
 
 

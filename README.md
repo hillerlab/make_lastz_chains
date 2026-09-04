@@ -19,7 +19,7 @@
 
   <span>
     <h1 align="center">
-        <code>make_lastz_chain</code>
+        <code>make_lastz_chains</code>
     </h1>
   </span>
 
@@ -63,8 +63,15 @@
 
 ## Usage
 
+> [!TIP]
+> We recommend running the pipeline test suite with:
+> ```bash
+> nextflow run main.nf -profile test,apptainer
+> ```
+> To ensure that the pipeline runs on your system.
+
 > [!NOTE]
-> Requirements: Nextflow ≥ 25.04.6, Docker or Apptainer, Java.
+> Requirements: Nextflow ≥ 25.04.6 < 26, Docker or Apptainer, Java.
 
 ```bash
 git clone https://github.com/hillerlab/make_lastz_chains.git
@@ -92,15 +99,12 @@ nextflow run main.nf -params-file params.json -profile docker \
 
 Command-line parameters override matching values from `params.json`; all other parameters continue to come from the file.
 
-> [!TIP]
-> We recommend running the pipeline test suite with:
-> ```bash
-> nextflow run main.nf -profile test,apptainer
-> ```
-> To ensure that the pipeline runs on your system.
-
-Resume runs from checkpoints [chain_antirepeat, fill_chains, clean_chains]:
+Resume runs from checkpoints [segments, chain_antirepeat, fill_chains, clean_chains]:
 ```bash
+
+# Restart after hspZ GPU seeding but before gapped extension [ 02_hspz/segments ]
+nextflow run main.nf --from segments -profile <PROFILE> -params-file params.json \
+    --segments_path  results/02_hspz/segments
 
 # Restart after alignment but before repeat-cleaning them [ 04_axtchain ]
 nextflow run main.nf -profile <PROFILE> -params-file params.json \
@@ -141,13 +145,136 @@ LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, 
 
 ---
 
+## Alignment backend
+
+`--aligner` picks which aligner produces the PSL alignments. Everything downstream
+(chain building, filling, cleaning) is identical for both.
+
+```
+                    PREPARE_GENOMES ──► .2bit + chrom.sizes
+                              │
+              ┌───────────────┴────────────────┐
+              │                                │
+      aligner=lastz                    aligner=kegalign (gpu profile)
+              │                                │
+      LASTZ_ALIGNMENT (CPU)             KEGALIGN_ALIGNMENT
+      PARTITION_REFERENCE /            REFERENCE_TO_FA / QUERY_TO_FA
+      PARTITION_QUERY                  (.2bit → FASTA)
+              │                                │
+      N × LASTZ (run_lastz.py)         KEGALIGN [kegalign-full, GPU]
+              │ psl per pair           runner.py --output-type tarball
+              │                        faToTwoBit → work/{ref,query}.2bit
+              │                        kegalign --format axt+ (K,L,H,Y thresholds)
+              │                        package_output.py → data_package.tgz
+              │                        (mps_workers > 1: KEGALIGN_MPS instead —
+              │                         split_input.py bins both genomes,
+              │                         run_mig.py runs N kegalign instances on
+              │                         one MPS-shared GPU → one keg per bin pair)
+              │                                │
+              │                  ┌─────────────┴──────────────┐
+              │           executor=batched          executor=distributed
+              │           KEGALIGN_LASTZ            KEGALIGN_EXPAND
+              │           run_lastz_tarball.py      (parse commands.json)
+              │           [kegalign-full]                  │
+              │           → .axt                   N × KEG_LASTZ
+              │           → AXT_TO_PSL             run_keg_lastz.py
+              │           → .psl                   → .psl each
+              │                  └─────────────┬──────────────┘
+              │                                │
+              │              psl_gz: (meta, [psl_files])  ← same contract
+              └───────────────┬────────────────┘
+                              │
+                       CHAIN_BUILD (identical downstream)
+              PSLTOOLS_SPLIT ─► PSL_BUNDLE ─► AXT_CHAIN ─► chainc ─► … ─► .chain.gz
+```
+
+Both backends converge on the identical `psl_gz` contract, so chain building,
+filling and cleaning are unchanged.
+
+```bash
+# CPU LASTZ over partitioned chunks (default)
+nextflow run main.nf -params-file params.json -profile docker --aligner lastz
+
+# KegAlign: GPU seeding + HSP filtering, then batched CPU LASTZ gapped extension
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner kegalign
+
+# ...with each KegAlign partition as its own Nextflow task (spreads across nodes)
+nextflow run main.nf -params-file params.json -profile docker,gpu \
+    --aligner kegalign --kegalign_executor distributed
+
+# ...with 2 KegAlign instances sharing the one allocated GPU through NVIDIA MPS
+nextflow run main.nf -params-file params.json -profile docker,gpu \
+    --aligner kegalign --kegalign_mps_workers 2
+
+# hspZ: GPU seeding at lastz_k (--hspthresh), then per-partition LASTZ gapped extension
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz
+```
+
+`--kegalign_executor` chooses how the KegAlign backend runs its CPU gapped-extension
+stage. `batched` (default) hands every partition to KegAlign's own process pool in a
+single Nextflow task. `distributed` fans the partitions out as one task each, so each
+caches, retries and escalates resources on its own and the work spreads across nodes;
+on SLURM they are submitted as job arrays. Both consume the identical KegAlign
+package and run the identical LASTZ commands, so they are scientifically equivalent —
+`assets/tests/ci/compare_aligners.sh` asserts their normalised PSL and chains match exactly.
+
+`--kegalign_mps_workers N` (N > 1) keeps the GPU busy by running N KegAlign instances
+concurrently on the **same single allocated GPU** through the NVIDIA MPS daemon — one
+SLURM job, one GPU, N `kegalign` processes. Upstream's `split_input.py` bins both
+genomes at a ~200 Mb goal without splitting chromosomes, upstream's `run_mig.py`
+schedules the bin pairs, and each pair is packaged as its own keg; the CPU stage then
+runs once per keg. Scoring, format and diagonal partitioning are untouched, so MPS
+changes scheduling only. It needs `--kegalign_executor batched`, and roughly 12–16 GiB
+of VRAM per instance — start with 2 on a 32–40 GB GPU, try 4 only on 80 GB. `1`
+(default) never starts an MPS daemon and is exactly the single-instance path above.
+
+> [!IMPORTANT]
+> `kegalign` and `hspz` need the `gpu` (or `zluda`) profile (`--gpus all` for Docker, `--nv` for
+> Apptainer/Singularity) — there is no CPU fallback, and requesting either without a GPU
+> runtime fails at startup rather than silently reverting to LASTZ. Both do their
+> own reference/query partitioning, so `seq1_chunk` / `seq2_chunk` / `seq1_lap` /
+> `seq2_lap` are unused for those backends. The four LASTZ scoring thresholds are
+> shared: `lastz_k` → `--hspthresh` (hspZ included — do not pass `-H`, that short
+> flag is `--hspthresh` not BLASTZ inner), `lastz_l` → `--gappedthresh`,
+> `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`
+> or `02_hspz/psl/`.
+
+### Big genomes (whose .2bit would exceed the v0 32-bit layout)
+
+| backend    | reference ≤ ~16 Gbp, query < 6 GB | bigger than that |
+|------------|-----------------------------------|------------------|
+| `lastz`    | ✅ v1 .2bit via per-chrom FASTAs   | ✅ same path     |
+| `hspz`     | ✅ FASTA to the GPU, per-chrom FASTAs to LASTZ | ✅ same path (query permitting) |
+| `kegalign` | ✅ `.2bit` hop skipped, keg CPU commands read per-block FASTAs | ❌ queries > ~6 GB hit KegAlign's query DRAM buffer — the task fails fast naming `--aligner lastz`/`hspz` as v1-capable |
+
+`kegalign --kegalign_mps_workers > 1` is unaffected: bins are chromosome-granular and
+always v0-safe, so MPS never touches the big-genome path (a single > ~6 GB chromosome
+still dies in the binary with its own DRAM message). `--force_long_2bit` exercises
+every row's big-genome path on small test data.
+
+> [!TIP]
+> On an **AMD GPU**, `bash assets/tests/ci/zluda_setup.sh` plus
+> `-profile docker,gpu,zluda` runs the KegAlign stages natively against a local
+> [ZLUDA](https://github.com/vosen/ZLUDA) build (everything else stays
+> containerised), so the GPU backend can be developed and tested without NVIDIA
+> hardware. `--kegalign_mps_workers > 1` still cannot run there — NVIDIA MPS does
+> not exist on AMD and the preflight says so. See `assets/tests/README.md`.
+
+---
+
 ## Output
 
 ```
 results/
 ├── 00_genome_prep/      reference.2bit, query.2bit, *.chrom.sizes
 ├── 01_partition/        *_partitions.txt
-├── 02_lastz_psl/        *.psl 
+├── 02_lastz_psl/        *.psl              ← --aligner lastz
+├── 02_kegalign_psl/     *.psl              ← --aligner kegalign
+├── 02_hspz/                                ← --aligner hspz
+├─── • segments/         *.segments         ← checkpoint for --from segments
+├─── • psl/              *.psl
+├─── • axt/              *.axt
+├── 03_psl/              *.psl              ← merged per-chr psl files
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains
@@ -170,8 +297,4 @@ results/
 
 ## Citation
 
-- Kirilenko BM, Munegowda C, Osipova E, Jebb D, Sharma V, Blumer M, Morales A, Ahmed AW, Kontopoulos DG, Hilgers L, Lindblad-Toh K, Karlsson EK, Zoonomia Consortium, Hiller M. [Integrating gene annotation with orthology inference at scale.](https://www.science.org/stoken/author-tokens/ST-1161/full) Science, 380, 2023
-- Osipova E, Hecker N, Hiller M. [RepeatFiller newly identifies megabases of aligning repetitive sequences and improves annotations of conserved non-exonic elements.](https://academic.oup.com/gigascience/article/8/11/giz132/5631861) GigaScience, 8(11), giz132, 2019
-- Suarez H, Langer BE, Ladde P, Hiller M. [chainCleaner improves genome alignment specificity and sensitivity.](https://academic.oup.com/bioinformatics/article/33/11/1596/2929344) Bioinformatics, 33(11), 1596-1603, 2017
-- Kent WJ, Baertsch R, Hinrichs A, Miller W, Haussler D. [Evolution's cauldron: Duplication, deletion, and rearrangement in the mouse and human genomes.](https://www.pnas.org/doi/10.1073/pnas.1932072100) PNAS, 100(20):11484-9, 2003
-- Mu NT, Dizon W, Otero G, Battelle T. [Optimizing Nextflow-based Software on Shared HPC Resources: A Case Study with make_lastz_chains.](https://doi.org/10.5281/zenodo.17118383) US Research Software Engineering Conference (USRSE'25), Philadelphia, PA, 2025
+- Gonzales-Irribarren A, Mu NT, Kirilenko BM, Hiller M. *make_lastz_chains: A portable solution to generate genome alignment chains using LASTZ*. In preparation.
