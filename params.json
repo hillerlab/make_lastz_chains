@@ -5,6 +5,8 @@
     "query_name": null,
     "reference_genome": null,
     "query_genome": null,
+    "//0a": "array: file with one query genome path per line (aligner hspz); replaces query_name/query_genome, one output dir per query",
+    "array": "",
     "outdir": "./results",
     "use_container": true,
 

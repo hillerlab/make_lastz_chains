@@ -9,8 +9,9 @@ Distributed under the terms of the Apache License, Version 2.0.
     1. .2bit → whole-genome FASTA for both genomes: hspZ's bundled twobit reader
        only parses v0 .2bit, so v1 genomes would fail there. twoBitToFa handles
        both versions, so the conversion runs unconditionally.
-    2. GPU seeding + HSP filtering returned as .segments [optionally tarball]:
-         HSPZ     — GPU backend, one/many instances, returns segments
+    2. GPU seeding + HSP filtering returned as .segments:
+         HSPZ     — GPU backend; one task for every query (--array: one
+                    hspZ --query-list batch), returns segments
     3. CPU gapped extension of those segments, one executor only:
          LASTZ_SEGMENTED → one lastZ task per partition → PSL
        Scoring matches KegAlign: lastz_k → hspZ --hspthresh, then LASTZ
@@ -33,54 +34,48 @@ include { SEGMENTS_TO_PSL } from '../segments_to_psl/main'
 workflow HSPZ_ALIGNMENT {
     take:
     reference_prepared    // tuple: (reference_name, reference_twobit, reference_chrom_sizes)
-    query_prepared        // tuple: (query_name,     query_twobit,     query_chrom_sizes)
+    query_prepared        // tuple per query: (query_name, query_twobit, query_chrom_sizes)
     reference_chroms_dir  // tuple: (reference_name, dir/) — pre-extracted v1 FASTAs, empty dir for v0
-    query_chroms_dir      // tuple: (query_name,     dir/)
+    query_chroms_dir      // tuple per query: (query_name, dir/)
 
     main:
-    ch_versions = Channel.empty()
-
     reference_sizes_ch   = reference_prepared.map { _n, _tb, cs -> cs }.first()
-    query_sizes_ch       = query_prepared.map     { _n, _tb, cs -> cs }.first()
     reference_twobit_val = reference_prepared.map { _n, tb, _cs -> tb }.first()
-    query_twobit_val     = query_prepared.map     { _n, tb, _cs -> tb }.first()
     reference_chroms_val = reference_chroms_dir.map { _n, d -> d }.first()
-    query_chroms_val     = query_chroms_dir.map     { _n, d -> d }.first()
 
     // ── .2bit → FASTA ───────────────────────────────────────────────────────
     REFERENCE_TO_FA ( reference_prepared.map { n, tb, _cs -> [ n, tb ] } )
     QUERY_TO_FA     ( query_prepared.map     { n, tb, _cs -> [ n, tb ] } )
 
     // ── hspZ [GPU stage] ───────────────────────────────────────────────────────────────
+    // Every query goes to the one HSPZ task as ([names], [FASTAs]), sorted so
+    // the task hash (and -resume) does not depend on which FASTA came first.
     HSPZ (
       REFERENCE_TO_FA.out.fasta,
-      QUERY_TO_FA.out.fasta,
+      QUERY_TO_FA.out.fasta
+        .toSortedList { a, b -> a[0] <=> b[0] }
+        .map { queries -> [ queries*.getAt(0), queries*.getAt(1) ] },
       params.lastz_k
     )
 
     // ── CPU gapped extension (GPU already released) ─────────────────────────
-    // hspZ returns all segments as [ ref, query, [segments] ], so we need to
-    // flatten the [ segments ] list and add metadata with r,q + baseName.
-    // A glob output that matched exactly one file arrives as a single Path,
-    // not a list, so normalise it first.
-    ch_segments = HSPZ.out.segments.flatMap { r, q, segments ->
-        def seg_list = segments instanceof List ? segments : [ segments ]
-        seg_list.collect { segment ->
-            tuple(
-                [id: segment.baseName, reference: r, query: q],
-                segment
-            )
+    // hspZ returns all segments as [ ref, [queries], [segments] ]: one query's
+    // segments sit in segments/, --array names each job directory after its
+    // query (segments/<query>/). A glob output that matched exactly one file
+    // arrives as a single Path, not a list, so normalise it first.
+    ch_segments = HSPZ.out.segments.flatMap { r, queries, segments ->
+        [ segments ].flatten().collect { segment ->
+            def q = params.array ? segment.parent.name : queries[0]
+            tuple( [ id: segment.baseName, reference: r, query: q ], segment )
         }
     }
 
     SEGMENTS_TO_PSL (
         ch_segments,
         reference_twobit_val,
-        query_twobit_val,
         reference_chroms_val,
-        query_chroms_val,
         reference_sizes_ch,
-        query_sizes_ch,
+        query_prepared.join( query_chroms_dir ),
         params.lastz_h,
         params.lastz_l,
         params.lastz_y

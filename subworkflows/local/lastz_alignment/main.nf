@@ -118,7 +118,7 @@ workflow LASTZ_ALIGNMENT {
         .combine(reference_name)
         .combine(query_name)
         .map { psl_files, ref, query ->
-            [ [ id: "${ref}.${query}.all.psl" ], psl_files ]
+            [ [ id: "${ref}.${query}".toString(), query: query ], psl_files ]
         }
 
     emit:

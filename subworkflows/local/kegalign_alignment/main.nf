@@ -155,7 +155,7 @@ workflow KEGALIGN_ALIGNMENT {
         .combine(reference_name_ch)
         .combine(query_name_ch)
         .map { psl_files, ref, query ->
-            [ [ id: "${ref}.${query}.all.psl" ], psl_files ]
+            [ [ id: "${ref}.${query}".toString(), query: query ], psl_files ]
         }
 
     emit:

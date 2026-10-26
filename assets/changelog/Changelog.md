@@ -180,6 +180,38 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
 
 - New `params.annotation` (`params.json` section 7, default `null`): when set to a BED/GTF/GFF file, every entry workflow runs the ported `CHAINTOOLS_COVERAGE` (`modules/local/chaintools/coverage/main.nf`, from `hillerlab/core`) on the final chain right after `CHAINTOOLS_STATS`, measuring how many bases of the annotation's features are covered by chain blocks. Skipped entirely when null — one `if (params.annotation)` guard per entry point. `params.annotation_side` (`reference`, default) and `params.annotation_feature` (`cds`, default) select the chain side and feature type; both are validated at startup alongside the other params, and all three carry defaults in `nextflow.config` as well so a bare `--annotation file.bed` works without a params-file. Report lands next to the stats report as `${reference}.${query}.allfilled.coverage.txt` (`07_final/stats/`).
 
+### Many queries, one reference: `--array` (hspZ)
+
+- **Usage.** `--array FILE` (`params.array`, default `''`) aligns every query genome listed in FILE against `--reference_genome` in one run.
+  - **Format:** one path per line; `#` and blank lines are skipped, and relative paths resolve against the file's directory.
+  - **Constraints:** it replaces `--query_genome`/`--query_name`, needs `--aligner hspz`, and supports full runs only.
+  - **Names:** each query is named after its file without `.gz` and `.fa`/`.fasta`/`.fna`/`.2bit`. Startup validation (`main.nf` `arrayQueries()`/`validateArray()`) requires names to be unique, safe in file names and different from the reference name.
+  - Without `--array`, the original `--reference_genome` + `--query_genome` mode is unchanged.
+- **One GPU stage for every query.** In array mode `HSPZ` (`modules/local/hspz/run/main.nf`) runs a single hspZ `--query-list` batch.
+  - Each reference bin is built and uploaded once for the whole list, while each query's segments stay byte-identical to its standalone run.
+  - Job directories are renamed after their query using hspZ's `queries.tsv`, guarded by a row count against the list.
+  - Single-query runs keep the original `hspZ -q` call and the flat `02_hspz/segments/` layout.
+  - hspZ is pinned to `0.0.4`/`0.0.4-zluda` (module, SECTIONS 5 and 5b): `--query-list` needs 0.0.4, and a stale local `:latest`/`:zluda` used to run an older release silently.
+- **One bubble per query downstream.** From segments to final chain, `meta` carries the query (`[id: '<ref>.<qry>', query: '<qry>']`).
+  - `PREPARE_GENOMES` takes one genome or a list.
+  - In `SEGMENTS_TO_PSL`, `CHAIN_BUILD` and `FILL_CLEAN_CHAINS`, each item gets its own query's `.2bit` and chrom.sizes via `combine(by: 0)` + `multiMap`.
+  - Their `.collect()` fan-ins became `groupTuple()`. This is a barrier across queries, kept deliberately and marked with `ponytail:` notes.
+  - `PSL_BUNDLE`, `AXT_CHAIN`, `CHAINTOOLS_ANTIREPEAT`, `REPEAT_FILLER` and `CHAINTOOLS_SCORE` now pass `meta` through; their scripts are unchanged.
+- **Layout.** `--array` publishes each query's steps under `<outdir>/<query>/`, from `02_hspz/{axt,psl}` and `03_psl` through `07_final/stats`, via the `qdir` helper in `nextflow.config`.
+  - `00_genome_prep/`, `02_hspz/segments/` and `pipeline_info/` stay shared.
+  - `onComplete` reports every query's final chain.
+  - Annotation coverage runs for every query; `--annotation_side query` is rejected with `--array`.
+  - `--from segments` refuses a segments directory that holds several queries.
+- **Verification** (AMD RX 6500 XT + ZLUDA, Nextflow 25.04.6):
+  - New `assets/tests/ci/compare_array.sh` (GPU only, also wired into the manual GPU CI job) runs one `--array` batch over two queries (the bundled query and the reference itself; one hspZ batch, 2 jobs, 102 and 984 HSPs), then each query on its own. Per query, the segments, cleaned chain, removed BED and final chain are byte-identical.
+  - Against the pre-change commit, single-query hspz and `--from segments` outputs are byte-identical (segments, cleaned and final chains, removed BED, stats), with the same flat layout.
+  - The e2e and CBA goldens match.
+- **Limits.**
+  - The hspZ batch is all-or-nothing and keeps every query's records in host RAM.
+  - hspZ refuses a list whose queries plan different reference bins.
+  - Editing the list reruns the batch and everything downstream.
+  - The GPU gain is large for many small queries (hspZ 0.0.4: 100 × 5 Mbp, −82%) and under 1% for whole genomes.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.

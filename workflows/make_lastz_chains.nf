@@ -30,9 +30,9 @@ include { FILL_CLEAN_CHAINS  } from '../subworkflows/local/fill_clean_chains/mai
 workflow MAKE_LASTZ_CHAINS {
     take:
     reference_name     // val
-    query_name      // val
+    query_name      // val, or a list of names (--array)
     reference_genome   // val: path string
-    query_genome    // val: path string
+    query_genome    // val: path string, or a list matching query_name (--array)
 
     main:
     ch_versions = Channel.empty()
@@ -105,32 +105,24 @@ workflow MAKE_LASTZ_CHAINS {
             throw new Exception("Invalid aligner: ${params.aligner}")
     }
 
-    // ── 3. Chain building ──────────────────────────────────────────────────
+    // ── 3. Chain building (one bubble per query, keyed by meta.query) ───────
     reference_twobit_val     = reference_prepared.map { _n, tb, _cs -> tb }.first()
-    query_twobit_val      = query_prepared.map  { _n, tb, _cs -> tb }.first()
     reference_chrom_sz_val   = reference_prepared.map { _n, _tb, cs -> cs }.first()
 
     CHAIN_BUILD (
         ch_alignment_psl,
         reference_twobit_val,
-        query_twobit_val,
         reference_chrom_sz_val,
-        reference_name,
-        query_name
+        query_prepared
     )
     ch_versions = ch_versions.mix(CHAIN_BUILD.out.versions)
 
     // ── 4 & 5. Fill and clean chains (optional) ────────────────────────────
-    query_chrom_sz_val = query_prepared.map { _n, _tb, cs -> cs }.first()
-
     FILL_CLEAN_CHAINS (
         CHAIN_BUILD.out.merged_chain,
         reference_twobit_val,
-        query_twobit_val,
         reference_chrom_sz_val,
-        query_chrom_sz_val,
-        reference_name,
-        query_name
+        query_prepared
     )
     ch_versions = ch_versions.mix(FILL_CLEAN_CHAINS.out.versions)
 

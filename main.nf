@@ -66,6 +66,13 @@ if (params.help) {
         --reference_genome   PATH    Reference genome file (FASTA or .2bit)
         --query_genome       PATH    Query genome file (FASTA or .2bit)
 
+    Many queries, one reference (--aligner hspz only, full run only):
+        --array              PATH    File with one query genome path per line; replaces
+                                     --query_genome/--query_name. All queries share ONE
+                                     hspZ --query-list GPU batch, then each runs its own
+                                     chain/fill/clean steps into <outdir>/<query>/.
+                                     Queries are named after their files.
+
     Optional parameters (common):
         --outdir              PATH    Output directory [default: ./results]
         --aligner             STR     Alignment backend: lastz|kegalign|hspz [default: lastz]
@@ -169,12 +176,53 @@ def validateAligner() {
     return errors
 }
 
+// --array: one query genome path per line ('#' and blank lines skipped; relative
+// paths resolve against the list's directory, as hspZ --query-list does). Each
+// query is named after its file minus .gz and .fa/.fasta/.fna/.2bit; the name
+// keys every per-query channel, file and output directory.
+def arrayQueries() {
+    def list = file(params.array.toString())
+    list.readLines()*.trim().findAll { it && !it.startsWith('#') }.collect { line ->
+        def genome = list.parent.resolve(line)
+        [ genome.name.replaceFirst(/\.gz$/, '').replaceFirst(/\.(fa|fasta|fna|2bit)$/, ''), genome.toString() ]
+    }
+}
+
+def validateArray() {
+    def errors = []
+    if (params.query_genome || params.query_name)
+        errors << "  --array replaces --query_genome/--query_name (queries are named after their files)"
+    if (params.aligner != 'hspz')
+        errors << "  --array runs every query through one hspZ --query-list batch: it needs --aligner hspz"
+    if (params.annotation && params.annotation_side == 'query')
+        errors << "  --array: --annotation_side query cannot describe several query species"
+    // A bare --array (or --array '') arrives as Boolean true, not a path.
+    if (!(params.array instanceof CharSequence) || !file(params.array.toString()).isFile()) {
+        errors << "  --array must be a file with one query genome path per line (got '${params.array}')"
+        return errors
+    }
+    def names = []
+    arrayQueries().each { name, genome ->
+        if (!file(genome).exists())        errors << "  --array: query genome not found: ${genome}"
+        if (!(name ==~ /[A-Za-z0-9_.-]+/)) errors << "  --array: '${name}' is not a file-name-safe query name"
+        if (name in names || name == params.reference_name.toString())
+            errors << "  --array: query name '${name}' is used twice (or is the reference's name)"
+        names << name
+    }
+    if (!names) errors << "  --array lists no query genome"
+    return errors
+}
+
 def validateFullRun() {
     def errors = validateAligner()
     if (!params.reference_name)   errors << "  --reference_name is required"
-    if (!params.query_name)    errors << "  --query_name is required"
     if (!params.reference_genome) errors << "  --reference_genome is required"
-    if (!params.query_genome)  errors << "  --query_genome is required"
+    if (params.array) {
+        errors.addAll(validateArray())
+    } else {
+        if (!params.query_name)   errors << "  --query_name is required"
+        if (!params.query_genome) errors << "  --query_genome is required"
+    }
     if (!(['loose', 'medium'].contains(params.chain_linear_gap)))
         errors << "  --chain_linear_gap must be 'loose' or 'medium'"
     if (params.annotation && !(['reference', 'query'].contains(params.annotation_side)))
@@ -190,6 +238,7 @@ def validateFullRun() {
 def validateAliasBase() {
     // Shared required params for all entry alias workflows
     def errors = []
+    if (params.array)                  errors << "  --array runs the full pipeline only (drop --from)"
     if (!params.reference_name)        errors << "  --reference_name is required"
     if (!params.query_name)         errors << "  --query_name is required"
     if (!params.reference_genome)      errors << "  --reference_twobit is required (path to reference .2bit)"
@@ -283,6 +332,9 @@ workflow {
 workflow FULL_RUN {
     validateFullRun()
 
+    // [ name, genome ] per query: the --query_name/--query_genome pair, or every --array line
+    def queries = params.array ? arrayQueries() : [ [ params.query_name, params.query_genome ] ]
+
     log.info """
     > make_lastz_chains v${workflow.manifest.version}
     > Portable solution to generate genome alignment chains using lastz
@@ -292,7 +344,7 @@ workflow FULL_RUN {
     Github:  ${workflow.manifest.homePage}
 
       Reference : ${params.reference_name}  (${params.reference_genome})
-      Query  : ${params.query_name}   (${params.query_genome})
+      Query  : ${params.array ? "${queries.size()} queries from ${params.array} (one hspZ --query-list batch)" : "${params.query_name}   (${params.query_genome})"}
       Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
@@ -302,19 +354,20 @@ workflow FULL_RUN {
 
     CHAINS(
         params.reference_name,
-        params.query_name,
+        queries*.getAt(0),
         params.reference_genome,
-        params.query_genome
+        queries*.getAt(1)
     )
 
     // — stats — keep in sync across all entry workflows
     CHAINTOOLS_STATS(CHAINS.out.final_chain)
 
-    // — coverage — same final chain, runs only when an annotation is provided
+    // — coverage — same final chain, runs only when an annotation is provided.
+    // .first(): a value channel, so it serves every query's chain, not just one.
     if (params.annotation) {
         CHAINTOOLS_COVERAGE(
             CHAINS.out.final_chain,
-            Channel.fromPath(params.annotation, checkIfExists: true),
+            Channel.fromPath(params.annotation, checkIfExists: true).first(),
             params.annotation_side,
             params.annotation_feature
         )
@@ -361,13 +414,14 @@ workflow FROM_CHAIN_ANTIREPEAT {
 
     query_prepared    = PREPARE_QUERY_GENOME.out.prepared
     query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
-    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
+
+    def pair_meta = [ id: "${params.reference_name}.${params.query_name}".toString(), query: params.query_name.toString() ]
 
     // ── 2. Collect all bundled chains from axtChain ───────────────────────────────────
     Channel.fromPath(params.axtchain_path, type: 'dir', checkIfExists: true, maxDepth: 1)
         .map { chain -> chain.listFiles().findAll { it.name.endsWith('.chain') } }
         .flatten()
-        // .map { chain -> [ [ id: chain.baseName ], chain ] }
+        .map { chain -> [ pair_meta, chain ] }
         .set { ch_axtchain_chains }
 
     // ── 3. Run anti repeat on each chain ─────────────────────────────────────────
@@ -379,19 +433,14 @@ workflow FROM_CHAIN_ANTIREPEAT {
 
     // ── 4. Merge all chain files into one ────────────────────────────────────────
     CHAINTOOLS_MERGE (
-        CHAINTOOLS_ANTIREPEAT.out.chain
-          .collect()
-          .map { chains -> [ [ id: params.reference_name + '.' + params.query_name ], chains ] }
+        CHAINTOOLS_ANTIREPEAT.out.chain.groupTuple()
     )
 
     FILL_CLEAN_CHAINS(
         CHAINTOOLS_MERGE.out.chain_gz,
         reference_twobit,
-        query_twobit,
         reference_chrom_sizes,
-        query_chrom_sizes,
-        params.reference_name,
-        params.query_name
+        query_prepared
     )
 
     // — stats — keep in sync across all entry workflows
@@ -449,9 +498,6 @@ workflow FROM_SEGMENTS {
     reference_chroms_dir  = PREPARE_REFERENCE_GENOME.out.chroms_dir.map { _n, d -> d }.first()
 
     query_prepared    = PREPARE_QUERY_GENOME.out.prepared
-    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
-    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
-    query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir.map { _n, d -> d }.first()
 
     // ── 2. Collect segments ────────────────────────────────────────────────
     Channel.fromPath(params.segments_path, type: 'dir', checkIfExists: true)
@@ -460,11 +506,16 @@ workflow FROM_SEGMENTS {
             file(dir).eachFileRecurse { f ->
                 if (f.name.endsWith('.segments')) files << f
             }
+            // An --array run keeps one directory per query under segments/;
+            // this entry resumes ONE query, so point it at that query's own dir.
+            if (files*.parent.unique().size() > 1)
+                error "--segments_path holds segments of several queries (an --array run?): " +
+                      "point it at one query's directory, e.g. <outdir>/02_hspz/segments/segments/<query>"
             files
         }
         .map { segment ->
             tuple(
-                [ id: segment.baseName, reference: params.reference_name, query: params.query_name ],
+                [ id: segment.baseName, reference: params.reference_name, query: params.query_name.toString() ],
                 segment
             )
         }
@@ -474,11 +525,9 @@ workflow FROM_SEGMENTS {
     SEGMENTS_TO_PSL (
         ch_segments,
         reference_twobit,
-        query_twobit,
         reference_chroms_dir,
-        query_chroms_dir,
         reference_chrom_sizes,
-        query_chrom_sizes,
+        query_prepared.join( PREPARE_QUERY_GENOME.out.chroms_dir ),
         params.lastz_h,
         params.lastz_l,
         params.lastz_y
@@ -488,21 +537,16 @@ workflow FROM_SEGMENTS {
     CHAIN_BUILD (
         SEGMENTS_TO_PSL.out.psl_gz,
         reference_twobit,
-        query_twobit,
         reference_chrom_sizes,
-        params.reference_name,
-        params.query_name
+        query_prepared
     )
 
     // ── 5. Fill / clean chains ─────────────────────────────────────────────
     FILL_CLEAN_CHAINS (
         CHAIN_BUILD.out.merged_chain,
         reference_twobit,
-        query_twobit,
         reference_chrom_sizes,
-        query_chrom_sizes,
-        params.reference_name,
-        params.query_name
+        query_prepared
     )
 
     // — stats — keep in sync across all entry workflows
@@ -558,21 +602,16 @@ workflow FROM_FILL_CHAINS {
     reference_chrom_sizes = reference_prepared.map { _n, _tb, cs -> cs }.first()
 
     query_prepared    = PREPARE_QUERY_GENOME.out.prepared
-    query_twobit      = query_prepared.map  { _n, tb, _cs -> tb }.first()
-    query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
 
     Channel.fromPath(params.merged_chain_path)
-        .map { chain -> [ [ id: params.reference_name + '.' + params.query_name ], chain ] }
+        .map { chain -> [ [ id: "${params.reference_name}.${params.query_name}".toString(), query: params.query_name.toString() ], chain ] }
         .set { ch_merged_chain }
 
     FILL_CLEAN_CHAINS(
         ch_merged_chain,
         reference_twobit,
-        query_twobit,
         reference_chrom_sizes,
-        query_chrom_sizes,
-        params.reference_name,
-        params.query_name
+        query_prepared
     )
 
     // — stats — keep in sync across all entry workflows
@@ -629,7 +668,7 @@ workflow FROM_CLEAN_CHAINS {
     query_chrom_sizes = query_prepared.map { _n, _tb, cs -> cs }.first()
 
     Channel.fromPath(params.filled_chain_path)
-        .map { chain -> [ [ id: params.reference_name + '.' + params.query_name ], chain, [] ] }
+        .map { chain -> [ [ id: "${params.reference_name}.${params.query_name}".toString(), query: params.query_name.toString() ], chain, [] ] }
         .set { ch_filled_chain }
 
     CHAINC(
@@ -670,12 +709,16 @@ workflow FROM_CLEAN_CHAINS {
 
 workflow.onComplete {
     if (workflow.success) {
-        def final_chain = file("${params.outdir}/07_final/${params.reference_name}.${params.query_name}.allfilled.chain.gz")
         log.info "Pipeline completed successfully!"
-        if (final_chain.exists()) {
-            log.info "Final chain: ${final_chain}"
-        } else {
-            log.warn "Pipeline reported success but final chain file was not produced — check that all steps ran"
+        // --array publishes each query under <outdir>/<query>/
+        def queries = params.array ? arrayQueries()*.getAt(0) : [ params.query_name ]
+        queries.each { query ->
+            def final_chain = file("${params.outdir}/${params.array ? query + '/' : ''}07_final/${params.reference_name}.${query}.allfilled.chain.gz")
+            if (final_chain.exists()) {
+                log.info "Final chain: ${final_chain}"
+            } else {
+                log.warn "Pipeline reported success but no final chain was produced for ${query} (${final_chain}) — check that all steps ran"
+            }
         }
         log.info "Run time   : ${workflow.duration}"
     } else {

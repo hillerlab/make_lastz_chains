@@ -81,11 +81,15 @@ jobs:
         run: nvidia-smi
       - name: Compare aligners (CPU, GPU batched, GPU distributed, hspz)
         run: bash assets/tests/ci/compare_aligners.sh
+      - name: Compare --array against single-query runs (hspz)
+        run: bash assets/tests/ci/compare_array.sh
 
       - name: Upload comparison report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: aligner-comparison-report
-          path: assets/tests/work/aligner_compare/
+          path: |
+            assets/tests/work/aligner_compare/
+            assets/tests/work/array/*.log
           if-no-files-found: ignore

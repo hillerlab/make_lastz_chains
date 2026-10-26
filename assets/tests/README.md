@@ -31,6 +31,12 @@ PSL and a non-empty final chain. Then:
 KegAlign has no CPU fallback, so the script **skips (exit 0) when no GPU is
 present** and is deliberately not part of the GitHub-hosted CI jobs above.
 
+`assets/tests/ci/compare_array.sh` checks `--array`. It runs one hspZ
+`--query-list` batch over two queries (the bundled query and the reference
+itself) and compares it with each query's single-query run. Per query, the
+segments, cleaned chain, removed BED and final chain must be byte-identical. GPU
+only: `PROFILE=docker,gpu` (default), or `PROFILE=docker,zluda` on AMD.
+
 `bin/run_keg_lastz.py --self-check` asserts the LASTZ-command reconstruction and
 stderr-tolerance rules that the distributed executor depends on. It needs neither
 a GPU nor LASTZ, so it is runnable anywhere.

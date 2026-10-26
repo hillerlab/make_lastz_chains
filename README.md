@@ -99,6 +99,23 @@ nextflow run main.nf -params-file params.json -profile docker \
 
 Command-line parameters override matching values from `params.json`; all other parameters continue to come from the file.
 
+Many query genomes against one reference (`--aligner hspz` only): list one query genome per line and pass the list with `--array` instead of `--query_genome`/`--query_name`. Without `--array` nothing changes.
+
+```bash
+# queries.txt — one FASTA or .2bit path per line; '#' and blank lines are skipped
+/data/genomes/mm39.fa
+/data/genomes/rn7.2bit
+
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz \
+    --reference_name hg38 --reference_genome /data/genomes/hg38.2bit \
+    --array queries.txt --outdir results
+```
+
+- **One GPU stage.** All queries share a single hspZ `--query-list` batch. Each reference bin is built once for the whole list, and every query's segments are byte-identical to its own single run.
+- **One bubble per query.** Each query then runs its own LASTZ extension, chain building, filling and cleaning, and publishes into `results/<query>/`. Its final chain is `results/<query>/07_final/<reference>.<query>.allfilled.chain.gz`.
+- **Naming.** Queries are named after their files, without `.gz` and `.fa`/`.fasta`/`.fna`/`.2bit`, so file names must be unique.
+- **Limits.** Full runs only (no `--from`). The GPU task holds every query in host RAM, and a failing query stops the run. The GPU gain is largest for many small queries; for whole genomes it is under 1%.
+
 Resume runs from checkpoints [segments, chain_antirepeat, fill_chains, clean_chains]:
 ```bash
 
@@ -283,6 +300,8 @@ results/
 ├── 07_final/            *.allfilled.chain.gz   ← final output
 └── pipeline_info/    timeline, trace, DAG
 ```
+
+With `--array`, `00_genome_prep/`, `02_hspz/segments/` and `pipeline_info/` stay shared. `02_hspz/segments/` holds one `segments/<query>/` directory per query plus hspZ's `queries.tsv`. Every other step directory moves under `results/<query>/`.
 
 ---
 

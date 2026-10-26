@@ -7,6 +7,7 @@
 */
 
 process PSL_BUNDLE {
+    tag "$meta.id"
     label 'process_fast'
 
     conda "${moduleDir}/environment.yml"
@@ -15,13 +16,13 @@ process PSL_BUNDLE {
         'biocontainers/python:3.11' }"
 
     input:
-    path psl_files, stageAs: "sorted_psl/*"
+    tuple val(meta), path(psl_files, stageAs: "sorted_psl/*")
     path reference_chrom_sizes
     val  max_bases
 
     output:
-    path "split_psl/*.psl", emit: bundles
-    path "versions.yml",    emit: versions
+    tuple val(meta), path("split_psl/*.psl"), emit: bundles
+    path "versions.yml",                      emit: versions
 
     script:
     """

@@ -12,9 +12,7 @@
             "description": "Define genome inputs and the output directory.",
             "required": [
                 "reference_name",
-                "query_name",
                 "reference_genome",
-                "query_genome",
                 "outdir"
             ],
             "properties": {
@@ -25,7 +23,7 @@
                 },
                 "query_name": {
                     "type": "string",
-                    "description": "Query genome identifier (e.g. mm39, mouse).",
+                    "description": "Query genome identifier (e.g. mm39, mouse). Required unless --array is given.",
                     "fa_icon": "fas fa-dna"
                 },
                 "reference_genome": {
@@ -37,8 +35,15 @@
                 "query_genome": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to the query genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit.",
+                    "description": "Path to the query genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit. Required unless --array is given.",
                     "fa_icon": "fas fa-file"
+                },
+                "array": {
+                    "type": "string",
+                    "default": "",
+                    "format": "file-path",
+                    "description": "File with one query genome path per line (FASTA or .2bit; '#' and blank lines skipped, relative paths resolved against the file's directory). Replaces --query_genome/--query_name: every query shares one hspZ --query-list GPU batch (--aligner hspz, full run only), then runs its own chain building, filling and cleaning into <outdir>/<query>/. Queries are named after their files minus .gz and .fa/.fasta/.fna/.2bit.",
+                    "fa_icon": "fas fa-list"
                 },
                 "outdir": {
                     "type": "string",
