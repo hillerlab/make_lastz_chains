@@ -21,10 +21,10 @@ process KEGALIGN_MPS {
     tag "${reference_name} vs ${query_name} (MPS x${workers})"
     label 'process_gpu'
 
-    conda "bioconda::kegalign-full=0.1.2.9"
+    conda "bioconda::kegalign-full=0.3.4"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/kegalign-full:0.1.2.9--hdfd78af_0' :
-        'quay.io/biocontainers/kegalign-full:0.1.2.9--hdfd78af_0' }"
+        'https://depot.galaxyproject.org/singularity/kegalign-full:0.3.4--hdfd78af_1' :
+        'quay.io/biocontainers/kegalign-full:0.3.4--hdfd78af_1' }"
 
     input:
     tuple val(reference_name), path(reference_fa)
