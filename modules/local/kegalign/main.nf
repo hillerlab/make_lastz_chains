@@ -105,7 +105,7 @@ process KEGALIGN {
             --data-folder work
     fi
 
-    package_output.py --tool_directory "\$tool_dir" --format_selector axt+
+    package_output.py --tool_directory "\$tool_dir" --output_format axt+
     mv data_package.tgz ${reference_name}.${query_name}.kegalign.tgz
 
     cat <<-END_VERSIONS > versions.yml

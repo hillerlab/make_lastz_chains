@@ -159,6 +159,7 @@ Same synthetic pairs, one 16-core workstation, RX 6500 XT via ZLUDA, fill/clean 
 
 - Fixed missing `params.use_container` default in `nextflow.config` (`use_container = true`) — previously caused `Unknown config attribute 'params.use_container'` on Nextflow 25.10+ and blocked all runs.
 - Raised `REPEAT_FILLER` wall time from `1.h` to `6.h` (× `task.attempt`) to accommodate long fill jobs without hitting the ceiling and triggering premature retries.
+- **KegAlign 0.3.4 is now what runs.** `nextflow.config` SECTION 5 still forced `kegalign-full:0.1.2.9` whenever `use_container` was on, which hid two upstream breaks behind the module-level bump. First, `package_output.py` renamed `--format_selector` to `--output_format`; `modules/local/kegalign/main.nf` and `bin/run_kegalign_mps_pair.py` now pass the new flag. Second, `run_lastz_tarball.py` now gzips AXT output whatever `--output` is named, so `KEGALIGN_LASTZ` decompresses it with `zcat -f` before `AXT_TO_PSL`. 0.3.4 also fixes upstream's `statistics.quantiles` crash on sparse pairs with a single segments file. kegalign-full 0.3.4 ships lastz 1.04.60 while `KEG_LASTZ` (pipeline image) runs 1.04.52. On a CPU-built keg from the bundled fixture, both executors gave identical PSL (65 records); `compare_aligners.sh` remains the GPU check.
 
 ### Big-genome (.2bit v1) support for the GPU backends
 

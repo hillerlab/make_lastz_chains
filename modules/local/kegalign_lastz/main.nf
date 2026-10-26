@@ -39,8 +39,13 @@ process KEGALIGN_LASTZ {
     """
     run_lastz_tarball.py \\
         --input ${tarball} \\
-        --output ${prefix}.axt \\
+        --output ${prefix}.axt.gz \\
         --parallel ${task.cpus}
+
+    # kegalign-full >= 0.3 gzips axt output whatever --output is called; zcat -f
+    # also passes an older build's plain text through (e.g. a local ZLUDA one).
+    zcat -f ${prefix}.axt.gz > ${prefix}.axt
+    rm ${prefix}.axt.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

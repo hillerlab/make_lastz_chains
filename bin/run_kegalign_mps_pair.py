@@ -239,7 +239,7 @@ def main() -> None:
         return
 
     run(
-        ["package_output.py", "--tool_directory", tool_directory, "--format_selector", args.format],
+        ["package_output.py", "--tool_directory", tool_directory, "--output_format", args.format],
         pair_dir,
         log_pathname,
     )
