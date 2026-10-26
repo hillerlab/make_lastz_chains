@@ -44,8 +44,6 @@ workflow HSPZ_ALIGNMENT {
     query_sizes_ch       = query_prepared.map     { _n, _tb, cs -> cs }.first()
     reference_twobit_val = reference_prepared.map { _n, tb, _cs -> tb }.first()
     query_twobit_val     = query_prepared.map     { _n, tb, _cs -> tb }.first()
-    reference_name_val   = reference_prepared.map { n, _tb, _cs -> n.toString() }.first()
-    query_name_val       = query_prepared.map     { n, _tb, _cs -> n.toString() }.first()
     reference_chroms_val = reference_chroms_dir.map { _n, d -> d }.first()
     query_chroms_val     = query_chroms_dir.map     { _n, d -> d }.first()
 
@@ -83,8 +81,6 @@ workflow HSPZ_ALIGNMENT {
         query_chroms_val,
         reference_sizes_ch,
         query_sizes_ch,
-        reference_name_val,
-        query_name_val,
         params.lastz_h,
         params.lastz_l,
         params.lastz_y

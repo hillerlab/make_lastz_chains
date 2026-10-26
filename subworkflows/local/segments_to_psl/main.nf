@@ -30,8 +30,6 @@ workflow SEGMENTS_TO_PSL {
     query_chroms_dir     // path: dir of pre-extracted <chrom>.fa (v1) or empty dir (v0)
     reference_sizes      // path: reference chrom.sizes
     query_sizes          // path: query chrom.sizes
-    reference_name       // val
-    query_name           // val
     lastz_h              // val
     lastz_l              // val
     lastz_y              // val
@@ -69,13 +67,14 @@ workflow SEGMENTS_TO_PSL {
         reference_sizes,
         query_sizes
     )
-    ch_psl_list = AXT_TO_PSL.out.psl.map { _r, _q, psl -> psl }.collect()
-
     // Shape it exactly like LASTZ_ALIGNMENT.out.psl_gz: (meta, [psl files]).
     // The PSLs go to CHAIN_BUILD as-is -- PSLTOOLS_SPLIT already consolidates
-    // many inputs, so concatenating them first would be a wasted pass.
-    ch_psl_files = ch_psl_list
-        .map { psl_files -> [ [ id: "${reference_name}.${query_name}.all.psl" ], psl_files ] }
+    // many inputs, so concatenating them first would be a wasted pass. Names come
+    // from the items: HSPZ_ALIGNMENT used to pass them in as channels, which
+    // interpolated to 'DataflowVariable(value=hg38)...' in the id.
+    ch_psl_files = AXT_TO_PSL.out.psl
+        .map { r, q, psl -> [ [ id: "${r}.${q}.all.psl".toString() ], psl ] }
+        .groupTuple()
 
     emit:
     psl_gz   = ch_psl_files

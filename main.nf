@@ -479,8 +479,6 @@ workflow FROM_SEGMENTS {
         query_chroms_dir,
         reference_chrom_sizes,
         query_chrom_sizes,
-        params.reference_name,
-        params.query_name,
         params.lastz_h,
         params.lastz_l,
         params.lastz_y
