@@ -3,6 +3,7 @@
     LASTZ — Pairwise sequence alignment for one reference × query partition pair
     Uses run_lastz_intermediate_layer.py (from standalone_scripts/) to handle
     both regular and BULK partitions. A minimal params JSON is written per job.
+    The stub writes an empty PSL under the same name, so -stub-run never aligns.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -70,6 +71,19 @@ process LASTZ {
         --output_format psl \\
         --reference_chrom_dir ${reference_chroms_dir} \\
         --query_chrom_dir ${query_chroms_dir}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        lastz: \$(lastz --version 2>&1 | head -1)
+        python: \$(python --version 2>&1 | awk '{print \$2}')
+        axtToPsl: 482
+    END_VERSIONS
+    """
+
+    stub:
+    def safe_part = { String p -> p.startsWith("BULK") ? p.split(":")[0] : p.split(":")[1..2].join("_") }
+    """
+    touch ${safe_part(reference_part)}__${safe_part(query_part)}.psl
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

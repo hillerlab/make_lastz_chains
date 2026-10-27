@@ -3,6 +3,8 @@
     PSL_BUNDLE — Group chromosome-sorted PSL files into bundles by total base count.
     Calls bin/psl_bundle.py. Each output bundle (bundle.N.psl) will be processed
     independently by AXT_CHAIN.
+    The stub writes one empty bundle: stubbed PSL names match no chromosome,
+    so the real script would bundle nothing.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -33,6 +35,17 @@ process PSL_BUNDLE {
         --chrom_sizes ${reference_chrom_sizes} \\
         --output_dir split_psl \\
         --max_bases ${max_bases}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        python: \$(python --version 2>&1 | awk '{print \$2}')
+    END_VERSIONS
+    """
+
+    stub:
+    """
+    mkdir -p split_psl
+    touch split_psl/bundle.0.psl
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
