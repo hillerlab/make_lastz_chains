@@ -17,8 +17,8 @@ process LASTZ_SEGMENTED {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/lastz:1.04.52--h7b50bb2_1' :
-        'quay.io/biocontainers/lastz:1.04.52--h7b50bb2_1' }"
+        'https://depot.galaxyproject.org/singularity/lastz:1.04.60--hab16a5f_0' :
+        'quay.io/biocontainers/lastz:1.04.60--hab16a5f_0' }"
 
     input:
     tuple val(meta), path(segment)

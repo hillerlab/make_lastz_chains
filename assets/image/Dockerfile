@@ -48,13 +48,13 @@ RUN apk add --no-cache \
 COPY assets/image/SHA256SUMS /tmp/SHA256SUMS
 
 RUN curl -fsSL \
-        https://github.com/lastz/lastz/archive/refs/tags/1.04.52.tar.gz \
-        -o /tmp/lastz-1.04.52.tar.gz \
+        https://github.com/lastz/lastz/archive/refs/tags/1.04.60.tar.gz \
+        -o /tmp/lastz-1.04.60.tar.gz \
     && cd /tmp \
-    && grep ' lastz-1.04.52.tar.gz$' SHA256SUMS | sha256sum -c - \
-    && tar -xzf lastz-1.04.52.tar.gz \
-    && make -C /tmp/lastz-1.04.52/src -j"$(getconf _NPROCESSORS_ONLN)" lastz \
-    && install -Dm0755 /tmp/lastz-1.04.52/src/lastz /opt/lastz/bin/lastz \
+    && grep ' lastz-1.04.60.tar.gz$' SHA256SUMS | sha256sum -c - \
+    && tar -xzf lastz-1.04.60.tar.gz \
+    && make -C /tmp/lastz-1.04.60/src -j"$(getconf _NPROCESSORS_ONLN)" lastz \
+    && install -Dm0755 /tmp/lastz-1.04.60/src/lastz /opt/lastz/bin/lastz \
     && strip /opt/lastz/bin/lastz
 
 # ---------- Build Stage - UCSC Kent tools ----------

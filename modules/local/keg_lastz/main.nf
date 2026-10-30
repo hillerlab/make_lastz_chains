@@ -16,11 +16,11 @@ process KEG_LASTZ {
     tag "${job_id}"
 
     conda "${projectDir}/environment.yml"
-    // The pipeline image, not a granular one: it is the only image carrying both
-    // lastz and axtToPsl. Batched and distributed are only comparable while this
-    // lastz matches KEGALIGN_LASTZ's: kegalign-full 0.3.4 ships 1.04.60 but this
-    // image ships 1.04.52 (2026-10-26), so assets/tests/ci/compare_aligners.sh is
-    // the check — align the two builds if it ever reports a difference.
+    // The pipeline image, not a granular one: it carries both lastz and axtToPsl.
+    // Batched and distributed are only comparable while this lastz matches
+    // KEGALIGN_LASTZ's: kegalign-full 0.3.4 and this image both ship 1.04.60, so
+    // assets/tests/ci/compare_aligners.sh remains the check — align the two
+    // builds if it ever reports a difference.
     container 'ghcr.io/hillerlab/make_lastz_chains:latest'
 
     input:
