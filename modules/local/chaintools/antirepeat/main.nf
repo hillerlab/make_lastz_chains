@@ -20,14 +20,14 @@ process CHAINTOOLS_ANTIREPEAT {
         'ghcr.io/alejandrogzi/chaintools:latest' }"
 
     input:
-    path chain
+    tuple val(meta), path(chain)
     path reference
     path query
 
     output:
-    path("*.clean.chain")       , optional: true, emit: chain
-    path("*.clean.chain.gz")    , optional: true, emit: chain_gz
-    path "versions.yml"                             , emit: versions
+    tuple val(meta), path("*.clean.chain")       , optional: true, emit: chain
+    tuple val(meta), path("*.clean.chain.gz")    , optional: true, emit: chain_gz
+    path "versions.yml"                          , emit: versions
 
     when:
     task.ext.when == null || task.ext.when

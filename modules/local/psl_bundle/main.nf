@@ -3,10 +3,13 @@
     PSL_BUNDLE — Group chromosome-sorted PSL files into bundles by total base count.
     Calls bin/psl_bundle.py. Each output bundle (bundle.N.psl) will be processed
     independently by AXT_CHAIN.
+    The stub writes one empty bundle: stubbed PSL names match no chromosome,
+    so the real script would bundle nothing.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
 process PSL_BUNDLE {
+    tag "$meta.id"
     label 'process_fast'
 
     conda "${moduleDir}/environment.yml"
@@ -15,13 +18,13 @@ process PSL_BUNDLE {
         'biocontainers/python:3.11' }"
 
     input:
-    path psl_files, stageAs: "sorted_psl/*"
+    tuple val(meta), path(psl_files, stageAs: "sorted_psl/*")
     path reference_chrom_sizes
     val  max_bases
 
     output:
-    path "split_psl/*.psl", emit: bundles
-    path "versions.yml",    emit: versions
+    tuple val(meta), path("split_psl/*.psl"), emit: bundles
+    path "versions.yml",                      emit: versions
 
     script:
     """
@@ -32,6 +35,17 @@ process PSL_BUNDLE {
         --chrom_sizes ${reference_chrom_sizes} \\
         --output_dir split_psl \\
         --max_bases ${max_bases}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        python: \$(python --version 2>&1 | awk '{print \$2}')
+    END_VERSIONS
+    """
+
+    stub:
+    """
+    mkdir -p split_psl
+    touch split_psl/bundle.0.psl
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

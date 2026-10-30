@@ -7,7 +7,7 @@
 */
 
 process AXT_CHAIN {
-    tag "$bundle_psl.name"
+    tag "${meta.id}:${bundle_psl.name}"
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
@@ -16,7 +16,7 @@ process AXT_CHAIN {
         'quay.io/biocontainers/ucsc-axtchain:482--h0b57e2e_2' }"
 
     input:
-    path bundle_psl          // one bundle.N.psl file
+    tuple val(meta), path(bundle_psl)  // one bundle.N.psl file
     path target_twobit
     path query_twobit
     val  min_chain_score
@@ -24,8 +24,8 @@ process AXT_CHAIN {
     val  lastz_q             // path to score matrix file, or empty string ''
 
     output:
-    path "*.chain",      emit: chain
-    path "versions.yml", emit: versions
+    tuple val(meta), path("*.chain"), emit: chain
+    path "versions.yml",              emit: versions
 
     script:
     def out_chain = "${bundle_psl.baseName}.chain"

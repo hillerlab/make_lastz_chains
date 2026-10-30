@@ -11,7 +11,10 @@ Distributed under the terms of the Apache License, Version 2.0.
     3. AXT_CHAIN    — convert each PSL bundle to chains (parallel)
     4. CHAINTOOLS_MERGE — merge all chain files into one compressed chain
 
-    Emits: merged_chain — *.all.chain.gz
+    One item per query flows through every step (meta.query keys it, so any
+    number of queries can share a run); each step reads its own query's .2bit.
+
+    Emits: merged_chain — *.all.chain.gz, one per query
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -23,12 +26,10 @@ include { PSLTOOLS_SPLIT } from '../../../modules/local/psltools/split/main'
 
 workflow CHAIN_BUILD {
     take:
-    psl_files              // channel of .psl files from LASTZ_ALIGNMENT
+    psl_files              // tuple per query: (meta(id, query), [psl files])
     reference_twobit       // path
-    query_twobit           // path
     reference_chrom_sizes  // path
-    reference_name         // val
-    query_name             // val
+    query_genomes          // tuple per query: (query_name, twobit, chrom_sizes)
 
     main:
     // ── Split all PSL files by chromosome ───────────────────────────────────
@@ -36,40 +37,54 @@ workflow CHAIN_BUILD {
         psl_files
     )
 
-    PSLTOOLS_SPLIT.out.psl
-        .map { meta, psl -> psl }
-        .collect()
-        .set { ch_psl_files }
-
     // ── Bundle sorted PSL files by chromosome for parallel axtChain ────────
     PSL_BUNDLE (
-        ch_psl_files,
+        PSLTOOLS_SPLIT.out.psl,
         reference_chrom_sizes,
         params.bundle_psl_max_bases
     )
 
     // ── Run axtChain on each bundle in parallel ─────────────────────────────
+    // One item per bundle, riding with its query's .2bit; multiMap keeps the
+    // separate process inputs paired item for item.
+    ch_bundles = PSL_BUNDLE.out.bundles
+        .flatMap { meta, bundles -> [ bundles ].flatten().collect { [ meta.query, meta, it ] } }
+        .combine( query_genomes, by: 0 )
+        .multiMap { _q, meta, bundle, twobit, _sizes ->
+            bundle: [ meta, bundle ]
+            twobit: twobit
+        }
+
     AXT_CHAIN (
-        PSL_BUNDLE.out.bundles.flatten(),  // one channel item per bundle file
+        ch_bundles.bundle,
         reference_twobit,
-        query_twobit,
+        ch_bundles.twobit,
         params.min_chain_score,
         params.chain_linear_gap,
         params.lastz_q ?: ''
     )
 
     // ── Run anti repeat on each chain ─────────────────────────────────────────
+    ch_chains = AXT_CHAIN.out.chain
+        .map { meta, chain -> [ meta.query, meta, chain ] }
+        .combine( query_genomes, by: 0 )
+        .multiMap { _q, meta, chain, twobit, _sizes ->
+            chain:  [ meta, chain ]
+            twobit: twobit
+        }
+
     CHAINTOOLS_ANTIREPEAT (
-      AXT_CHAIN.out.chain,
+      ch_chains.chain,
       reference_twobit,
-      query_twobit,
+      ch_chains.twobit,
     )
 
-    // ── Merge all chain files into one ────────────────────────────────────────
+    // ── Merge each query's chain files into one ──────────────────────────────
+    // ponytail: groupTuple waits for every query's chains (a barrier, not a
+    // stream); key it with per-query groupKey sizes if small queries idling here
+    // ever matters — ANTIREPEAT's optional output makes those sizes non-trivial.
     CHAINTOOLS_MERGE (
-        CHAINTOOLS_ANTIREPEAT.out.chain
-          .collect()
-          .map { chains -> [ [ id: reference_name + '.' + query_name ], chains ] }
+        CHAINTOOLS_ANTIREPEAT.out.chain.groupTuple()
     )
 
     emit:

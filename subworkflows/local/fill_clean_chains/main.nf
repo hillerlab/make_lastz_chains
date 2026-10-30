@@ -15,7 +15,10 @@ Distributed under the terms of the Apache License, Version 2.0.
     4. CHAINC                — remove suspicious chains
     5. CHAINTOOLS_FILTER      — apply minimum score filter → final.chain.gz
 
-    Emits: final_chain — *.allfilled.chain.gz
+    One item per query flows through every step (meta.query keys it); each step
+    reads its own query's .2bit and chrom.sizes.
+
+    Emits: final_chain — *.allfilled.chain.gz, one per query
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -28,13 +31,10 @@ include { CHAINTOOLS_FILTER as CHAINTOOLS_FILTER_CLEANED_CHAINS } from '../../..
 
 workflow FILL_CLEAN_CHAINS {
     take:
-    merged_chain        // path: *.all.chain.gz
+    merged_chain           // tuple per query: (meta(id, query), *.all.chain.gz)
     reference_twobit       // path
-    query_twobit        // path
     reference_chrom_sizes  // path
-    query_chrom_sizes   // path
-    reference_name         // val
-    query_name          // val
+    query_genomes          // tuple per query: (query_name, twobit, chrom_sizes)
 
     main:
     ch_versions = Channel.empty()
@@ -46,15 +46,20 @@ workflow FILL_CLEAN_CHAINS {
             params.num_fill_jobs
         )
 
-        CHAINTOOLS_SPLIT.out.chains
-        .map { meta, chains -> chains }
-        .flatten()
-        .set { ch_chains_to_fill }
+        // One item per chunk, riding with its query's .2bit; multiMap keeps the
+        // separate process inputs paired item for item.
+        ch_fill = CHAINTOOLS_SPLIT.out.chains
+            .flatMap { meta, chains -> [ chains ].flatten().collect { [ meta.query, meta, it ] } }
+            .combine( query_genomes, by: 0 )
+            .multiMap { _q, meta, chunk, twobit, _sizes ->
+                chunk:  [ meta, chunk ]
+                twobit: twobit
+            }
 
         REPEAT_FILLER (
-            ch_chains_to_fill,
+            ch_fill.chunk,
             reference_twobit,
-            query_twobit,
+            ch_fill.twobit,
             params.min_chain_score,
             params.fill_gap_max_size_t,
             params.fill_gap_max_size_q,
@@ -67,16 +72,25 @@ workflow FILL_CLEAN_CHAINS {
             params.skip_fill_unmask,
         )
 
+        ch_score = REPEAT_FILLER.out.filled_chain
+            .map { meta, chain -> [ meta.query, meta, chain ] }
+            .combine( query_genomes, by: 0 )
+            .multiMap { _q, meta, chain, twobit, _sizes ->
+                chain:  [ meta, chain ]
+                twobit: twobit
+            }
+
         CHAINTOOLS_SCORE (
-            REPEAT_FILLER.out.filled_chain,
+            ch_score.chain,
             reference_twobit,
-            query_twobit
+            ch_score.twobit
         )
 
+        // ponytail: groupTuple is a barrier across queries, like CHAIN_BUILD's merge.
         CHAINTOOLS_MERGE_FILLED_CHAINS (
             CHAINTOOLS_SCORE.out.chain
-              .collect()
-              .map { chains -> [ [ id: reference_name + '.' + query_name + '.filled' ], chains ] }
+              .groupTuple()
+              .map { meta, chains -> [ meta + [ id: meta.id + '.filled' ], chains ] }
         )
 
         // merge --sort-by score --rename already emits score-descending chains
@@ -93,12 +107,21 @@ workflow FILL_CLEAN_CHAINS {
 
     // ── Clean chains (optional) ─────────────────────────────────────────────
     if (!params.skip_clean_chain) {
+        ch_clean = ch_chain_for_clean
+            .map { meta, chain -> [ meta.query, meta, chain ] }
+            .combine( query_genomes, by: 0 )
+            .multiMap { _q, meta, chain, twobit, sizes ->
+                chain:  [ meta, chain, [] ]
+                twobit: twobit
+                sizes:  sizes
+            }
+
         CHAINC (
-            ch_chain_for_clean.map { meta, chain -> [ meta, chain, [] ] },
+            ch_clean.chain,
             reference_twobit,
-            query_twobit,
+            ch_clean.twobit,
             reference_chrom_sizes,
-            query_chrom_sizes,
+            ch_clean.sizes,
             params.chain_linear_gap
         )
 
@@ -112,14 +135,7 @@ workflow FILL_CLEAN_CHAINS {
         ch_versions = ch_versions.mix(CHAINC.out.versions)
         ch_versions = ch_versions.mix(CHAINTOOLS_FILTER_CLEANED_CHAINS.out.versions)
     } else {
-        // If not cleaning, the output of the fill step is the final chain.
-        // Rename for consistent output naming.
-        ch_final = ch_chain_for_clean.map { chain_gz ->
-            def final_name = "${reference_name}.${query_name}.final.chain.gz"
-            // Stage a copy with the final name
-            [ chain_gz, final_name ]
-        }
-        // Simplify: just emit as-is; the workflow handles naming in main.nf
+        // Not cleaning: the filled (or merged) chain is the final chain.
         ch_final = ch_chain_for_clean
     }
 

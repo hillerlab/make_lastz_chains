@@ -12,40 +12,45 @@
             "description": "Define genome inputs and the output directory.",
             "required": [
                 "reference_name",
-                "query_name",
                 "reference_genome",
-                "query_genome",
-                "outdir",
+                "outdir"
             ],
             "properties": {
                 "reference_name": {
                     "type": "string",
                     "description": "Reference genome identifier (e.g. hg38, human).",
-                    "fa_icon": "fas fa-dna",
+                    "fa_icon": "fas fa-dna"
                 },
                 "query_name": {
                     "type": "string",
-                    "description": "Query genome identifier (e.g. mm39, mouse).",
-                    "fa_icon": "fas fa-dna",
+                    "description": "Query genome identifier (e.g. mm39, mouse). Required unless --array is given.",
+                    "fa_icon": "fas fa-dna"
                 },
                 "reference_genome": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Path to the target genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit.",
-                    "fa_icon": "fas fa-file",
+                    "fa_icon": "fas fa-file"
                 },
                 "query_genome": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to the query genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit.",
-                    "fa_icon": "fas fa-file",
+                    "description": "Path to the query genome. Accepted formats: FASTA (.fa, .fasta) or UCSC .2bit. Required unless --array is given.",
+                    "fa_icon": "fas fa-file"
+                },
+                "array": {
+                    "type": "string",
+                    "default": "",
+                    "format": "file-path",
+                    "description": "File with one query genome path per line (FASTA or .2bit; '#' and blank lines skipped, relative paths resolved against the file's directory). Replaces --query_genome/--query_name: every query shares one hspZ --query-list GPU batch (--aligner hspz, full run only), then runs its own chain building, filling and cleaning into <outdir>/<query>/. Queries are named after their files minus .gz and .fa/.fasta/.fna/.2bit.",
+                    "fa_icon": "fas fa-list"
                 },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
                     "description": "Output directory for results.",
                     "default": "./results",
-                    "fa_icon": "fas fa-folder-open",
+                    "fa_icon": "fas fa-folder-open"
                 },
                 "publish_dir_mode": {
                     "type": "string",
@@ -57,16 +62,40 @@
                         "link",
                         "copy",
                         "copyNoFollow",
-                        "move",
+                        "move"
                     ],
-                    "fa_icon": "fas fa-copy",
+                    "fa_icon": "fas fa-copy"
                 },
                 "force_long_2bit": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Always pass -long to faToTwoBit, producing a v1 (64-bit) .2bit file regardless of FASTA size. Forces lastz to take the v1 FASTA-extraction path. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs.",
+                    "description": "Force the big-genome path regardless of FASTA size: v1 (64-bit) .2bit for the lastz/hspz backends (lastz then reads per-chromosome FASTAs), per-block FASTA CPU commands for the kegalign backend. Intended only for debugging / parity-testing the v1 path on small genomes; leave false for production runs."
                 },
-            },
+                "zluda": {
+                    "type": "boolean",
+                    "default": false,
+                    "hidden": true,
+                    "description": "Set by -profile zluda; do not set by hand. Runs the KegAlign stages natively against a local ZLUDA build (AMD GPU) instead of in the CUDA container. See assets/tests/ci/zluda_setup.sh."
+                },
+                "zluda_mps_stub": {
+                    "type": "boolean",
+                    "default": false,
+                    "hidden": true,
+                    "description": "Set by -profile zluda_mps_stub; do not set by hand. Puts stub nvidia-smi / MPS-daemon / NVML on the GPU task's PATH so the --kegalign_mps_workers plumbing can be exercised where NVIDIA MPS does not exist. Proves nothing about MPS itself."
+                },
+                "zluda_cpus": {
+                    "type": "integer",
+                    "default": 16,
+                    "hidden": true,
+                    "description": "CPU ceiling the zluda profile clamps every task to, since the cluster-sized requests do not fit one workstation."
+                },
+                "zluda_memory": {
+                    "type": "string",
+                    "default": "60.GB",
+                    "hidden": true,
+                    "description": "Memory ceiling the zluda profile clamps every task to."
+                }
+            }
         },
         "genome_partitioning": {
             "title": "Genome partitioning",
@@ -77,67 +106,94 @@
                     "type": "integer",
                     "default": 175000000,
                     "description": "Reference genome chunk size in base pairs.",
-                    "fa_icon": "fas fa-cut",
+                    "fa_icon": "fas fa-cut"
                 },
                 "seq2_chunk": {
                     "type": "integer",
                     "default": 50000000,
                     "description": "Query genome chunk size in base pairs.",
-                    "fa_icon": "fas fa-cut",
+                    "fa_icon": "fas fa-cut"
                 },
                 "seq1_lap": {
                     "type": "integer",
                     "default": 0,
-                    "description": "Overlap between adjacent target genome chunks (bp).",
+                    "description": "Overlap between adjacent target genome chunks (bp)."
                 },
                 "seq2_lap": {
                     "type": "integer",
                     "default": 10000,
-                    "description": "Overlap between adjacent query genome chunks (bp).",
+                    "description": "Overlap between adjacent query genome chunks (bp)."
+                }
+            }
+        },
+        "alignment_backend": {
+            "title": "Alignment backend",
+            "type": "object",
+            "description": "Selects which pairwise aligner produces the PSL alignments fed to chain building.",
+            "properties": {
+                "aligner": {
+                    "type": "string",
+                    "default": "lastz",
+                    "enum": ["lastz", "kegalign", "hspz"],
+                    "description": "Alignment backend. 'lastz' runs CPU LASTZ over partitioned chunks. 'kegalign' runs KegAlign's GPU seeding/HSP-filtering stage followed by CPU LASTZ gapped extension; 'hspz' runs hspZ GPU seeding followed by per-partition CPU LASTZ gapped extension (LASTZ_SEGMENTED). Both GPU backends require -profile gpu (or zluda) and do their own partitioning (seq1_chunk / seq2_chunk / seq1_lap / seq2_lap are unused).",
+                    "fa_icon": "fas fa-microchip"
                 },
-            },
+                "kegalign_executor": {
+                    "type": "string",
+                    "default": "batched",
+                    "enum": ["batched", "distributed"],
+                    "description": "How the KegAlign backend runs its CPU gapped-extension stage. 'batched' runs every KegAlign partition in one Nextflow task through KegAlign's own process pool. 'distributed' fans the partitions out as one Nextflow task each, so they cache, retry and escalate resources independently and can spread across nodes. Both consume the identical KegAlign package. Ignored when --aligner is lastz."
+                },
+                "kegalign_mps_workers": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "maximum": 4,
+                    "description": "Number of KegAlign instances run concurrently on the single allocated GPU through the NVIDIA MPS daemon. 1 (default) disables MPS and is byte-for-byte today's single-instance execution. Above 1, both genomes are split into similarly sized chromosome bins (upstream split_input.py, ~200 Mb goal) and bin pairs are aligned concurrently inside one Nextflow GPU task, emitting one KegAlign package per pair. Alignment parameters are unchanged — MPS affects scheduling only. Each instance can use 12-16 GiB of VRAM, so size it to the physical GPU; requires --kegalign_executor batched. Ignored when --aligner is lastz."
+                }
+            }
         },
         "lastz_alignment": {
             "title": "LASTZ alignment",
             "type": "object",
-            "description": "Parameters for the LASTZ pairwise sequence aligner.",
+            "description": "Scoring parameters for the LASTZ pairwise sequence aligner. Shared by all backends: KegAlign and hspZ forward lastz_k as --hspthresh; LASTZ_SEGMENTED (hspZ CPU stage) and KegAlign LASTZ use L=--gappedthresh, H=--inner, Y=--ydrop. Do not pass lastz_h as hspZ -H — that short flag is --hspthresh, not BLASTZ inner.",
             "properties": {
                 "lastz_y": {
                     "type": "integer",
                     "default": 9400,
-                    "description": "LASTZ gap extension penalty (Y parameter).",
+                    "description": "LASTZ Y parameter (--ydrop): y-drop threshold for gapped extension."
                 },
                 "lastz_h": {
                     "type": "integer",
                     "default": 2000,
-                    "description": "LASTZ seed hit count (H parameter).",
+                    "description": "LASTZ H parameter (--inner): score threshold for HSPs found during interpolation."
                 },
                 "lastz_l": {
                     "type": "integer",
                     "default": 3000,
-                    "description": "LASTZ step length (L parameter).",
+                    "description": "LASTZ L parameter (--gappedthresh): score threshold for gapped alignments."
                 },
                 "lastz_k": {
                     "type": "integer",
                     "default": 2400,
-                    "description": "LASTZ minimum anchor score (K parameter).",
+                    "description": "LASTZ K parameter (--hspthresh): score threshold for ungapped high-scoring pairs."
                 },
                 "lastz_q": {
                     "type": "string",
                     "description": "Optional path to a substitution score matrix file for axtChain (lastz_q / -scoreScheme).",
-                    "default": null,
+                    "default": null
                 },
                 "lastz_path": {
                     "type": "string",
                     "default": "lastz",
-                    "description": "Path to the lastz executable (if not in PATH).",
+                    "description": "Path to the lastz executable (if not in PATH)."
                 },
                 "axt_to_psl_path": {
                     "type": "string",
                     "default": "axtToPsl",
-                    "description": "Path to the axtToPsl executable (if not in PATH).",
-                },
-            },
+                    "description": "Path to the axtToPsl executable (if not in PATH)."
+                }
+            }
         },
         "chain_building": {
             "title": "Chain building",
@@ -147,25 +203,25 @@
                 "min_chain_score": {
                     "type": "integer",
                     "default": 1000,
-                    "description": "Minimum chain score threshold for axtChain and chainFilter.",
+                    "description": "Minimum chain score threshold for axtChain and chainFilter."
                 },
                 "chain_linear_gap": {
                     "type": "string",
                     "default": "loose",
                     "enum": ["loose", "medium"],
-                    "description": "Linear gap model to use: 'loose' (default) or 'medium'.",
+                    "description": "Linear gap model to use: 'loose' (default) or 'medium'."
                 },
                 "chaining_memory": {
                     "type": "integer",
                     "default": 50,
-                    "description": "Memory (GB) per axtChain parallel job.",
+                    "description": "Memory (GB) per axtChain parallel job."
                 },
                 "bundle_psl_max_bases": {
                     "type": "integer",
                     "default": 1000000,
-                    "description": "Maximum number of bases per PSL bundle for parallel axtChain.",
-                },
-            },
+                    "description": "Maximum number of bases per PSL bundle for parallel axtChain."
+                }
+            }
         },
         "fill_chains": {
             "title": "Fill chains (optional)",
@@ -175,64 +231,64 @@
                 "skip_fill_chains": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Skip the fill-chains step entirely.",
+                    "description": "Skip the fill-chains step entirely."
                 },
                 "skip_fill_unmask": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Do not unmask (lowercase → uppercase) sequences during gap-filling.",
+                    "description": "Do not unmask (lowercase → uppercase) sequences during gap-filling."
                 },
                 "num_fill_jobs": {
                     "type": "integer",
                     "default": 1000,
-                    "description": "Number of parallel gap-filling jobs.",
+                    "description": "Number of parallel gap-filling jobs."
                 },
                 "fill_chain_min_score": {
                     "type": "integer",
                     "default": 25000,
-                    "description": "Minimum chain score for chain_gap_filler (--chainMinScore).",
+                    "description": "Minimum chain score for chain_gap_filler (--chainMinScore)."
                 },
                 "fill_insert_chain_min_score": {
                     "type": "integer",
                     "default": 5000,
-                    "description": "Minimum score for inserted mini-chains (--scoreThreshold).",
+                    "description": "Minimum score for inserted mini-chains (--scoreThreshold)."
                 },
                 "fill_gap_max_size_t": {
                     "type": "integer",
                     "default": 20000,
-                    "description": "Maximum gap size on target side to consider for filling (bp).",
+                    "description": "Maximum gap size on target side to consider for filling (bp)."
                 },
                 "fill_gap_max_size_q": {
                     "type": "integer",
                     "default": 20000,
-                    "description": "Maximum gap size on query side to consider for filling (bp).",
+                    "description": "Maximum gap size on query side to consider for filling (bp)."
                 },
                 "fill_gap_min_size_t": {
                     "type": "integer",
                     "default": 30,
-                    "description": "Minimum gap size on target side to consider for filling (bp).",
+                    "description": "Minimum gap size on target side to consider for filling (bp)."
                 },
                 "fill_gap_min_size_q": {
                     "type": "integer",
                     "default": 30,
-                    "description": "Minimum gap size on query side to consider for filling (bp).",
+                    "description": "Minimum gap size on query side to consider for filling (bp)."
                 },
                 "fill_lastz_k": {
                     "type": "integer",
                     "default": 2000,
-                    "description": "LASTZ K parameter used during gap filling.",
+                    "description": "LASTZ K parameter used during gap filling."
                 },
                 "fill_lastz_l": {
                     "type": "integer",
                     "default": 3000,
-                    "description": "LASTZ L parameter used during gap filling.",
+                    "description": "LASTZ L parameter used during gap filling."
                 },
                 "fill_memory": {
                     "type": "integer",
                     "default": 16,
-                    "description": "Memory (GB) per repeat-filler parallel job.",
-                },
-            },
+                    "description": "Memory (GB) per repeat-filler parallel job."
+                }
+            }
         },
         "clean_chains": {
             "title": "Clean chains (optional)",
@@ -242,19 +298,44 @@
                 "skip_clean_chain": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Skip the chain-cleaning step entirely.",
+                    "description": "Skip the chain-cleaning step entirely."
                 },
                 "chain_clean_memory": {
                     "type": "integer",
                     "default": 100,
-                    "description": "Memory (GB) for the chainc process.",
+                    "description": "Memory (GB) for the chainc process."
                 },
                 "clean_chain_parameters": {
                     "type": "string",
                     "default": "--lr-fold-threshold 2.5 --do-pairs --lr-fold-threshold-pairs 10 --max-pair-distance 10000 --max-suspect-score 100000 --min-broken-chain-score 75000",
-                    "description": "Additional parameters passed to chainc (see https://github.com/hillerlab/chainc).",
+                    "description": "Additional parameters passed to chainc (see https://github.com/hillerlab/chainc)."
+                }
+            }
+        },
+        "chain_qc": {
+            "title": "Alignment chain QC control (optional)",
+            "type": "object",
+            "description": "Optional QC measuring annotation feature coverage by the final chains. Skipped entirely when annotation is null.",
+            "properties": {
+                "annotation": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "format": "file-path",
+                    "description": "Path to a BED/GTF/GFF annotation file. When set, CHAINTOOLS_COVERAGE measures how many bases of its features are covered by the final chain alignment blocks."
                 },
-            },
+                "annotation_side": {
+                    "type": "string",
+                    "default": "reference",
+                    "enum": ["reference", "query"],
+                    "description": "Which chain side the annotation describes."
+                },
+                "annotation_feature": {
+                    "type": "string",
+                    "default": "cds",
+                    "enum": ["cds", "exon", "intron", "utr"],
+                    "description": "Which annotation feature type to measure coverage for."
+                }
+            }
         },
         "generic_options": {
             "title": "Generic options",
@@ -266,26 +347,26 @@
                     "type": "boolean",
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
-                    "hidden": true,
+                    "hidden": true
                 },
                 "version": {
                     "type": "boolean",
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
-                    "hidden": true,
+                    "hidden": true
                 },
                 "validate_params": {
                     "type": "boolean",
                     "default": true,
                     "description": "Boolean whether to validate parameters against the schema at runtime.",
                     "fa_icon": "fas fa-check-square",
-                    "hidden": true,
+                    "hidden": true
                 },
                 "monochrome_logs": {
                     "type": "boolean",
                     "description": "Do not use coloured log outputs.",
                     "fa_icon": "fas fa-palette",
-                    "hidden": true,
+                    "hidden": true
                 },
                 "max_memory": {
                     "type": "string",
@@ -293,14 +374,14 @@
                     "default": "500.GB",
                     "fa_icon": "fas fa-memory",
                     "hidden": true,
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$"
                 },
                 "max_cpus": {
                     "type": "integer",
                     "description": "Maximum number of CPUs that can be requested for any single job.",
                     "default": 16,
                     "fa_icon": "fas fa-microchip",
-                    "hidden": true,
+                    "hidden": true
                 },
                 "max_time": {
                     "type": "string",
@@ -308,18 +389,20 @@
                     "default": "240.h",
                     "fa_icon": "fas fa-clock",
                     "hidden": true,
-                    "pattern": "^(\\d+\\.?\\s*(s|m|h|d|day)\\s*)+$",
-                },
-            },
-        },
+                    "pattern": "^(\\d+\\.?\\s*(s|m|h|d|day)\\s*)+$"
+                }
+            }
+        }
     },
     "allOf": [
         {"$ref": "#/definitions/input_output_options"},
         {"$ref": "#/definitions/genome_partitioning"},
+        {"$ref": "#/definitions/alignment_backend"},
         {"$ref": "#/definitions/lastz_alignment"},
         {"$ref": "#/definitions/chain_building"},
         {"$ref": "#/definitions/fill_chains"},
         {"$ref": "#/definitions/clean_chains"},
-        {"$ref": "#/definitions/generic_options"},
-    ],
+        {"$ref": "#/definitions/chain_qc"},
+        {"$ref": "#/definitions/generic_options"}
+    ]
 }
