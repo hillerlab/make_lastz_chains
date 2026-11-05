@@ -150,6 +150,12 @@
                     "minimum": 1,
                     "maximum": 4,
                     "description": "Number of KegAlign instances run concurrently on the single allocated GPU through the NVIDIA MPS daemon. 1 (default) disables MPS and is byte-for-byte today's single-instance execution. Above 1, both genomes are split into similarly sized chromosome bins (upstream split_input.py, ~200 Mb goal) and bin pairs are aligned concurrently inside one Nextflow GPU task, emitting one KegAlign package per pair. Alignment parameters are unchanged — MPS affects scheduling only. Each instance can use 12-16 GiB of VRAM, so size it to the physical GPU; requires --kegalign_executor batched. Ignored when --aligner is lastz."
+                },
+                "hspz_gpus": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "description": "GPUs for hspZ's seeding step (HSPZ, --aligner hspz). It is passed as hspZ --gpus and is also the task's accelerator request, so a SLURM job asks for that many GPUs. The output does not depend on it. With fewer devices than this visible, hspZ time-slices them, which gives no speed-up. The hspz fill engine's HSPZ_FILL always uses one GPU (hspZ --paired is single-GPU). The zluda profile sets 1. Ignored unless --aligner is hspz."
                 }
             }
         },

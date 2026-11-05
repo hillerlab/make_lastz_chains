@@ -16,6 +16,9 @@ Distributed under the terms of the Apache License, Version 2.0.
     each reference bin is built once for the whole list, while each query's
     output stays byte-identical to its standalone run. Job directories are
     renamed after their query, so segments/<query>/*.segments keys downstream.
+
+    --gpus comes from --hspz_gpus (default 2), which also sets the task's
+    accelerator request; keep --gpus out of ext.args (hspZ rejects it twice).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -48,6 +51,7 @@ process HSPZ {
     hspZ \\
       run \\
       $args \\
+      --gpus ${params.hspz_gpus} \\
       --hspthresh ${lastz_k} \\
       -r ${reference_sequence} \\
       --query-list queries.txt \\
@@ -78,6 +82,7 @@ process HSPZ {
     hspZ \\
       run \\
       $args \\
+      --gpus ${params.hspz_gpus} \\
       --hspthresh ${lastz_k} \\
       -r ${reference_sequence} \\
       -q ${query_sequences} \\

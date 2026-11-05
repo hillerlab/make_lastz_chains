@@ -83,6 +83,9 @@ if (params.help) {
                                       GPU via NVIDIA MPS, 1-4 [default: 1 = no MPS]
                                       > 1 needs --kegalign_executor batched and 12-16 GiB
                                       VRAM per worker
+        --hspz_gpus           INT     GPUs for hspZ seeding (--aligner hspz) [default: 2]
+                                      Also the task's GPU request; the hspz fill engine
+                                      always uses 1. The zluda profile sets 1.
         --seq1_chunk          INT     reference chunk size in bp [default: 175000000]
         --seq2_chunk          INT     Query chunk size in bp  [default: 50000000]
         --lastz_y             INT     LASTZ Y = --ydrop, y-drop threshold [default: 9400]
@@ -171,6 +174,11 @@ def validateAligner() {
             errors << "  --kegalign_mps_workers > 1 requires --kegalign_executor batched:"
             errors << "  the distributed CPU stage expands a single keg, while MPS emits one per chunk pair."
         }
+    }
+
+    def gpus = params.hspz_gpus.toString()
+    if (!gpus.isInteger() || gpus.toInteger() < 1) {
+        errors << "  --hspz_gpus must be an integer >= 1 (got '${params.hspz_gpus}')"
     }
 
     return errors
@@ -363,7 +371,7 @@ workflow FULL_RUN {
 
       Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.array ? "${queries.size()} queries from ${params.array} (one hspZ --query-list batch)" : "${params.query_name}   (${params.query_genome})"}
-      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}
+      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}${params.aligner == 'hspz' ? " (${params.hspz_gpus} GPU${params.hspz_gpus.toString() == '1' ? '' : 's'})" : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}

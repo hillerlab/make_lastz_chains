@@ -28,6 +28,7 @@
     "//2a": "── Alignment backend: lastz (CPU, default) or kegalign (needs -profile gpu) ─",
     "//2b": "kegalign_executor: batched (one task) or distributed (one task per KegAlign partition)",
     "//2c": "kegalign_mps_workers: 1 = no MPS; >1 shares the one GPU between that many KegAlign instances (needs batched)",
+    "//2d": "hspz_gpus (default 2; not set here so -profile zluda can make it 1): GPUs for hspZ seeding (--aligner hspz) and the task's GPU request; the hspz fill engine always uses 1",
     "aligner": "lastz",
     "kegalign_executor": "batched",
     "kegalign_mps_workers": 1,

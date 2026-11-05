@@ -225,7 +225,16 @@ nextflow run main.nf -params-file params.json -profile docker,gpu \
 
 # hspZ: GPU seeding at lastz_k (--hspthresh), then per-partition LASTZ gapped extension
 nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz
+
+# ...seeding on 4 GPUs instead of the default 2
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz --hspz_gpus 4
 ```
+
+`--hspz_gpus` (default 2) is how many GPUs hspZ's seeding step uses. It is also the
+number of GPUs that task requests, so a SLURM job asks for that many. The output is the
+same for any value. Set 1 on a single-GPU machine (the `zluda` profile does): with fewer
+GPUs than requested, hspZ shares them and runs no faster. The hspz fill engine
+(`--repeat_filler_engine hspz`) always seeds the gaps on one GPU.
 
 `--kegalign_executor` chooses how the KegAlign backend runs its CPU gapped-extension
 stage. `batched` (default) hands every partition to KegAlign's own process pool in a

@@ -266,6 +266,23 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
   - FILL_GAPS keeps every gap sequence of a query in memory (13.6 GB peak for hg38 × mm39).
   - `--array` runs one HSPZ_FILL per query.
 
+### hspZ GPU count: `--hspz_gpus`
+
+- `params.hspz_gpus` (default **2**) sets how many GPUs hspZ's seeding step uses (`HSPZ`, `--aligner hspz`).
+  - `HSPZ` passes it as hspZ `--gpus`, in single-query and `--array` runs alike. Before, the pipeline passed no flag, so hspZ ran on its default of one GPU.
+  - It is also `HSPZ`'s `accelerator` request (SECTION 5c), so a SLURM job asks for that many GPUs instead of the `process_gpu` label's one.
+  - The output does not depend on it: hspZ orders its output by work unit, whatever the split across GPUs. With fewer devices than requested visible, hspZ time-slices them, which gives no speed-up.
+  - `HSPZ_FILL` always uses one GPU (hspZ `--paired` is single-GPU).
+  - The `zluda` profile sets 1 (one workstation GPU).
+  - Validated as an integer ≥ 1. It is listed in the help, the schema and `params.json`, and shown in the run banner.
+  - `--gpus` must no longer appear in `HSPZ`'s `ext.args`, because hspZ rejects the flag twice. For example, the 2026-11-02 benchmark's `custom.config` passed `--gpus 2 -t 48`; it should now pass `-t 48` with `--hspz_gpus 2`.
+- **SLURM GPU requests.** Nextflow's SLURM executor ignores `accelerator`, so until now GPU tasks under `-profile slurm,gpu` went to the `gpu` partition but requested no GPU.
+  - The slurm profile's `clusterOptions` now adds `--gres=gpu:N` to every GPU task (`ext.use_gpu`): N is `--hspz_gpus` for `HSPZ`, and the accelerator request or 1 for the others (`HSPZ_FILL`, KegAlign).
+  - It sits at process level because of an older bug. A profile's `withLabel: process_gpu` block replaces the base label block, so under `-profile gpu` that label's accelerator, time and memory do not apply. Every GPU step sets its own time and memory in a `withName` block, so only the accelerator was lost, and the fallback of 1 covers it.
+- **Verification.**
+  - SBATCH headers written by Nextflow 25.10.4 (no submission): with `-profile slurm,gpu`, `HSPZ` gets `--gres=gpu:2` (`gpu:4` with `--hspz_gpus 4`), `HSPZ_FILL` gets `gpu:1`, and CPU tasks get none. With `-profile slurm` alone, nothing is added and the label's 16 h / 32 GB stay.
+  - On ZLUDA (`test_hspz,docker,zluda`): the default gives `--gpus 1`. `--hspz_gpus 2` gives `--gpus 2` (two workers on one GPU), and its segments and `07_final` chain are byte-identical to the 1-GPU run. `--hspz_gpus 0` fails validation.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.
