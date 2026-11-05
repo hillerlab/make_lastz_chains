@@ -24,7 +24,7 @@ process HSPZ_FILL {
     conda "bioconda::hspz=0.0.6"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         '' :
-        'ghcr.io/hillerlab/hspz:0.0.6' }"
+        'ghcr.io/hillerlab/hspz:latest' }"
 
     input:
     tuple val(meta), path(targets, stageAs: 'shards/*'), path(queries, stageAs: 'shards/*')

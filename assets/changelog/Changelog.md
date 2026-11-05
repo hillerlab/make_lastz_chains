@@ -283,6 +283,13 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
   - SBATCH headers written by Nextflow 25.10.4 (no submission): with `-profile slurm,gpu`, `HSPZ` gets `--gres=gpu:2` (`gpu:4` with `--hspz_gpus 4`), `HSPZ_FILL` gets `gpu:1`, and CPU tasks get none. With `-profile slurm` alone, nothing is added and the label's 16 h / 32 GB stay.
   - On ZLUDA (`test_hspz,docker,zluda`): the default gives `--gpus 1`. `--hspz_gpus 2` gives `--gpus 2` (two workers on one GPU), and its segments and `07_final` chain are byte-identical to the 1-GPU run. `--hspz_gpus 0` fails validation.
 
+### hspZ image: `:latest`
+
+- `HSPZ` and `HSPZ_FILL` now run `ghcr.io/hillerlab/hspz:latest`, or `:zluda` under ZLUDA (the registry has no `:latest-zluda`). This applies in both modules and in SECTIONS 5 and 5b, where the two steps now share one selector.
+  - It replaces the `0.0.4` and `0.0.6` pins described above. Today `:latest` and `:zluda` are the 0.0.6 images, with the same image IDs, so outputs do not change.
+  - Minimum versions: `--array` needs 0.0.4 (`--query-list`) and `--repeat_filler_engine hspz` needs 0.0.6 (`--paired`).
+  - Docker and the Apptainer/Singularity cache keep the first copy they pulled. After an hspZ release, refresh it (`docker pull ghcr.io/hillerlab/hspz:latest` or `:zluda`, or delete the cached `.img`). Otherwise the old release keeps running.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.
