@@ -48,6 +48,8 @@
     "//5": "── Fill chains (set skip_fill_chains to true to disable this step) ─────",
     "skip_fill_chains": false,
     "skip_fill_unmask": false,
+    "//5a": "repeat_filler_engine: lastz (RepeatFiller, default) or hspz (GPU seeding of every gap via hspZ --paired; needs -profile gpu or zluda)",
+    "repeat_filler_engine": "lastz",
     "num_fill_jobs": 1000,
     "fill_insert_chain_min_score": 5000,
     "fill_gap_max_size_t": 20000,

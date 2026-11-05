@@ -213,8 +213,26 @@ def validateArray() {
     return errors
 }
 
+// --repeat_filler_engine: lastz (RepeatFiller, default) or hspz (GPU seeding of
+// every gap through hspZ --paired). hspz is GPU-only for the same reason the
+// GPU aligners are: a silent CPU fallback would hide a misconfigured runtime.
+// Any --aligner works with either engine.
+def validateFillEngine() {
+    def errors = []
+    if (!(['lastz', 'hspz'].contains(params.repeat_filler_engine))) {
+        errors << "  --repeat_filler_engine must be 'lastz' or 'hspz' (got '${params.repeat_filler_engine}')"
+    }
+    else if (params.repeat_filler_engine == 'hspz' && !params.skip_fill_chains
+             && params.from != 'clean_chains'
+             && !(['gpu', 'zluda'].intersect(workflow.profile.tokenize(',')))) {
+        errors << "  --repeat_filler_engine hspz requires the gpu or zluda profile (e.g. -profile docker,gpu or docker,zluda)."
+    }
+    return errors
+}
+
 def validateFullRun() {
     def errors = validateAligner()
+    errors.addAll(validateFillEngine())
     if (!params.reference_name)   errors << "  --reference_name is required"
     if (!params.reference_genome) errors << "  --reference_genome is required"
     if (params.array) {
@@ -237,7 +255,7 @@ def validateFullRun() {
 
 def validateAliasBase() {
     // Shared required params for all entry alias workflows
-    def errors = []
+    def errors = validateFillEngine()
     if (params.array)                  errors << "  --array runs the full pipeline only (drop --from)"
     if (!params.reference_name)        errors << "  --reference_name is required"
     if (!params.query_name)         errors << "  --query_name is required"

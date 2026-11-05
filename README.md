@@ -156,7 +156,7 @@ sbatch --array=1-<N> make_lastz_chains.sh
 
 Each array task spawns one Nextflow head job that submits all compute as child SLURM jobs.
 
-LASTZ, AXT_CHAIN, and REPEAT_FILLER run as SLURM job arrays. Partition routing, array sizes, and resource tiers are documented inline in `nextflow.config` — edit there to match your cluster.
+LASTZ, AXT_CHAIN, REPEAT_FILLER and LASTZ_FILL run as SLURM job arrays. Partition routing, array sizes, and resource tiers are documented inline in `nextflow.config` — edit there to match your cluster.
 
 </details>
 
@@ -278,6 +278,38 @@ every row's big-genome path on small test data.
 > not exist on AMD and the preflight says so. See `assets/tests/README.md`.
 
 ---
+
+## Fill engine
+
+`--repeat_filler_engine` picks how chain gaps are filled. Both engines patch the
+same gaps (chain score ≥ `min_chain_score`, gap sizes within
+`fill_gap_{min,max}_size_{t,q}`) and put in the best mini-chain scoring at least
+`fill_insert_chain_min_score`.
+
+- **`lastz` (default)** — RepeatFiller: one `lastz | axtChain | chainSort` per gap,
+  over `num_fill_jobs` chunks of whole chains.
+- **`hspz`** — every gap becomes one target and one query record (gap-local, plus
+  strand, uppercased unless `skip_fill_unmask`). hspZ `run --paired` (≥ 0.0.6) seeds
+  all of them in one GPU task at `fill_lastz_k`; lastz then extends from those
+  anchors (`fill_lastz_l`) and axtChain chains each shard from its FASTAs, and the
+  best mini-chains are spliced back. Gaps, not chains, are split over
+  `num_fill_jobs` shards, so one dominant chain no longer holds a whole task. Needs
+  `-profile gpu` (or `zluda`); works with any `--aligner`.
+
+```bash
+nextflow run main.nf -params-file params.json -profile docker,gpu --repeat_filler_engine hspz
+```
+
+`assets/tests/ci/compare_fill.sh` checks the engine. With lastz's own anchors in
+place of hspZ (a CPU stand-in), the hspz engine reproduces the lastz engine's
+`05_filled_chains` byte for byte. With the real hspZ, the bases it adds must stay
+within `FILL_TOLERANCE` of the lastz engine's.
+
+On hg38 × mm39 (1.46 M fillable gaps, one NVIDIA L4), the hspz engine adds the
+same aligned bases as the lastz engine to within 0.001% (89,376,800 vs 89,376,162
+bp), with the same chains. End to end, on 2 A100s and 128 CPUs, the whole pipeline
+took 1 h 20 m instead of 2 h 35 m and 40.8 CPU hours instead of 95.6. The fill stage
+took 0.20 h and 2.7 CPU hours instead of 1.44 h and 57.5.
 
 ## Output
 

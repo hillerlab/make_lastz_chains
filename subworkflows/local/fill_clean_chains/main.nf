@@ -12,6 +12,7 @@ Distributed under the terms of the Apache License, Version 2.0.
     1. CHAINTOOLS_SPLIT       — split merged chain into N parts
     2. REPEAT_FILLER          — fill gaps in each part in parallel
     3. CHAINTOOLS_MERGE       — merge filled parts
+       (--repeat_filler_engine hspz replaces 1-3 with FILL_CHAINS_HSPZ)
     4. CHAINC                — remove suspicious chains
     5. CHAINTOOLS_FILTER      — apply minimum score filter → final.chain.gz
 
@@ -23,6 +24,7 @@ Distributed under the terms of the Apache License, Version 2.0.
 */
 
 include { REPEAT_FILLER     } from '../../../modules/local/repeat_filler/main'
+include { FILL_CHAINS_HSPZ  } from '../fill_chains_hspz/main'
 include { CHAINC } from '../../../modules/local/chainc/main'
 include { CHAINTOOLS_SPLIT  } from '../../../modules/local/chaintools/split/main'
 include { CHAINTOOLS_SCORE  } from '../../../modules/local/chaintools/score/main'
@@ -40,7 +42,15 @@ workflow FILL_CLEAN_CHAINS {
     ch_versions = Channel.empty()
 
     // ── Fill chains (optional) ──────────────────────────────────────────────
-    if (!params.skip_fill_chains) {
+    if (!params.skip_fill_chains && params.repeat_filler_engine == 'hspz') {
+        FILL_CHAINS_HSPZ (
+            merged_chain,
+            reference_twobit,
+            query_genomes
+        )
+        ch_chain_for_clean = FILL_CHAINS_HSPZ.out.chain_gz
+        ch_versions = ch_versions.mix(FILL_CHAINS_HSPZ.out.versions)
+    } else if (!params.skip_fill_chains) {
         CHAINTOOLS_SPLIT (
             merged_chain,
             params.num_fill_jobs

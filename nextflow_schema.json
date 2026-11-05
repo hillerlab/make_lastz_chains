@@ -233,6 +233,13 @@
                     "default": false,
                     "description": "Skip the fill-chains step entirely."
                 },
+                "repeat_filler_engine": {
+                    "type": "string",
+                    "default": "lastz",
+                    "enum": ["lastz", "hspz"],
+                    "description": "Fill engine. 'lastz' runs RepeatFiller (one lastz + axtChain per chain gap). 'hspz' writes every fillable gap as a record pair, seeds all of them on the GPU with hspZ --paired (>= 0.0.6, K = fill_lastz_k), extends from those anchors with lastz (L = fill_lastz_l) and chains per shard with axtChain on the shard FASTAs; gaps, not chains, are split over num_fill_jobs shards. Needs -profile gpu or zluda; works with any aligner.",
+                    "fa_icon": "fas fa-microchip"
+                },
                 "skip_fill_unmask": {
                     "type": "boolean",
                     "default": false,

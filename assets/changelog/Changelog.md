@@ -215,6 +215,57 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
   - Editing the list reruns the batch and everything downstream.
   - The GPU gain is large for many small queries (hspZ 0.0.4: 100 × 5 Mbp, −82%) and under 1% for whole genomes.
 
+### GPU chain-gap filling: `--repeat_filler_engine hspz`
+
+- **Why.** With hspZ alignment, RepeatFiller became the slowest step. In hg38 chr21 × mm39 chr16, one REPEAT_FILLER task took 729 s; it held the dominant chain, whose 7,997 gaps ran one after another on one CPU.
+  - Measured per gap on 400 real gaps: lastz seeding 8.7–12 ms, extension from anchors 2.7–3.0 ms.
+  - axtChain + chainSort took 80–91 ms per gap, because axtChain reloads both whole chromosomes from the .2bit for every gap.
+- **Engine.** `params.repeat_filler_engine` (`nextflow.config:90`): `lastz` (default, REPEAT_FILLER unchanged) or `hspz`. The hspz engine is the new subworkflow `FILL_CHAINS_HSPZ` (`subworkflows/local/fill_chains_hspz/main.nf`), selected in `FILL_CLEAN_CHAINS` (`subworkflows/local/fill_clean_chains/main.nf:45`). It runs four new steps:
+  1. **FILL_GAPS** (`bin/fill_gaps.py extract`) picks exactly RepeatFiller's gaps.
+     - Each gap becomes one target and one query record with the same name: gap-local, plus strand (the query is reverse-complemented for '-' chains), and uppercased unless `skip_fill_unmask`.
+     - The gaps are cut into `min(num_fill_jobs, gaps)` shards by gap rather than by chain, so a dominant chain no longer holds a whole task.
+  2. **HSPZ_FILL** (`modules/local/hspz/fill/main.nf`) runs hspZ `run --paired` (0.0.6) at `fill_lastz_k` over every gap in one GPU task. Record *i* of the targets is compared only with record *i* of the queries.
+  3. **LASTZ_FILL** runs per shard. lastz extends from the anchors (`[multiple]` target, `--segments`, `fill_lastz_l`), and `axtChain -faT -faQ` chains from the shard FASTAs instead of the whole .2bit. chainSort is dropped, because axtChain already writes chains sorted by score.
+  4. **FILL_SPLICE** (`bin/fill_gaps.py splice`) inserts each gap's best mini chain scoring at least `fill_insert_chain_min_score`, using RepeatFiller's `insert_chain_content` arithmetic. CHAINTOOLS_SCORE and CHAINTOOLS_MERGE_FILLED_CHAINS then run as on the lastz engine, so `05_filled_chains` and everything downstream keep their names. FILL_SPLICE fails on a mini chain that crosses gaps or strands, names no gap, or leaves its record.
+- **Configuration.**
+  - `validateFillEngine()` (`main.nf:220`) requires `-profile gpu` or `zluda` for hspz. Any `--aligner` works.
+  - `HSPZ_FILL` uses `hspz:0.0.6` / `0.0.6-zluda` (SECTION 5 and 5b; the ZLUDA container options are now shared with HSPZ).
+  - SECTION 5d holds the new resources.
+  - `LASTZ_FILL` runs in REPEAT_FILLER's image (`repeat_filler:latest`: lastz 1.04.60, axtChain 482), so with `use_container = false` both engines extend and chain with the same builds. The pipeline image still ships lastz 1.04.52 until it is rebuilt; with `use_container = true` both engines run that image.
+  - `LASTZ_FILL` joins the SLURM array selector.
+  - The schema and `params.json` gain the parameter.
+- **Verification** (RX 6500 XT + ZLUDA): new `assets/tests/ci/compare_fill.sh`, run on the hg38 chr21 × mm39 chr16 pre-fill chain (6,683 chains, 8,671 fillable gaps) through `--from fill_chains`:
+  - **Exact.** A CPU stand-in for hspZ (`hspz_paired_standin.sh`, lastz's own anchors via `--writesegments`, mounted by `fill_standin.config`) through the hspz engine reproduces the lastz engine's `05_filled_chains`. One chain differs, by a tie: that gap has two mini chains of exactly equal score (12,994; one target block aligned to two tandem copies 3,810 bp apart). axtChain lists them in the same order as the hspz engine, and RepeatFiller's extra chainSort (musl `qsort`, not stable) swaps them. `chain_tie_diff.py` accepts only that kind of difference: the same chains and block sizes, with offsets moved inside the gap. Without the dominant chain (674 gaps), the output is byte-identical.
+  - **Tolerance.** With the real hspZ 0.0.6 image, the fill adds 531,416 aligned bp against 530,813 for the lastz engine (+0.11%), with the same 6,683 chains. Filled gaps: 944 of 8,671.
+  - **Speed.** The fill stage, from FILL_GAPS to the merged filled chain, takes about 10 s of critical path: HSPZ_FILL 3.6 s, 16 LASTZ_FILL shards at ≤ 2 s each. REPEAT_FILLER's dominant chunk takes 692–729 s. The `--from fill_chains` runs took 12 m 7 s (lastz engine) and 1 m 48 s (hspz engine with the CPU stand-in).
+  - **NVIDIA L4** (Delta node50, apptainer `--nv`, driver 595.71): the same `compare_fill.sh` gives the same EXACT (TIE 1) and TOLERANCE (+0.11%) results, and each arm's `05_filled_chains` is byte-identical to its ZLUDA run. HSPZ_FILL takes 2.2 s, with a peak RSS of 13.1 GB.
+  - **Whole genome, NVIDIA L4** (hg38 × mm39, `--from fill_chains` on the pre-fill chain of the 2026-11-02 human × mouse run; that run's own lastz-engine fill, on node52's CPUs, is the baseline; same fill parameters, `use_container = false`, 64 CPUs):
+    - **Same result.** The fill adds 89,376,800 aligned bp against 89,376,162 (+638 bp, +0.0007%). Both runs have the same 4,902,515 filled chains and the same 4,903,077 final chains. In the final stats, 42 more blocks; the largest chain is 94 bp shorter. 150,979 of 1,455,934 gaps are filled.
+    - **Cost, with the FILL_GAPS fix below.**
+      - Fill stage: 2.20 CPU h against 57.5 (REPEAT_FILLER 53.1 + CHAINTOOLS_SCORE 4.4), about 26× less. Its wall span is 0.27 h against 1.44 h.
+      - The `--from fill_chains` run took 18 m 18 s, against 29 m 54 s before the fix.
+      - With the hspZ run's alignment and chain building, the pipeline totals 40.3 CPU h instead of 95.6. See the benchmark's `summary.md` (pipeline-hm/2026-11-02, third column).
+    - **Steps.**
+      - FILL_GAPS: 124 s, 13.6 GB peak RSS.
+      - HSPZ_FILL: 182 s (161 s in the first run), 24.9 GB peak RSS, 3.2 GB of GPU memory. It ran 1,455,934 pairs in 7 batches and 12,061 calls, with no oversized re-issue; the largest call had 22,052 hits. The GPU was busy 26–29% of the time. In the first run, host seed generation took 45% and per-call block-sum round trips 28%.
+      - LASTZ_FILL: 1,000 shards, 1.0 CPU h.
+      - CHAINTOOLS_SCORE: one task, 0.64 CPU h.
+  - **End to end, on the baseline's setup** (node52, GPUs 6–7, 128 CPUs, the same config and parameters plus `--repeat_filler_engine hspz`; benchmark `summary.md`, pipeline-hm/2026-11-02):
+    - Times: 1 h 20 m against 2 h 35 m; 40.8 task CPU h against 95.6; fill stage 0.20 h and 2.68 CPU h against 1.44 h and 57.5.
+    - HSPZ_FILL took 4 min on one A100.
+    - The final stats equal the node50 fill runs' in every field. The chain files differ only in the order and ids of equal-score chains, which already vary in alignment and chain building: with ids removed, the pre-fill, filled and final chain sets are identical.
+  - **FILL_GAPS in genome order.** In the first whole-genome run, FILL_GAPS took 23.6 min at 35% CPU and 20.4 GB. It had asked twoBitToFa for the 1.46 M gap regions in chain (score) order. twoBitToFa redoes per-sequence work whenever the sequence changes, which happened 373,299 times per side, here reading over BeeGFS.
+    - It now requests the regions sorted and puts the sequences back in gap order.
+    - It also splits twoBitToFa's output with string methods instead of a Python loop over lines.
+    - On Delta: 1,417 s → 124 s, 20.4 → 13.6 GB. The two runs' `05_filled_chains` and `07_final` are byte-identical.
+    - Locally, on hg38 × mm39 without chrY: 12 m 21 s → 2 m 51 s, and `gaps.tsv` and all 2,000 shard FASTAs are byte-identical.
+    - What remains (local): the Python chain parse (61 s), twoBitToFa itself (51 s) and writing the shards (32 s).
+  - **Default path.** The e2e and CBA goldens match. A full `-stub-run` and a two-query `--array` stub-run with `--repeat_filler_engine hspz` reach `07_final`.
+- **Limits.**
+  - Unmasked low-complexity gap pairs cost O(L²) hits in hspZ (every hit is extended).
+  - FILL_GAPS keeps every gap sequence of a query in memory (13.6 GB peak for hg38 × mm39).
+  - `--array` runs one HSPZ_FILL per query.
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.
