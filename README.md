@@ -268,6 +268,35 @@ of VRAM per instance — start with 2 on a 32–40 GB GPU, try 4 only on 80 GB. 
 > `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. With `--save_psl`, PSL lands in
 > `02_kegalign_psl/` or `02_hspz/psl/`.
 
+### Very close species: `--window_masking_recovery` (CPU lastz)
+
+Very close species can share large satellite arrays that the genomes' repeat
+masking missed. For example, a 20-bp-unit satellite escapes UCSC-style TRF
+masking, which keeps only periods ≤ 12. lastz then finds tens of millions of
+anchors in one job and stops with `init_from_anchors(): structure size would
+exceed 2^32`, and by default the run fails with a hint pointing here.
+
+With `--window_masking_recovery true`, such a job is recovered instead:
+1. The job is marked rather than failed.
+2. WindowMasker + sdust runs once per genome (UCSC's `windowmaskerSdust`
+   recipe) and is added to each genome's own soft-masking.
+3. The job is re-run on the masked chromosomes, split 5×5.
+4. The masked genomes replace the originals for every later step: chaining,
+   anti-repeat, fill and clean.
+
+This is what the old Hiller lab pipeline did. Because anti-repeat discounts
+masked bases, the masked genomes drop many small repeat-derived chains: on two
+*Myotis* bats, ~3× fewer chains score below 100k. Both masked genomes and their
+intervals are published in `00_genome_prep/window_masking/`.
+
+Without an overflow nothing changes and nothing extra runs. After one,
+WindowMasker takes ~20 min and < 1 GB per 2 Gb genome. Recommended for very close
+species (e.g. two *Myotis* bats).
+
+```bash
+nextflow run main.nf -params-file params.json -profile docker --aligner lastz --window_masking_recovery true
+```
+
 ### Big genomes (whose .2bit would exceed the v0 32-bit layout)
 
 | backend    | reference ≤ ~16 Gbp, query < 6 GB | bigger than that |

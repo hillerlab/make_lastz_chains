@@ -68,6 +68,11 @@ workflow MAKE_LASTZ_CHAINS {
     reference_chroms_dir = PREPARE_REFERENCE_GENOME.out.chroms_dir
     query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir
 
+    // The genomes chaining, fill and clean read: the prepared ones, unless the
+    // lastz backend's --window_masking_recovery replaced them with masked ones.
+    ch_chain_reference = reference_prepared.map { _n, tb, _cs -> tb }.first()
+    ch_chain_query     = query_prepared
+
     // ── 2. Alignment (backend selected by --aligner) ────────────────────────
     switch (params.aligner) {
         case 'hspz':
@@ -103,6 +108,9 @@ workflow MAKE_LASTZ_CHAINS {
             ch_alignment_psl = LASTZ_ALIGNMENT.out.psl_gz
             ch_psl_by_chrom  = Channel.empty()
             ch_versions      = ch_versions.mix(LASTZ_ALIGNMENT.out.versions)
+            // --window_masking_recovery: the masked genomes after a recovery
+            ch_chain_reference = LASTZ_ALIGNMENT.out.chain_reference_twobit
+            ch_chain_query     = LASTZ_ALIGNMENT.out.chain_query_prepared
             break
 
         default:
@@ -110,24 +118,23 @@ workflow MAKE_LASTZ_CHAINS {
     }
 
     // ── 3. Chain building (one bubble per query, keyed by meta.query) ───────
-    reference_twobit_val     = reference_prepared.map { _n, tb, _cs -> tb }.first()
     reference_chrom_sz_val   = reference_prepared.map { _n, _tb, cs -> cs }.first()
 
     CHAIN_BUILD (
         ch_alignment_psl,
         ch_psl_by_chrom,
-        reference_twobit_val,
+        ch_chain_reference,
         reference_chrom_sz_val,
-        query_prepared
+        ch_chain_query
     )
     ch_versions = ch_versions.mix(CHAIN_BUILD.out.versions)
 
     // ── 4 & 5. Fill and clean chains (optional) ────────────────────────────
     FILL_CLEAN_CHAINS (
         CHAIN_BUILD.out.merged_chain,
-        reference_twobit_val,
+        ch_chain_reference,
         reference_chrom_sz_val,
-        query_prepared
+        ch_chain_query
     )
     ch_versions = ch_versions.mix(FILL_CLEAN_CHAINS.out.versions)
 

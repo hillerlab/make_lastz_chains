@@ -66,6 +66,12 @@
                     ],
                     "fa_icon": "fas fa-copy"
                 },
+                "window_masking_recovery": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "--aligner lastz: when a LASTZ job overflows lastz's anchor table (an unmasked satellite array shared by very close species), add genome-wide WindowMasker + sdust masking and re-run that job split 5x5, as the old Hiller lab pipeline did. Jobs that never overflow are untouched. Recommended for very close species.",
+                    "fa_icon": "fas fa-mask"
+                },
                 "save_psl": {
                     "type": "boolean",
                     "default": false,

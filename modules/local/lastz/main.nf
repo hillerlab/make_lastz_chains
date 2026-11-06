@@ -4,6 +4,12 @@
     Uses run_lastz_intermediate_layer.py (from standalone_scripts/) to handle
     both regular and BULK partitions. A minimal params JSON is written per job.
     The stub writes an empty PSL under the same name, so -stub-run never aligns.
+
+    lastz refuses a job whose anchors overflow its 2^32-byte anchor table, which
+    unmasked satellite arrays shared by close species trigger. With
+    task.ext.mark_overflow (--window_masking_recovery) the job writes a
+    <name>.overflow marker instead of failing, and LASTZ_ALIGNMENT re-runs it
+    masked and split; otherwise it fails with that hint.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -30,8 +36,9 @@ process LASTZ {
     val   lastz_y
 
     output:
-    tuple val(reference_part), path("*.psl"), optional: true, emit: psl
-    path  "versions.yml",                                   emit: versions
+    tuple val(reference_part), path("*.psl"), optional: true,                     emit: psl
+    tuple val(reference_part), val(query_part), path("*.overflow"), optional: true, emit: overflow
+    path  "versions.yml",                                                         emit: versions
 
     script:
     // Build a short, stable identifier from each partition string. BULK partitions
@@ -49,6 +56,7 @@ process LASTZ {
     def t_safe = safe_part(reference_part)
     def q_safe = safe_part(query_part)
     def out_psl = "${t_safe}__${q_safe}.psl"
+    def mark_overflow = task.ext.mark_overflow ? 'true' : 'false'
     """
     # Write minimal pipeline params JSON so run_lastz* scripts can read chrom.sizes
     cat > params.json << 'JSONEOF'
@@ -62,6 +70,7 @@ process LASTZ {
     }
     JSONEOF
 
+    set +e
     run_lastz_intermediate_layer.py \\
         --reference '${reference_part}' \\
         --query '${query_part}' \\
@@ -70,7 +79,26 @@ process LASTZ {
         --run_lastz_script run_lastz.py \\
         --output_format psl \\
         --reference_chrom_dir ${reference_chroms_dir} \\
-        --query_chrom_dir ${query_chroms_dir}
+        --query_chrom_dir ${query_chroms_dir} \\
+        2> lastz.err
+    rc=\$?
+    set -e
+    cat lastz.err >&2
+    if [ \$rc -ne 0 ]; then
+        if ! grep -qF 'structure size would exceed 2^32' lastz.err; then
+            exit \$rc
+        fi
+        if [ "${mark_overflow}" = true ]; then
+            # Re-run masked and split by LASTZ_ALIGNMENT; drop any partial output.
+            rm -f ${out_psl}
+            printf '%s\\t%s\\n' '${reference_part}' '${query_part}' > ${t_safe}__${q_safe}.overflow
+        else
+            echo "LASTZ: ${reference_part} x ${query_part} has more anchors than lastz can hold (2^32-byte table):" \\
+                 "typically an unmasked satellite array shared by close species. Re-run with" \\
+                 "--window_masking_recovery true, or soft-mask those arrays in the genomes." >&2
+            exit \$rc
+        fi
+    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

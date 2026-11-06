@@ -301,6 +301,46 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
   - Minimum versions: `--array` needs 0.0.4 (`--query-list`) and `--repeat_filler_engine hspz` needs 0.0.6 (`--paired`).
   - Docker and the Apptainer/Singularity cache keep the first copy they pulled. After an hspZ release, refresh it (`docker pull ghcr.io/hillerlab/hspz:latest` or `:zluda`, or delete the cached `.img`). Otherwise the old release keeps running.
 
+### Window-masking recovery for CPU lastz: `--window_masking_recovery`
+
+HLmyoMyot9A × HLmyoDau2 (two *Myotis* bats) share unmasked 20-bp-unit satellite arrays (UCSC-style TRF masking keeps
+only periods ≤ 12). One CPU lastz job there found 53.5 M anchors and stopped with `init_from_anchors(): structure
+size would exceed 2^32`. In v4.0.0 that stopped the run. The old Hiller lab pipeline crashed on 19 such jobs too and
+recovered them: it added `windowmaskerSdust` to both genomes and re-ran each job split 5×5.
+
+- **`LASTZ`** recognises the overflow from lastz's message.
+  - By default it still fails, now with a hint: re-run with `--window_masking_recovery true`, or soft-mask the arrays.
+  - With `--window_masking_recovery true` (`ext.mark_overflow`), it writes `<pair>.overflow` instead.
+- **`LASTZ_ALIGNMENT`** re-runs every overflowed pair:
+  - `WINDOWMASKER` runs once per genome: `windowmasker -mk_counts`, then `-ustat … -dust true`, UCSC's recipe, in
+    `quay.io/biocontainers/blast:2.17.0`, which is kept out of the pipeline image. The intervals are published in
+    `00_genome_prep/window_masking/`.
+  - `MASK_GENOME` writes each genome with those intervals added to its own soft-masking, keeping the original
+    `.2bit` format. It uses `bin/soft_mask_fasta.py`; the result is published as `<name>.wmsdust.2bit`.
+  - `MASKED_CHROMS` extracts the overflowed pairs' chromosomes from it.
+  - `LASTZ_RECOVER` runs the pair as 5×5 sub-pairs on them; `run_lastz.py` prefers a chroms-dir FASTA over the
+    `.2bit`. A sub-pair that still overflows fails the run.
+  - A BULK bin is expanded first. With the 175 Mb default chunk every chromosome under ~79 Mb is in one, including
+    the bats' SUPER_13. Its chromosomes longer than a fifth of the bin are cut into pieces of that length; the shorter
+    ones stay together as one bin.
+  - The masked genomes then replace the originals for every later step (chaining, anti-repeat, fill, clean), as in
+    the old pipeline. `LASTZ_ALIGNMENT` emits them as `chain_reference_twobit` and `chain_query_prepared`.
+    - Anti-repeat discounts masked bases, so this drops many small repeat-derived chains. It is the whole reason the
+      old HLmyoMyot9A × HLmyoDau2 run had 2.5× fewer chains than v4.0.0. On SUPER_19 × NC_081858, chainAntiRepeat on
+      WindowMasker-masked sequence gives 25,712 chains against the old run's 25,693.
+  - Nothing runs unless a job overflowed, so pairs without one are untouched and cost nothing extra.
+- **Verification:**
+  - A fixture cut from the bats' arrays: 1 Mb of SUPER_13 and 1.3 Mb of NC_081852 plus an orthologous 1 Mb pair.
+  - Off: the array × array job fails with the hint.
+  - On: it is marked, WindowMasker+sdust covers 98.9% and 97.0% of the two arrays, and 25 masked sub-jobs take
+    0.3 min in total. The run completes with 728 final chains.
+  - With default chunks, both genomes form one BULK bin and the single job overflows. It is re-run as 36 masked
+    sub-jobs; chaining, anti-repeat, fill and clean then read the masked genomes, and the run completes.
+  - Real scale on Delta, CPU path, SUPER_13 × NC_081852 whole chromosomes:
+    - the overflowing job stops after ~12 min;
+    - genome-wide WindowMasker + sdust takes 18 min per genome and covers ~84% of the satellite arrays;
+    - the 25 masked sub-jobs take at most 1.7 min each, and the run completes.
+
 ### PSL step: no AXT, no split pass for hspZ, no bundle copies
 
 HLmyoMyot9A × HLmyoDau2 (two Myotis bats, hspZ path) failed at `PSL_BUNDLE`. The run had written 5.2 TB of AXT, then 502 GB of PSL, and split that into 502 GB of per-chromosome PSL. SUPER_13's 406 GB file then ran `psl_bundle.py` out of memory, because it read each file whole. Every byte between `lastz` and `axtChain` was written two or three times, and on SLURM's BeeGFS scratch it was copied back once more.
