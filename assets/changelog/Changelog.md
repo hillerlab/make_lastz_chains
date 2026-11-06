@@ -296,6 +296,36 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
   - Minimum versions: `--array` needs 0.0.4 (`--query-list`) and `--repeat_filler_engine hspz` needs 0.0.6 (`--paired`).
   - Docker and the Apptainer/Singularity cache keep the first copy they pulled. After an hspZ release, refresh it (`docker pull ghcr.io/hillerlab/hspz:latest` or `:zluda`, or delete the cached `.img`). Otherwise the old release keeps running.
 
+### PSL step: no AXT, no split pass for hspZ, no bundle copies
+
+HLmyoMyot9A × HLmyoDau2 (two Myotis bats, hspZ path) failed at `PSL_BUNDLE`. The run had written 5.2 TB of AXT, then 502 GB of PSL, and split that into 502 GB of per-chromosome PSL. SUPER_13's 406 GB file then ran `psl_bundle.py` out of memory, because it read each file whole. Every byte between `lastz` and `axtChain` was written two or three times, and on SLURM's BeeGFS scratch it was copied back once more.
+
+- **`LASTZ_SEGMENTED`** pipes `lastz` into `axtToPsl`, as `KEG_LASTZ` already did, so no AXT is written.
+  - It writes gzipped PSL with one file per reference chromosome: `psl/<chrom>/<segments id>.r<n>.psl.gz`.
+  - The hspZ path therefore no longer has `AXT_TO_PSL` tasks, which halves its job count.
+  - The step now runs in the pipeline image, which carries `axtToPsl`.
+- **`CHAIN_BUILD`** takes a second input of per-chromosome PSL (`psl_by_chrom`), which skips `PSLTOOLS_SPLIT`.
+  - The hspZ path and `--from segments` use it. The CPU backends still go through the split.
+- **`PSL_BUNDLE` and `bin/psl_bundle.py` are removed.** `CHAIN_BUILD` plans the same bundles in Groovy (`pslBundles`):
+  - chromosomes with PSL, largest first, until `bundle_psl_max_bases` or more than 1,000 chromosomes;
+  - named `bundle.N` from 0.
+- **`AXT_CHAIN`** takes a bundle's files and streams them into `axtChain -psl /dev/stdin`, plain or gzipped. No concatenated bundle is written.
+  - For the CPU backends, axtChain receives the same bytes as from the old `bundle.N.psl`.
+- **`--save_psl`** (default `false`): alignment PSL is published only on request. Nothing in the pipeline reads it back.
+  - This covers `02_lastz_psl/`, `02_kegalign_psl/`, `02_hspz/psl/<chrom>/*.psl.gz` and `03_psl/`.
+  - `02_hspz/axt/` is gone. `compare_aligners.sh` passes `--save_psl` and reads gzipped PSL.
+- **slurm profile:**
+  - `LASTZ_SEGMENTED` runs in job arrays: hg38 × mm39 gives 5,469 tasks, the bats 16,246.
+  - `PSLTOOLS_SPLIT` writes in place (`scratch = false`), so its whole output is not copied back from scratch.
+- `assets/image/Dockerfile` no longer ships `psl_bundle.py`. The `hillerlab/containers` Dockerfile still copies it from the submodule, so drop that line when the submodule moves past this commit.
+- **Verification** (pipeline image 4.0.0-rc, Nextflow 25.10.4, old code = the previous commit):
+  - `compare.sh`: all goldens match.
+  - `test_hspz` with both fill engines and `test` (lastz): final chain `d612024aa61d`, stats and coverage unchanged. PSL is published only with `--save_psl`.
+  - `test` with `--bundle_psl_max_bases 1` (two bundles): `bundle.0.chain` and `bundle.1.chain` are byte-identical to the old `PSL_BUNDLE` path.
+  - hg38 chr21 × mm39 chr16, `--aligner hspz` on ZLUDA: `axtChain` output (57,729 chains), anti-repeat output (6,683) and the merged chain are byte-identical to the old code.
+    - 37 tasks instead of 65.
+    - 3.7 MB of gzipped PSL written instead of 75.6 MB of AXT plus 35.8 MB of PSL (the same 28,374 alignments).
+
 # 3.1.7
 
 Released three improvements: replaced the C `chainCleaner` with `chainc`, a Rust reimplementation that runs ~3x faster; removed two redundant dataflow passes (a full PSL merge and a full chain sort) without changing any output; and added a CI golden-comparison harness plus the bundled `test` profile to GitHub Actions.

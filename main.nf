@@ -561,7 +561,8 @@ workflow FROM_SEGMENTS {
 
     // ── 4. Chain build ─────────────────────────────────────────────────────
     CHAIN_BUILD (
-        SEGMENTS_TO_PSL.out.psl_gz,
+        Channel.empty(),
+        SEGMENTS_TO_PSL.out.psl_by_chrom,
         reference_twobit,
         reference_chrom_sizes,
         query_prepared

@@ -8,6 +8,10 @@
     Sequence inputs resolve per chromosome: a pre-extracted <chrom>.fa from
     EXTRACT_CHROMS when present (v1 .2bit, which lastz cannot read), otherwise
     the native .2bit single-contig selection (v0).
+
+    lastz streams straight into axtToPsl, as KEG_LASTZ does, so no AXT is ever
+    written. The PSL lands gzipped, one file per reference chromosome under
+    psl/<chrom>/, which CHAIN_BUILD bundles without a split pass.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -15,10 +19,9 @@ process LASTZ_SEGMENTED {
     tag "${meta.id} ${meta.reference}:${meta.query}"
     label 'process_fast'
 
-    conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/lastz:1.04.60--hab16a5f_0' :
-        'quay.io/biocontainers/lastz:1.04.60--hab16a5f_0' }"
+    conda "${projectDir}/environment.yml"
+    // The pipeline image, not a granular one: it carries lastz, axtToPsl and gzip.
+    container 'ghcr.io/hillerlab/make_lastz_chains:latest'
 
     input:
     tuple val(meta), path(segment)
@@ -26,13 +29,16 @@ process LASTZ_SEGMENTED {
     path  query_twobit
     path  reference_chroms_dir                 // dir of pre-extracted <chrom>.fa (v1) or empty (v0)
     path  query_chroms_dir
+    path  reference_chrom_sizes
+    path  query_chrom_sizes
     val   lastz_h
     val   lastz_l
     val   lastz_y
 
     output:
-    tuple val(meta.reference), val(meta.query), path("*.axt"), emit: axt
-    path  "versions.yml",                                      emit: versions
+    // optional: a segments file whose anchors all fail to extend writes no PSL.
+    tuple val(meta), path("psl/*/*.psl.gz"), emit: psl, optional: true
+    path  "versions.yml",                    emit: versions
 
     script:
     """
@@ -57,7 +63,10 @@ process LASTZ_SEGMENTED {
     fi
 
     awk -F'\\t' 'NF { print \$1 "\\t" \$4 }' ${segment} | sort -u > pairs.txt
-    mkdir -p pairs
+    mkdir -p pairs psl
+    # One PSL per reference chromosome, numbered within this task (r1, r2, ...)
+    # so names stay unique when bundles from many tasks are staged together.
+    declare -A ref_n=()
     while IFS=\$'\\t' read -r ref query; do
         safe=\$(printf '%s__%s' "\$ref" "\$query" | tr -c 'A-Za-z0-9_.-' '_')
         awk -F'\\t' -v r="\$ref" -v q="\$query" '\$1==r && \$4==q' ${segment} > "pairs/\${safe}.segments"
@@ -82,24 +91,35 @@ process LASTZ_SEGMENTED {
           --inner=${lastz_h} \\
           --ydrop=${lastz_y} \\
           --strand=\$strand \\
-          --output="pairs/\${safe}.axt" \\
-          \$refseq \$qseq
+          \$refseq \$qseq \\
+        | axtToPsl /dev/stdin ${reference_chrom_sizes} ${query_chrom_sizes} pairs/\${safe}.psl
+
+        if [ -s "pairs/\${safe}.psl" ]; then
+            if [ -z "\${ref_n[\$ref]:-}" ]; then
+                ref_n[\$ref]=\$(( \${#ref_n[@]} + 1 ))
+                mkdir -p "psl/\$ref"
+            fi
+            gzip -c "pairs/\${safe}.psl" >> "psl/\$ref/${meta.id}.r\${ref_n[\$ref]}.psl.gz"
+        fi
+        rm -f "pairs/\${safe}.psl"
     done < pairs.txt
-    cat pairs/*.axt > ${meta.id}.axt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         lastz: \$(lastz --version 2>&1 | head -1)
+        ucsc-axttopsl: \$(axtToPsl 2>&1 | grep version | awk '{print \$NF}' || echo 'N/A')
     END_VERSIONS
     """
 
     stub:
     """
-    touch ${meta.id}.axt
+    mkdir -p psl/${meta.reference}
+    echo | gzip -c > psl/${meta.reference}/${meta.id}.r1.psl.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         lastz: \$(lastz --version 2>&1 | head -1)
+        ucsc-axttopsl: 'stub'
     END_VERSIONS
     """
 }

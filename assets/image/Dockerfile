@@ -180,14 +180,12 @@ COPY --from=kent-builder /opt/kent-482/bin/ /usr/local/bin/
 
 COPY --from=ghcr.io/hillerlab/repeat_filler:latest /usr/local/bin/repeat_filler.py /usr/local/bin/repeat_filler.py
 COPY bin/partition.py /usr/local/bin/partition.py
-COPY bin/psl_bundle.py /usr/local/bin/psl_bundle.py
 COPY bin/run_keg_lastz.py /usr/local/bin/run_keg_lastz.py
 COPY bin/run_lastz.py /usr/local/bin/run_lastz.py
 COPY bin/run_lastz_intermediate_layer.py /usr/local/bin/run_lastz_intermediate_layer.py
 
 RUN chmod 0755 \
         /usr/local/bin/partition.py \
-        /usr/local/bin/psl_bundle.py \
         /usr/local/bin/repeat_filler.py \
         /usr/local/bin/run_keg_lastz.py \
         /usr/local/bin/run_lastz.py \
@@ -206,7 +204,6 @@ RUN chmod 0755 \
     && { lastz --version || test "$?" -eq 1; } \
     && repeat_filler --help >/dev/null \
     && partition.py --help >/dev/null \
-    && psl_bundle.py --help >/dev/null \
     && run_keg_lastz.py --help >/dev/null \
     && run_lastz.py --help >/dev/null \
     && run_lastz_intermediate_layer.py --help >/dev/null \

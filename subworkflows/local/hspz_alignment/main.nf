@@ -13,7 +13,7 @@ Distributed under the terms of the Apache License, Version 2.0.
          HSPZ     — GPU backend; one task for every query (--array: one
                     hspZ --query-list batch), returns segments
     3. CPU gapped extension of those segments, one executor only:
-         LASTZ_SEGMENTED → one lastZ task per partition → PSL
+         LASTZ_SEGMENTED → one lastZ task per partition → PSL per reference chrom
        Scoring matches KegAlign: lastz_k → hspZ --hspthresh, then LASTZ
        --gappedthresh/--inner/--ydrop/--strand from lastz_l/h/y + partition.
 
@@ -21,8 +21,9 @@ Distributed under the terms of the Apache License, Version 2.0.
     deliberately does not reuse PARTITION_REFERENCE / PARTITION_QUERY, and never
     repartitions or merges the .segments files it produced.
 
-    Emits: psl_gz — same (meta, psl_files) contract LASTZ_ALIGNMENT emits, so
-    CHAIN_BUILD and everything downstream cannot tell the backends apart.
+    Emits: psl_by_chrom — (meta, reference chromosome, psl.gz) per file, which
+    CHAIN_BUILD bundles directly; the CPU backends' psl_gz still goes through
+    PSLTOOLS_SPLIT first. Everything after the bundling cannot tell them apart.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -82,7 +83,7 @@ workflow HSPZ_ALIGNMENT {
     )
 
     emit:
-    psl_gz   = SEGMENTS_TO_PSL.out.psl_gz
-    versions = REFERENCE_TO_FA.out.versions
-                .mix( QUERY_TO_FA.out.versions, HSPZ.out.versions, SEGMENTS_TO_PSL.out.versions )
+    psl_by_chrom = SEGMENTS_TO_PSL.out.psl_by_chrom
+    versions     = REFERENCE_TO_FA.out.versions
+                    .mix( QUERY_TO_FA.out.versions, HSPZ.out.versions, SEGMENTS_TO_PSL.out.versions )
 }

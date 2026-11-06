@@ -66,6 +66,12 @@
                     ],
                     "fa_icon": "fas fa-copy"
                 },
+                "save_psl": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Also publish the alignment PSL (02_lastz_psl/, 02_kegalign_psl/, 02_hspz/psl/, 03_psl/) as symlinks into the work directory. Nothing in the pipeline reads them back, and on close species they can reach hundreds of GB.",
+                    "fa_icon": "fas fa-save"
+                },
                 "force_long_2bit": {
                     "type": "boolean",
                     "default": false,

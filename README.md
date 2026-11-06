@@ -202,11 +202,14 @@ LASTZ, AXT_CHAIN, REPEAT_FILLER and LASTZ_FILL run as SLURM job arrays. Partitio
               └───────────────┬────────────────┘
                               │
                        CHAIN_BUILD (identical downstream)
-              PSLTOOLS_SPLIT ─► PSL_BUNDLE ─► AXT_CHAIN ─► chainc ─► … ─► .chain.gz
+              PSLTOOLS_SPLIT ─► bundles ─► AXT_CHAIN ─► chainc ─► … ─► .chain.gz
 ```
 
 Both backends converge on the identical `psl_gz` contract, so chain building,
-filling and cleaning are unchanged.
+filling and cleaning are unchanged. `--aligner hspz` hands `CHAIN_BUILD` PSL
+that `LASTZ_SEGMENTED` already wrote per reference chromosome, so it skips
+`PSLTOOLS_SPLIT`. Bundles are planned from `chrom.sizes` without copying any
+PSL, and `AXT_CHAIN` streams each bundle's files into `axtChain`.
 
 ```bash
 # CPU LASTZ over partitioned chunks (default)
@@ -262,8 +265,8 @@ of VRAM per instance — start with 2 on a 32–40 GB GPU, try 4 only on 80 GB. 
 > `seq2_lap` are unused for those backends. The four LASTZ scoring thresholds are
 > shared: `lastz_k` → `--hspthresh` (hspZ included — do not pass `-H`, that short
 > flag is `--hspthresh` not BLASTZ inner), `lastz_l` → `--gappedthresh`,
-> `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. PSL lands in `02_kegalign_psl/`
-> or `02_hspz/psl/`.
+> `lastz_h` → `--inner`, `lastz_y` → `--ydrop`. With `--save_psl`, PSL lands in
+> `02_kegalign_psl/` or `02_hspz/psl/`.
 
 ### Big genomes (whose .2bit would exceed the v0 32-bit layout)
 
@@ -326,13 +329,12 @@ took 0.20 h and 2.7 CPU hours instead of 1.44 h and 57.5.
 results/
 ├── 00_genome_prep/      reference.2bit, query.2bit, *.chrom.sizes
 ├── 01_partition/        *_partitions.txt
-├── 02_lastz_psl/        *.psl              ← --aligner lastz
-├── 02_kegalign_psl/     *.psl              ← --aligner kegalign
+├── 02_lastz_psl/        *.psl              ← --aligner lastz, --save_psl only
+├── 02_kegalign_psl/     *.psl              ← --aligner kegalign, --save_psl only
 ├── 02_hspz/                                ← --aligner hspz
 ├─── • segments/         *.segments         ← checkpoint for --from segments
-├─── • psl/              *.psl
-├─── • axt/              *.axt
-├── 03_psl/              *.psl              ← merged per-chr psl files
+├─── • psl/              <chrom>/*.psl.gz   ← --save_psl only
+├── 03_psl/              *.psl              ← per-chr psl files (lastz, kegalign), --save_psl only
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
 ├─── • chain_antirepeat/ *.chain.gz
 ├─── • merged_chains/    *.all.chain.gz     ← checkpoint for --from fill_chains

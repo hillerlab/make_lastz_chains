@@ -8,6 +8,8 @@
     "//0a": "array: file with one query genome path per line (aligner hspz); replaces query_name/query_genome, one output dir per query",
     "array": "",
     "outdir": "./results",
+    "//0b": "save_psl: also publish the alignment PSL (02_*_psl, 02_hspz/psl, 03_psl) as symlinks into work/; nothing reads them back",
+    "save_psl": false,
     "use_container": true,
 
     "//1": "── Checkpoint entry point inputs ───────────────────────────────────────",

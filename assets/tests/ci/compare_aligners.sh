@@ -40,7 +40,7 @@ mkdir -p "$OUT"
 # ── metrics ──────────────────────────────────────────────────────────────────
 # PSL: matches=$1  qStart/qEnd=$12/$13  tStart/tEnd=$16/$17
 psl_metrics() {
-  cat "$@" 2>/dev/null | awk '
+  zcat -f "$@" 2>/dev/null | awk '
     { n++; bases += $1; ref += $17 - $16; qry += $13 - $12 }
     END { printf "%d %d %d %d\n", n+0, bases+0, ref+0, qry+0 }'
 }
@@ -76,24 +76,26 @@ run_backend() {
       -profile "$profile" \
       --aligner "$aligner" \
       --kegalign_executor "$executor" \
+      --save_psl \
       --outdir "$REPO/$results" \
       -w "assets/tests/work/nf_work_${label}" > "$OUT/${label}.log" 2>&1 \
     || { echo "!! ${label} run FAILED — see $OUT/${label}.log"; FAIL=1; return 1; }
 
   local psl_files
-  psl_files=$(find "$results" \( -path '*_psl/*.psl' -o -path '*/02_hspz/psl/*.psl' \) 2>/dev/null)
+  # PSL is published only with --save_psl; hspZ's is gzipped, one dir per reference chromosome.
+  psl_files=$(find "$results" \( -path '*_psl/*.psl' -o -path '*/02_hspz/psl/*/*.psl.gz' \) 2>/dev/null)
   if [ -z "$psl_files" ]; then
     echo "!! ${label}: no PSL published"; FAIL=1; return 1
   fi
   # shellcheck disable=SC2086  # word splitting is the point
-  if [ "$(cat $psl_files | wc -l)" -eq 0 ]; then
+  if [ "$(zcat -f $psl_files | wc -l)" -eq 0 ]; then
     echo "!! ${label}: PSL is empty"; FAIL=1; return 1
   fi
   # shellcheck disable=SC2086
   psl_metrics $psl_files > "$OUT/${label}.psl_metrics"
   # LC_ALL=C so the ordering is byte-stable regardless of the caller's locale
   # shellcheck disable=SC2086
-  cat $psl_files | LC_ALL=C sort > "$OUT/${label}.psl.norm"
+  zcat -f $psl_files | LC_ALL=C sort > "$OUT/${label}.psl.norm"
 
   local final
   final=$(find "$results/07_final" -name '*.chain.gz' 2>/dev/null | head -1)

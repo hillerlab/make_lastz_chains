@@ -77,7 +77,9 @@ workflow MAKE_LASTZ_CHAINS {
                 reference_chroms_dir,
                 query_chroms_dir
             )
-            ch_alignment_psl = HSPZ_ALIGNMENT.out.psl_gz
+            // already split by reference chromosome: no PSLTOOLS_SPLIT pass
+            ch_alignment_psl = Channel.empty()
+            ch_psl_by_chrom  = HSPZ_ALIGNMENT.out.psl_by_chrom
             ch_versions      = ch_versions.mix(HSPZ_ALIGNMENT.out.versions)
             break
 
@@ -87,6 +89,7 @@ workflow MAKE_LASTZ_CHAINS {
                 query_prepared
             )
             ch_alignment_psl = KEGALIGN_ALIGNMENT.out.psl_gz
+            ch_psl_by_chrom  = Channel.empty()
             ch_versions      = ch_versions.mix(KEGALIGN_ALIGNMENT.out.versions)
             break
 
@@ -98,6 +101,7 @@ workflow MAKE_LASTZ_CHAINS {
                 query_chroms_dir
             )
             ch_alignment_psl = LASTZ_ALIGNMENT.out.psl_gz
+            ch_psl_by_chrom  = Channel.empty()
             ch_versions      = ch_versions.mix(LASTZ_ALIGNMENT.out.versions)
             break
 
@@ -111,6 +115,7 @@ workflow MAKE_LASTZ_CHAINS {
 
     CHAIN_BUILD (
         ch_alignment_psl,
+        ch_psl_by_chrom,
         reference_twobit_val,
         reference_chrom_sz_val,
         query_prepared
