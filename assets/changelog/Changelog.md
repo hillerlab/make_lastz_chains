@@ -317,6 +317,7 @@ HLmyoMyot9A × HLmyoDau2 (two Myotis bats, hspZ path) failed at `PSL_BUNDLE`. Th
 - **slurm profile:**
   - `LASTZ_SEGMENTED` runs in job arrays: hg38 × mm39 gives 5,469 tasks, the bats 16,246.
   - `PSLTOOLS_SPLIT` writes in place (`scratch = false`), so its whole output is not copied back from scratch.
+- Deleted `modules/local/chaintools/sort` (`CHAINTOOLS_SORT`), unused since 3.1.7 dropped its only caller.
 - `assets/image/Dockerfile` no longer ships `psl_bundle.py`. The `hillerlab/containers` Dockerfile still copies it from the submodule, so drop that line when the submodule moves past this commit.
 - **Verification** (pipeline image 4.0.0-rc, Nextflow 25.10.4, old code = the previous commit):
   - `compare.sh`: all goldens match.
