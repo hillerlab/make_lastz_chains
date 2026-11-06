@@ -23,30 +23,29 @@ include { EXTRACT_CHROMS } from '../../../modules/local/extract_chroms/main'
 
 workflow PREPARE_GENOMES {
     take:
-    genome_name    // val: e.g. 'hg38'
-    genome_path    // val: path to genome file (FASTA or .2bit)
+    genome_name    // val: e.g. 'hg38', or a list of names (--array queries)
+    genome_path    // val: path to genome file (FASTA or .2bit), or a list matching genome_name
     extract_chroms // val: true/false
 
     main:
     ch_versions = Channel.empty()
 
+    // One item per genome. Names become Strings: they key per-query channels
+    // downstream, where an Integer name (--query_name 1) would never match.
+    ch_genomes = Channel
+        .fromList( [ [ genome_name ].flatten()*.toString(), [ genome_path ].flatten() ].transpose() )
+        .branch { _n, p ->
+            twobit: p.toString().endsWith('.2bit')   // already .2bit — staged directly
+            fasta:  true                              // FASTA → .2bit
+        }
+
     // Generate chrom.sizes format agnostic
-    CHROMSIZE ( Channel.of( [ genome_name, genome_path ] ) )
+    CHROMSIZE ( ch_genomes.twobit.mix( ch_genomes.fasta ) )
 
-    // Determine if the input is already a .2bit file
-    def is_twobit = genome_path.endsWith('.2bit')
+    FA_TO_TWO_BIT ( ch_genomes.fasta.map { n, p -> [ n, file(p) ] } )
+    twobit_ch = ch_genomes.twobit.map { n, p -> [ n, file(p) ] }.mix( FA_TO_TWO_BIT.out.twobit )
 
-    if (is_twobit) {
-        // Already .2bit — stage the file directly
-        twobit_ch = Channel.of( [ genome_name, file(genome_path) ] )
-    } else {
-        // Convert FASTA → .2bit
-        fa_ch = Channel.of( [ genome_name, file(genome_path) ] )
-        FA_TO_TWO_BIT ( fa_ch )
-        twobit_ch = FA_TO_TWO_BIT.out.twobit
-
-        ch_versions = ch_versions.mix(FA_TO_TWO_BIT.out.versions)
-    }
+    ch_versions = ch_versions.mix(FA_TO_TWO_BIT.out.versions)
 
     // Join twobit and chrom_sizes on genome_name
     prepared_ch = twobit_ch.join( CHROMSIZE.out.chrom_sizes )
