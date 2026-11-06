@@ -13,7 +13,8 @@ Distributed under the terms of the Apache License, Version 2.0.
     and lastz never extends across records. axtChain reads the shard FASTAs
     (-faT/-faQ) instead of reloading whole chromosomes from the .2bit for every
     gap, which was 80-91 ms of RepeatFiller's ~87 ms per gap; it also already
-    writes chains sorted by score, so chainSort is not needed.
+    writes chains sorted by score, so chainSort is not needed. Query records
+    without anchors are left out: lastz would seed them against the whole shard.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -38,15 +39,34 @@ process LASTZ_FILL {
     script:
     """
     if [ -s ${segments} ]; then
+        # A gap's mini chain must pair its own two records, as RepeatFiller's
+        # per-gap lastz does; the shared [multiple] target lets lastz pair a
+        # query with another gap's record (HLmyoMyot9A x HLmyoDau2: a 33 bp TA
+        # repeat with another gap's, and two gaps whose 38 bp sides are the
+        # same sequence, each a cross-gap mini chain FILL_SPLICE rejects).
+        # 1. Only query records that have anchors, in file order (the segments
+        #    follow it): lastz seeds an anchorless query record itself,
+        #    against every target record. A gap without an hspZ anchor has no
+        #    HSP at K, so RepeatFiller would not align it either.
+        # 2. Drop blocks whose target and query records differ: with several
+        #    target records, lastz also reports an anchor's match on another
+        #    record holding the same sequence. Each forms its own pair in
+        #    axtChain, so the gaps' own chains do not change.
+        awk -F'\\t' 'NR == FNR { keep[\$4] = 1; next }
+                     /^>/      { p = (substr(\$1, 2) in keep) }
+                     p' ${segments} ${queries} > ${shard}.anchored.q.fa
         lastz \\
           "${targets}[multiple]" \\
-          ${queries} \\
+          ${shard}.anchored.q.fa \\
           --segments=${segments} \\
           --format=axt \\
           --gappedthresh=${lastz_l} \\
           --strand=plus \\
+        | awk 'NF >= 9 && \$1 ~ /^[0-9]+\$/ { keep = (\$2 == \$5); if (!keep) dropped++ }
+               keep || /^#/
+               END { if (dropped) printf "LASTZ_FILL: dropped %d cross-gap block(s)\\n", dropped > "/dev/stderr" }' \\
           > ${shard}.axt
-        axtChain -linearGap=loose -faT -faQ ${shard}.axt ${targets} ${queries} ${shard}.mini.chain
+        axtChain -linearGap=loose -faT -faQ ${shard}.axt ${targets} ${shard}.anchored.q.fa ${shard}.mini.chain
     else
         : > ${shard}.mini.chain
     fi

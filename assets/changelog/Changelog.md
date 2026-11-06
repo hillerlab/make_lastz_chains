@@ -271,6 +271,11 @@ Genomes whose `.2bit` would exceed the v0 32-bit layout (FASTA > ~4 GB) previous
   - Unmasked low-complexity gap pairs cost O(L²) hits in hspZ (every hit is extended).
   - FILL_GAPS keeps every gap sequence of a query in memory (13.6 GB peak for hg38 × mm39).
   - `--array` runs one HSPZ_FILL per query.
+- **Fix (HLmyoMyot9A × HLmyoDau2).** `FILL_SPLICE` stopped the run on two cross-gap mini chains. Both came from `LASTZ_FILL` running a whole shard against one `[multiple]` target:
+  - lastz `--segments` seeds a query record with no anchors itself, against every target record. A 33 bp TA-repeat gap hit another gap's TA repeat (score 3003).
+  - With several target records, lastz also reports an anchor's match on another record with the same sequence: two gaps whose 38 bp sides are identical (score 3638).
+  - `LASTZ_FILL` now passes lastz only the query records that have anchors, and drops blocks whose target and query records differ before `axtChain`.
+  - Verified: `compare_fill.sh` on chr21 × chr16 is unchanged (EXACT 'TIE 1'; 531,416 vs 530,813 bp). `test_hspz` with the hspz engine still gives `d612024aa61d`. On the bats' shards 00000 and 00476 no cross-gap blocks remain and all same-gap blocks are identical, and the run completes.
 
 ### hspZ GPU count: `--hspz_gpus`
 
