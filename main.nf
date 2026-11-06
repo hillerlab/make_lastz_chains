@@ -238,9 +238,18 @@ def validateFillEngine() {
     return errors
 }
 
+// --dense_windows: satellite arrays shared by both genomes, found in the hspZ
+// anchors before lastz extends them (hspz backend and FROM_SEGMENTS only).
+def validateDenseWindows() {
+    def modes = ['off', 'report', 'filter', 'fail']
+    return modes.contains(params.dense_windows.toString()) ? [] :
+        [ "  --dense_windows must be one of ${modes.join(', ')} (got '${params.dense_windows}')" ]
+}
+
 def validateFullRun() {
     def errors = validateAligner()
     errors.addAll(validateFillEngine())
+    errors.addAll(validateDenseWindows())
     if (!params.reference_name)   errors << "  --reference_name is required"
     if (!params.reference_genome) errors << "  --reference_genome is required"
     if (params.array) {
@@ -289,6 +298,7 @@ def validateFromChainAntirepeat() {
 
 def validateFromSegments() {
     def errors = validateAliasBase()
+    errors.addAll(validateDenseWindows())
     if (!params.segments_path) errors << "  --segments_path is required (path to dir with *.segments)"
     if (errors) {
         log.error "Parameter validation failed:\n${errors.join('\n')}"
@@ -371,7 +381,7 @@ workflow FULL_RUN {
 
       Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.array ? "${queries.size()} queries from ${params.array} (one hspZ --query-list batch)" : "${params.query_name}   (${params.query_genome})"}
-      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}${params.aligner == 'hspz' ? " (${params.hspz_gpus} GPU${params.hspz_gpus.toString() == '1' ? '' : 's'})" : ''}${params.aligner == 'lastz' && params.window_masking_recovery ? ' (window-masking recovery)' : ''}
+      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}${params.aligner == 'hspz' ? " (${params.hspz_gpus} GPU${params.hspz_gpus.toString() == '1' ? '' : 's'}${params.dense_windows.toString() == 'report' ? '' : ", dense windows: ${params.dense_windows}"})" : ''}${params.aligner == 'lastz' && params.window_masking_recovery ? ' (window-masking recovery)' : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
@@ -380,6 +390,9 @@ workflow FULL_RUN {
 
     if (params.window_masking_recovery && params.aligner != 'lastz') {
         log.warn "--window_masking_recovery applies to --aligner lastz only; it is ignored with --aligner ${params.aligner}"
+    }
+    if (!(params.dense_windows.toString() in ['report', 'off']) && params.aligner != 'hspz') {
+        log.warn "--dense_windows applies to --aligner hspz (and -entry FROM_SEGMENTS) only; it is ignored with --aligner ${params.aligner}"
     }
 
     CHAINS(
@@ -501,6 +514,7 @@ workflow FROM_SEGMENTS {
       Reference : ${params.reference_name}
       Query  : ${params.query_name}
       Input  : ${params.segments_path}
+      Dense  : ${params.dense_windows} (--dense_windows)
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
@@ -564,20 +578,22 @@ workflow FROM_SEGMENTS {
     )
 
     // ── 4. Chain build ─────────────────────────────────────────────────────
+    // chain_*: the inputs, or the genomes with the arrays soft-masked after
+    // --dense_windows filter found some.
     CHAIN_BUILD (
         Channel.empty(),
         SEGMENTS_TO_PSL.out.psl_by_chrom,
-        reference_twobit,
+        SEGMENTS_TO_PSL.out.chain_reference_twobit,
         reference_chrom_sizes,
-        query_prepared
+        SEGMENTS_TO_PSL.out.chain_query_prepared
     )
 
     // ── 5. Fill / clean chains ─────────────────────────────────────────────
     FILL_CLEAN_CHAINS (
         CHAIN_BUILD.out.merged_chain,
-        reference_twobit,
+        SEGMENTS_TO_PSL.out.chain_reference_twobit,
         reference_chrom_sizes,
-        query_prepared
+        SEGMENTS_TO_PSL.out.chain_query_prepared
     )
 
     // — stats — keep in sync across all entry workflows

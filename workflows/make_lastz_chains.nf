@@ -69,7 +69,8 @@ workflow MAKE_LASTZ_CHAINS {
     query_chroms_dir  = PREPARE_QUERY_GENOME.out.chroms_dir
 
     // The genomes chaining, fill and clean read: the prepared ones, unless the
-    // lastz backend's --window_masking_recovery replaced them with masked ones.
+    // lastz backend's --window_masking_recovery or the hspz backend's
+    // --dense_windows filter replaced them with masked ones.
     ch_chain_reference = reference_prepared.map { _n, tb, _cs -> tb }.first()
     ch_chain_query     = query_prepared
 
@@ -86,6 +87,9 @@ workflow MAKE_LASTZ_CHAINS {
             ch_alignment_psl = Channel.empty()
             ch_psl_by_chrom  = HSPZ_ALIGNMENT.out.psl_by_chrom
             ch_versions      = ch_versions.mix(HSPZ_ALIGNMENT.out.versions)
+            // --dense_windows filter: the genomes with the arrays soft-masked
+            ch_chain_reference = HSPZ_ALIGNMENT.out.chain_reference_twobit
+            ch_chain_query     = HSPZ_ALIGNMENT.out.chain_query_prepared
             break
 
         case 'kegalign':

@@ -297,6 +297,45 @@ species (e.g. two *Myotis* bats).
 nextflow run main.nf -params-file params.json -profile docker --aligner lastz --window_masking_recovery true
 ```
 
+### Very close species: `--dense_windows` (hspZ)
+
+On the hspZ path lastz never overflows, because each task gets at most ~50k
+anchors. It slows down instead: in a shared satellite array every anchor sits on
+its own tandem diagonal and costs a ~34 kb extension. On two *Myotis* bats,
+LASTZ_SEGMENTED needed ~4,770 CPU h, almost all of it in a handful of arrays.
+
+Before lastz starts, `DENSE_WINDOWS` reads hspZ's anchors in two steps:
+
+1. **Trigger.** A 100 kb × 100 kb block (one reference chromosome × one query
+   chromosome × one strand) holds ≥ 100k anchors. hg38 × mm39 peaks at 13.6k
+   anchors per block; *Myotis* pairs at 1.5–3.4 M. Without a trigger, nothing
+   else happens and the run is unchanged.
+2. **Regions.** Anchors are counted per 10 kb window along each genome, summed
+   over every partner chromosome. A window with ≥ 100k anchors seeds a region,
+   which grows through adjacent windows with ≥ 10k. Summing over partners
+   catches arrays whose anchors are spread too thin for any one block.
+
+| `--dense_windows` | when triggered |
+|---|---|
+| `report` (default) | warn, and publish the report and the regions in `02_hspz/dense_windows/` |
+| `filter` | drop the anchors inside the regions; chaining, fill and clean read the genomes with the regions soft-masked (`*.dense.2bit`, published there too) |
+| `fail` | stop before any lastz job starts |
+| `off` | skip the scan |
+
+On HLmyoMyot9A × HLmyoDau2, the scan takes 4–8 min on 16 cores. It flags 75 + 72
+regions (5.2 + 5.6 Mb), and `filter` keeps 33.2 M of 346.8 M anchors, about as many
+as hspZ finds with the regions soft-masked beforehand. With `filter`,
+LASTZ_SEGMENTED needed 51.5 CPU h instead of ~4,770 (longest task 35 min), and
+the whole run (`--from segments`, SLURM) took 2 h 23 min and 72 CPU h. Its final
+chains are within 0.3% of a run on the pre-masked genomes. On the CPU path, the
+same regions cover all 17 jobs that overflowed lastz in the old pipeline's run,
+and each of them finished once the regions were masked.
+Recommended: `filter` for very close species. It also applies to `--from segments`.
+
+```bash
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz --dense_windows filter
+```
+
 ### Big genomes (whose .2bit would exceed the v0 32-bit layout)
 
 | backend    | reference ≤ ~16 Gbp, query < 6 GB | bigger than that |
@@ -362,6 +401,7 @@ results/
 ├── 02_kegalign_psl/     *.psl              ← --aligner kegalign, --save_psl only
 ├── 02_hspz/                                ← --aligner hspz
 ├─── • segments/         *.segments         ← checkpoint for --from segments
+├─── • dense_windows/    *.dense_windows.tsv, regions *.bed, *.dense.2bit  ← --dense_windows
 ├─── • psl/              <chrom>/*.psl.gz   ← --save_psl only
 ├── 03_psl/              *.psl              ← per-chr psl files (lastz, kegalign), --save_psl only
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat

@@ -341,6 +341,56 @@ recovered them: it added `windowmaskerSdust` to both genomes and re-ran each job
     - genome-wide WindowMasker + sdust takes 18 min per genome and covers ~84% of the satellite arrays;
     - the 25 masked sub-jobs take at most 1.7 min each, and the run completes.
 
+### Shared satellite arrays on the hspZ path: `--dense_windows`
+
+On the hspZ path the same bat arrays cost time instead of failing: hspZ hands lastz at most ~50k anchors per task,
+and each anchor in an array costs a ~34 kb extension. LASTZ_SEGMENTED needed ~4,770 CPU h for HLmyoMyot9A ×
+HLmyoDau2; one 100 kb × 100 kb box (SUPER_13 × NC_081852) took 3,807 h of it.
+
+- **`DENSE_WINDOWS`** (`bin/dense_windows.py`, one task per query, in `SEGMENTS_TO_PSL` before `LASTZ_SEGMENTED`)
+  reads all of the query's segments in two steps:
+  - Trigger: a 100 kb × 100 kb block (reference chromosome × query chromosome × strand) with ≥ 100k anchors.
+    hg38 × mm39 peaks at 13,581, the three *Myotis* pairs at 1.46–3.42 M. Without one, nothing else happens.
+  - Regions: anchors per 10 kb window along each genome, summed over all partner chromosomes. A window with ≥ 100k
+    seeds a region, which grows through adjacent windows with ≥ 10k. Regions at most 2 windows apart are joined.
+    - The block alone would miss arrays whose anchors are spread thin. Three of the 17 jobs that overflowed CPU lastz
+      in the old bat run have no block over 82k but 77–143 blocks over 10k.
+    - The windows alone would touch hg38 × mm39 (43 windows, 1.6% of its anchors), where nothing is wrong.
+  - Minus-strand query positions count from the chromosome end in `.segments`; they are mirrored to forward
+    coordinates first.
+- **`--dense_windows`**: `report` (default) warns and publishes `<ref>.<query>.dense_windows.tsv` and the regions as
+  BED in `02_hspz/dense_windows/`. `filter` drops the anchors whose reference or query position lies in a region,
+  close to what soft-masking the regions before hspZ gives. `fail` stops before any lastz job. `off` skips the scan.
+  - With `filter`, `MASK_GENOME` (now taking several BEDs and `ext.suffix`) soft-masks the regions into the genomes
+    the later steps read (`DENSE_MASK_QUERY` per query, `DENSE_MASK_REFERENCE` with the union over queries). These are
+    published as `*.dense.2bit`. `SEGMENTS_TO_PSL` emits them as `chain_reference_twobit` and `chain_query_prepared`,
+    so both `--aligner hspz` and `--from segments` pass them to chaining, fill and clean.
+  - `filter` and `fail` hold lastz until the scan has finished. `report` holds nothing. A query without a trigger
+    keeps its own segment files and genomes in every mode.
+- **Verification:**
+  - HLmyoMyot9A × HLmyoDau2's unmasked hspZ run (346.8 M anchors, 16,246 files): 3.6 min on 16 cores. Densest
+    block 3,147,829 anchors, 499 blocks ≥ 100k. The 75 + 72 regions are byte-identical to the mask that let all 17
+    overflowing CPU lastz jobs finish. 33,167,718 anchors are kept, against the 33.2 M hspZ found on the genomes
+    masked beforehand.
+  - hg38 × mm39 (29.0 M anchors): 6.6 s, densest block 13,581, not triggered.
+  - Fixture (`test_segments`): `off`, `report` and an untriggered `filter` give the same final chain. With the
+    thresholds lowered to force a trigger:
+    - `report` leaves the chains unchanged;
+    - `filter` sends LASTZ_SEGMENTED the kept anchors on the original genomes, and AXT_CHAIN, anti-repeat,
+      RepeatFiller and chainCleaner the `*.dense.2bit` genomes;
+    - `fail` stops with the regions published and no lastz job started.
+  - End to end on Delta (SLURM, `--from segments` from the unmasked hspZ run, `--dense_windows filter`,
+    `--repeat_filler_engine hspz`): rc 0, 2 h 23 min wall, 72.3 CPU h allocated over all steps.
+    - DENSE_WINDOWS: 7.6 min on 16 cores, same report as above. The `*.dense.2bit` genomes are byte-identical
+      (twoBitToFa md5) to the genomes masked by hand for the re-run.
+    - LASTZ_SEGMENTED: 5,155 tasks, 51.5 CPU h, longest 34.5 min, against ~4,770 CPU h unfiltered. All 5,155
+      partitions passed the integrity check.
+    - Final chains, against the re-run with the regions masked before hspZ: 16,095,848 vs 16,142,386 chains (−0.29%),
+      aligned bp −0.13%, score sum −0.16%, largest chain identical to 0.00%. Dropping anchors after hspZ is close to
+      running hspZ on the masked genomes but not the same, so the chains aren't byte-identical.
+  - The 17 CPU lastz jobs that overflowed in the old bat run, re-run alone on the genomes with the regions masked: all
+    17 finish without overflow. Sixteen take 1–26 min; SUPER_15 × NC_081854 takes 5.0 h (498k alignments).
+
 ### PSL step: no AXT, no split pass for hspZ, no bundle copies
 
 HLmyoMyot9A × HLmyoDau2 (two Myotis bats, hspZ path) failed at `PSL_BUNDLE`. The run had written 5.2 TB of AXT, then 502 GB of PSL, and split that into 502 GB of per-chromosome PSL. SUPER_13's 406 GB file then ran `psl_bundle.py` out of memory, because it read each file whole. Every byte between `lastz` and `axtChain` was written two or three times, and on SLURM's BeeGFS scratch it was copied back once more.

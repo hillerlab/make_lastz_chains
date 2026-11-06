@@ -12,6 +12,8 @@
     "save_psl": false,
     "//0c": "window_masking_recovery (--aligner lastz): re-run LASTZ jobs that overflow lastz's anchor table with WindowMasker + sdust masking, split 5x5; recommended for very close species",
     "window_masking_recovery": false,
+    "//0d": "dense_windows (--aligner hspz): report|filter|fail|off for satellite arrays shared by both genomes, found in hspZ's anchors before lastz; filter drops their anchors and soft-masks them downstream; recommended filter for very close species",
+    "dense_windows": "report",
     "use_container": true,
 
     "//1": "── Checkpoint entry point inputs ───────────────────────────────────────",

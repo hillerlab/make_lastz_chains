@@ -21,9 +21,14 @@ Distributed under the terms of the Apache License, Version 2.0.
     deliberately does not reuse PARTITION_REFERENCE / PARTITION_QUERY, and never
     repartitions or merges the .segments files it produced.
 
+    Before the extension, SEGMENTS_TO_PSL's DENSE_WINDOWS looks for satellite
+    arrays shared by both genomes (--dense_windows, default report).
+
     Emits: psl_by_chrom — (meta, reference chromosome, psl.gz) per file, which
     CHAIN_BUILD bundles directly; the CPU backends' psl_gz still goes through
     PSLTOOLS_SPLIT first. Everything after the bundling cannot tell them apart.
+    chain_reference_twobit / chain_query_prepared — the genomes chaining, fill
+    and clean read (masked after --dense_windows filter found arrays).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -83,7 +88,9 @@ workflow HSPZ_ALIGNMENT {
     )
 
     emit:
-    psl_by_chrom = SEGMENTS_TO_PSL.out.psl_by_chrom
-    versions     = REFERENCE_TO_FA.out.versions
+    psl_by_chrom           = SEGMENTS_TO_PSL.out.psl_by_chrom
+    chain_reference_twobit = SEGMENTS_TO_PSL.out.chain_reference_twobit   // --dense_windows filter may mask it
+    chain_query_prepared   = SEGMENTS_TO_PSL.out.chain_query_prepared
+    versions               = REFERENCE_TO_FA.out.versions
                     .mix( QUERY_TO_FA.out.versions, HSPZ.out.versions, SEGMENTS_TO_PSL.out.versions )
 }

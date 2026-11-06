@@ -1,13 +1,16 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    MASK_GENOME — the genome with WindowMasker + sdust added to its own
-    soft-masking (the union, like twoBitMask -add), for --window_masking_recovery.
+    MASK_GENOME — the genome with BED intervals added to its own soft-masking
+    (the union, like twoBitMask -add). Several BEDs are merged.
 
-    Runs only when a LASTZ job overflowed. As in the old Hiller lab pipeline, the
-    masked genome then replaces the original for the re-run jobs and for every
-    later step (chaining, anti-repeat, fill, clean). The .2bit keeps the
-    original's format: v1 (-long) stays v1.
-    Output: <name>.wmsdust.2bit
+    --window_masking_recovery (WindowMasker + sdust): runs only when a LASTZ job
+    overflowed. As in the old Hiller lab pipeline, the masked genome then
+    replaces the original for the re-run jobs and for every later step
+    (chaining, anti-repeat, fill, clean).
+    --dense_windows filter (DENSE_MASK_*, ext.suffix 'dense'): the shared
+    satellite arrays DENSE_WINDOWS found, for the steps after LASTZ_SEGMENTED.
+    The .2bit keeps the original's format: v1 (-long) stays v1.
+    Output: <name>.<ext.suffix, default wmsdust>.2bit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -19,13 +22,14 @@ process MASK_GENOME {
     container 'ghcr.io/hillerlab/make_lastz_chains:latest'
 
     input:
-    tuple val(genome_name), path(twobit), path(mask_bed)
+    tuple val(genome_name), path(twobit), path(mask_bed)             // one BED, or a list
 
     output:
-    tuple val(genome_name), path("${genome_name}.wmsdust.2bit"), emit: twobit
-    path "versions.yml",                                         emit: versions
+    tuple val(genome_name), path("${genome_name}.*.2bit"), emit: twobit
+    path "versions.yml",                                   emit: versions
 
     script:
+    def suffix = task.ext.suffix ?: 'wmsdust'
     """
     # Bytes 0-3 are the signature 0x1A412743 (their order gives the endianness),
     # bytes 4-7 the version: 1 means the 64-bit (-long) layout.
@@ -37,8 +41,9 @@ process MASK_GENOME {
     esac
     long=\$([ "\$ver" -eq 1 ] && echo -long || true)
 
-    twoBitToFa ${twobit} stdout | soft_mask_fasta.py ${mask_bed} > masked.fa
-    faToTwoBit \$long masked.fa ${genome_name}.wmsdust.2bit
+    cat ${mask_bed} > mask_genome.union.bed
+    twoBitToFa ${twobit} stdout | soft_mask_fasta.py mask_genome.union.bed > masked.fa
+    faToTwoBit \$long masked.fa ${genome_name}.${suffix}.2bit
     rm -f masked.fa
 
     cat <<-END_VERSIONS > versions.yml
@@ -48,8 +53,9 @@ process MASK_GENOME {
     """
 
     stub:
+    def suffix = task.ext.suffix ?: 'wmsdust'
     """
-    cp ${twobit} ${genome_name}.wmsdust.2bit
+    cp ${twobit} ${genome_name}.${suffix}.2bit
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

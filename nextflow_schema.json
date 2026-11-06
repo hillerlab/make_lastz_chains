@@ -72,6 +72,18 @@
                     "description": "--aligner lastz: when a LASTZ job overflows lastz's anchor table (an unmasked satellite array shared by very close species), add genome-wide WindowMasker + sdust masking and re-run that job split 5x5, as the old Hiller lab pipeline did. Jobs that never overflow are untouched. Recommended for very close species.",
                     "fa_icon": "fas fa-mask"
                 },
+                "dense_windows": {
+                    "type": "string",
+                    "default": "report",
+                    "description": "--aligner hspz and -entry FROM_SEGMENTS: look in hspZ's anchors for satellite arrays shared by both genomes before lastz extends them. Trigger: a 100 kb x 100 kb block with >= 100k anchors (hg38 x mm39 peaks at 13.6k); regions: 10 kb windows along each genome with >= 100k anchors, grown through >= 10k. report: warn and publish the regions (02_hspz/dense_windows/); filter: drop the anchors inside the regions and soft-mask them for chaining, fill and clean; fail: stop before lastz; off: skip. Without a trigger nothing changes. Recommended: filter for very close species.",
+                    "enum": [
+                        "report",
+                        "filter",
+                        "fail",
+                        "off"
+                    ],
+                    "fa_icon": "fas fa-th"
+                },
                 "save_psl": {
                     "type": "boolean",
                     "default": false,
