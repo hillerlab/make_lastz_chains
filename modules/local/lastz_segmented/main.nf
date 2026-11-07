@@ -44,8 +44,13 @@ process LASTZ_SEGMENTED {
     """
     # lastz's 2bit loader concatenates every sequence of a [multiple] file into
     # one buffer capped at 2^31-11 bp, which whole-genome 2bits overflow. The
-    # segments file names its sequences, so run one lastz per (reference,
-    # query) chromosome pair with single-contig selection instead.
+    # segments file names its sequences, so run one lastz per reference
+    # chromosome (single-contig selection) with all of its queries in one FASTA,
+    # in pairs.txt order, which writes the same PSL lines as one lastz per
+    # (reference, query) pair. That per-pair loop re-read the reference
+    # chromosome and the query 2bit's index once per pair: on a fragmented
+    # assembly (2.07 M scaffolds) one task held 4,845 pairs and read 393 GB in
+    # 4 h; per reference it reads 0.45 GB in 14 s.
     #
     # Strand, L, H, Y and traceback match KegAlign's generated LASTZ commands
     # (run_keg_lastz.py / lastz-commands.txt). lastz_l is gappedthresh; lastz_h
@@ -67,9 +72,15 @@ process LASTZ_SEGMENTED {
     # One PSL per reference chromosome, numbered within this task (r1, r2, ...)
     # so names stay unique when bundles from many tasks are staged together.
     declare -A ref_n=()
-    while IFS=\$'\\t' read -r ref query; do
-        safe=\$(printf '%s__%s' "\$ref" "\$query" | tr -c 'A-Za-z0-9_.-' '_')
-        awk -F'\\t' -v r="\$ref" -v q="\$query" '\$1==r && \$4==q' ${segment} > "pairs/\${safe}.segments"
+    awk -F'\\t' '!seen[\$1]++ { print \$1 }' pairs.txt > refs.txt
+    while IFS= read -r ref; do
+        safe=\$(printf '%s' "\$ref" | tr -c 'A-Za-z0-9_.-' '_')
+        awk -F'\\t' -v r="\$ref" '\$1==r { print \$2 }' pairs.txt > "pairs/\${safe}.queries"
+        # This reference's anchors, grouped by query in pairs.txt order (file order
+        # within a query), so lastz goes through them as the per-pair loop did.
+        awk -F'\\t' -v r="\$ref" 'NR==FNR { o[\$1] = NR; next } \$1==r { print o[\$4] "\\t" FNR "\\t" \$0 }' \\
+            "pairs/\${safe}.queries" ${segment} \\
+            | sort -t\$'\\t' -k1,1n -k2,2n | cut -f3- > "pairs/\${safe}.segments"
 
         # Pre-extracted per-chrom FASTA wins (v1 .2bit is unreadable by lastz);
         # otherwise the v0 .2bit single-contig selection, as before.
@@ -78,10 +89,27 @@ process LASTZ_SEGMENTED {
         else
             refseq="${reference_twobit}/\${ref}"
         fi
-        if [ -s "${query_chroms_dir}/\${query}.fa" ]; then
-            qseq="${query_chroms_dir}/\${query}.fa"
+        if [ "\$(wc -l < "pairs/\${safe}.queries")" -eq 1 ]; then
+            query=\$(cat "pairs/\${safe}.queries")
+            if [ -s "${query_chroms_dir}/\${query}.fa" ]; then
+                qseq="${query_chroms_dir}/\${query}.fa"
+            else
+                qseq="${query_twobit}/\${query}"
+            fi
         else
-            qseq="${query_twobit}/\${query}"
+            # Several queries: one FASTA, in pairs.txt order.
+            all_fa=1
+            while IFS= read -r q; do
+                [ -s "${query_chroms_dir}/\${q}.fa" ] || { all_fa=0; break; }
+            done < "pairs/\${safe}.queries"
+            if [ "\$all_fa" = 1 ]; then
+                while IFS= read -r q; do
+                    cat "${query_chroms_dir}/\${q}.fa"
+                done < "pairs/\${safe}.queries" > "pairs/\${safe}.fa"
+            else
+                twoBitToFa -seqList="pairs/\${safe}.queries" ${query_twobit} "pairs/\${safe}.fa"
+            fi
+            qseq="pairs/\${safe}.fa"
         fi
         lastz \\
           --segments="pairs/\${safe}.segments" \\
@@ -95,14 +123,12 @@ process LASTZ_SEGMENTED {
         | axtToPsl /dev/stdin ${reference_chrom_sizes} ${query_chrom_sizes} pairs/\${safe}.psl
 
         if [ -s "pairs/\${safe}.psl" ]; then
-            if [ -z "\${ref_n[\$ref]:-}" ]; then
-                ref_n[\$ref]=\$(( \${#ref_n[@]} + 1 ))
-                mkdir -p "psl/\$ref"
-            fi
-            gzip -c "pairs/\${safe}.psl" >> "psl/\$ref/${meta.id}.r\${ref_n[\$ref]}.psl.gz"
+            ref_n[\$ref]=\$(( \${#ref_n[@]} + 1 ))
+            mkdir -p "psl/\$ref"
+            gzip -c "pairs/\${safe}.psl" > "psl/\$ref/${meta.id}.r\${ref_n[\$ref]}.psl.gz"
         fi
-        rm -f "pairs/\${safe}.psl"
-    done < pairs.txt
+        rm -f "pairs/\${safe}".*
+    done < refs.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
