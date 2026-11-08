@@ -84,6 +84,13 @@
                     ],
                     "fa_icon": "fas fa-th"
                 },
+                "mask_reference_regions_bed": {
+                    "type": "string",
+                    "format": "file-path",
+                    "default": "",
+                    "description": "--aligner hspz and -entry FROM_SEGMENTS: BED of reference regions whose hspZ anchors are dropped before lastz in every --dense_windows mode (also off), triggered or not; chaining, fill and clean read the reference with them soft-masked. For satellite arrays whose anchors are too sparse to trigger --dense_windows while lastz extends each of them through megabases of soft-masked satellite (hs1 HSat3 on chr15 and chrY against elephants: 8 h lastz jobs). The dropped regions are published in 02_hspz/dense_windows/ as *.mask_reference.bed.",
+                    "fa_icon": "fas fa-mask"
+                },
                 "save_psl": {
                     "type": "boolean",
                     "default": false,

@@ -391,6 +391,43 @@ HLmyoDau2; one 100 kb × 100 kb box (SUPER_13 × NC_081852) took 3,807 h of it.
   - The 17 CPU lastz jobs that overflowed in the old bat run, re-run alone on the genomes with the regions masked: all
     17 finish without overflow. Sixteen take 1–26 min; SUPER_15 × NC_081854 takes 5.0 h (498k alignments).
 
+### Known satellite arrays of the reference: `--mask_reference_regions_bed`
+
+On hs1 (T2T-CHM13v2.0), elephants and a rodent ran LASTZ jobs that timed out at 1 h, 4 h and 8 h. HLloxAfr5A spent
+about 950 CPU h in LASTZ_SEGMENTED, against 40–70 for other mammals. All of the slow jobs sit in hs1's HSat3
+arrays (chr15:4.7–10.5 Mb on the short arm, chrY:26–63 Mb). These are 97.5% soft-masked, but hspZ seeds in their
+unmasked islands, and lastz then extends each anchor through megabases of lowercase satellite. Single alignments ran
+1.7 Mb before lastz's traceback memory cut them off. `--dense_windows` never triggered: the anchors are sparse (the
+densest block holds 28k against a threshold of 100k), even though each extension is enormous.
+
+- **`--mask_reference_regions_bed`** (default `""`, off): a BED of reference regions.
+  - In every `--dense_windows` mode (also `off`), triggered or not, `DENSE_WINDOWS` drops the anchors whose
+    reference span overlaps a region (exact bp, merged intervals).
+  - It writes every file to `kept/`, plus `<ref>.<query>.mask_reference.bed` (the BED, plus the found regions with
+    `filter`) and `.mask_query.bed`. `DENSE_MASK_REFERENCE` soft-masks the reference that chaining, fill and clean
+    read; `DENSE_MASK_QUERY` runs only when the query side has regions.
+  - `dense_windows.py` takes `--mask-reference-bed`, and `--mode off` (no scan, only the BED). The report adds
+    `anchors_in_mask`, `anchors_kept` and the BED's size. Without the BED, its outputs are byte-identical to the
+    previous commit in every mode.
+  - Alignments that start outside a region can still extend into it, as with `--dense_windows filter`.
+- **hs1 BED** (campaign): HSat1A, HSat1B, HSat2, HSat3, beta-satellite and rDNA from `chm13v2.0_censat_v2.1.bed`,
+  merged (315 intervals, 145.3 Mb). Alpha satellite is left out: against seven non-primate mammals it holds
+  0.001–0.005% of the anchors. The `ct` transition regions hold 4–13% and are ordinary sequence.
+- **Verification:**
+  - `test_segments`, no BED: all 8 published outputs are identical to the previous commit (final chain
+    `e46056e91894`). With a BED over `mock1r:20000-40000`, `off`, `report` and `filter` each drop exactly the 35 of 73
+    anchors an independent count finds, and they give the same final chain (`04f702dc4180`). AXT_CHAIN and the
+    anti-repeat step read `test_ref.dense.2bit`, whose masked region is all lowercase. Aligned bases inside the
+    region fall from 20,629 to 6,128.
+  - Delta, real hspZ output with the hs1 BED: HLloxAfr5A drops 20.0 M of 62.3 M anchors (32.2%) in 41 s on 16
+    cores, and 1,723 of 10,263 segment files lose every anchor. HLvulVul3 drops 1.9%. The six HLloxAfr5A LASTZ jobs
+    that had run more than 4.8 h each on their third attempt lose every anchor.
+  - End to end on Delta (`--from segments` from HLloxAfr5A's hspZ run, the campaign's settings with
+    `--dense_windows filter`, SLURM, pipeline image 4.0.0-rc2): rc 0, 1.11 h wall, 102.4 CPU h allocated over all
+    steps. LASTZ_SEGMENTED ran 8,540 tasks with none retried: 85.6 CPU h, longest 9 min, p99 2.4 min. The production
+    run without the BED had 288 jobs time out at 1 h and 72 at 4 h, and was still running after 13 h (about 950 CPU
+    h of LASTZ so far). Final chains: 15.9 M, largest 82.9 Mb aligned, and 0.03 Mb of aligned bases inside the BED.
+
 ### PSL step: no AXT, no split pass for hspZ, no bundle copies
 
 HLmyoMyot9A × HLmyoDau2 (two Myotis bats, hspZ path) failed at `PSL_BUNDLE`. The run had written 5.2 TB of AXT, then 502 GB of PSL, and split that into 502 GB of per-chromosome PSL. SUPER_13's 406 GB file then ran `psl_bundle.py` out of memory, because it read each file whole. Every byte between `lastz` and `axtChain` was written two or three times, and on SLURM's BeeGFS scratch it was copied back once more.

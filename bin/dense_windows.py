@@ -23,18 +23,31 @@ before hspZ gives (bats: 33.2 M of 346.8 M anchors kept; hspZ on the masked
 genomes found 33.2 M). Minus-strand query positions count from the chromosome
 end and are mirrored first.
 
+--mask-reference-bed (--mask_reference_regions_bed) names reference regions to
+drop in every mode, found or not: an anchor whose reference span overlaps one is
+dropped, and the regions are written out for soft-masking. It is for arrays that
+the trigger misses because their anchors are sparse, while lastz extends each of
+them through megabases of soft-masked satellite: hs1's HSat3 on chr15 against
+elephants peaks at 28k anchors per block, and its lastz jobs ran 8 h. --mode off
+then skips the scan and only drops the BED's anchors.
+
 Input: a directory of hspZ .segments (8 tab columns, 1-based inclusive; the
 strand comes from '.plus'/'.minus' in the file name, else column 7).
 
 Output:
   <prefix>.dense_windows.tsv          key/value report (always)
   <prefix>.reference.bed, .query.bed  regions, 0-based half-open (when triggered)
-  <out>/<file name>                   kept anchors (--mode filter, when triggered;
-                                      a file left empty is not written)
+  <prefix>.mask_reference.bed,        what was dropped and is to be soft-masked:
+  <prefix>.mask_query.bed             the BED, plus the regions with --mode filter
+                                      (with --mask-reference-bed)
+  <out>/<file name>                   kept anchors (--mode filter when triggered,
+                                      or --mask-reference-bed; a file left empty
+                                      is not written)
 Prints 'yes' (triggered) or 'no' on stdout.
 """
 
 import argparse
+import bisect
 import collections
 import multiprocessing as mp
 import os
@@ -105,18 +118,35 @@ def count(paths):
     return n, blocks, rwin, qwin
 
 
+def in_mask(t, ts, line):
+    """Whether the anchor's reference span [ts, end) overlaps a --mask-reference-bed interval."""
+    iv = G["mask"].get(t)
+    if iv is None:
+        return False
+    starts, ends = iv
+    te = int(line.split("\t", 3)[2])  # 1-based inclusive end = 0-based exclusive end
+    i = bisect.bisect_right(starts, te - 1) - 1
+    return i >= 0 and ends[i] > ts
+
+
 def sift(paths):
-    """Pass 2: anchors inside the regions; with an output dir, write the others."""
+    """Pass 2: anchors inside the regions; with an output dir, write the others.
+    With --mask-reference-bed, anchors overlapping it are dropped first (masked)."""
     rflag, qflag, ws, out = G["rflag"], G["qflag"], G["window"], G["out"]
+    masking = bool(G.get("mask"))
     empty = frozenset()
-    n = dropped = written = 0
+    n = dropped = masked = written = 0
     for p in paths:
         fh_out = None
         for t, ts, q, qs, _strand, line in anchors(p):
             n += 1
+            if masking and in_mask(t, ts, line):
+                masked += 1
+                continue
             if ts // ws in rflag.get(t, empty) or qs // ws in qflag.get(q, empty):
                 dropped += 1
-                continue
+                if G["drop_regions"]:
+                    continue
             if out:
                 if fh_out is None:
                     fh_out = open(os.path.join(out, os.path.basename(p)), "w")
@@ -124,7 +154,7 @@ def sift(paths):
                 fh_out.write(line)
         if fh_out is not None:
             fh_out.close()
-    return n, dropped, written
+    return n, dropped, masked, written
 
 
 def batches(paths, k):
@@ -169,6 +199,47 @@ def write_bed(path, ivs):
                 fh.write(f"{c}\t{s}\t{e}\n")
 
 
+def read_bed(path, sizes):
+    """Merged BED intervals per reference chromosome, clipped to its size: {chrom: [(start, end)]},
+    and the number of intervals on chromosomes the reference does not have."""
+    raw, unknown = collections.defaultdict(list), 0
+    with open(path) as fh:
+        for line in fh:
+            f = line.split()
+            if len(f) < 3 or f[0] in ("track", "browser") or f[0].startswith("#"):
+                continue
+            if f[0] not in sizes:
+                unknown += 1
+                continue
+            s, e = max(0, int(f[1])), min(int(f[2]), sizes[f[0]])
+            if e > s:
+                raw[f[0]].append((s, e))
+    merged = {}
+    for c, v in raw.items():
+        out = []
+        for s, e in sorted(v):
+            if out and s <= out[-1][1]:
+                out[-1] = (out[-1][0], max(out[-1][1], e))
+            else:
+                out.append((s, e))
+        merged[c] = out
+    return merged, unknown
+
+
+def union(a, b):
+    """Union of two {chrom: [(start, end)]} interval sets, merged."""
+    out = {}
+    for c in set(a) | set(b):
+        ivs = []
+        for s, e in sorted(a.get(c, []) + b.get(c, [])):
+            if ivs and s <= ivs[-1][1]:
+                ivs[-1] = (ivs[-1][0], max(ivs[-1][1], e))
+            else:
+                ivs.append((s, e))
+        out[c] = ivs
+    return out
+
+
 def flags(ivs, window):
     return {c: frozenset(b for s, e in v for b in range(s // window, (e - 1) // window + 1)) for c, v in ivs.items()}
 
@@ -176,7 +247,9 @@ def flags(ivs, window):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("segments", help="directory of .segments files")
-    ap.add_argument("--mode", choices=["report", "filter", "fail"], default="report")
+    ap.add_argument("--mode", choices=["off", "report", "filter", "fail"], default="report",
+                    help="off: no scan, only --mask-reference-bed")
+    ap.add_argument("--mask-reference-bed", help="reference regions (BED) whose anchors are always dropped")
     ap.add_argument("--reference-sizes", required=True)
     ap.add_argument("--query-sizes", required=True)
     ap.add_argument("--prefix", required=True)
@@ -205,8 +278,40 @@ def main():
     }
     threads = max(1, a.threads)
     work = batches(paths, threads * 4)
+    if a.mask_reference_bed:
+        return main_masked(a, paths, work, threads, state, rsizes, qsizes, rnames, qnames)
+    if a.mode == "off":
+        sys.exit("dense_windows.py: --mode off only applies --mask-reference-bed")
 
     # Pass 1: counts.
+    n, blocks, rwin, qwin = scan(work, threads, state)
+    report, triggered = verdict(a, paths, n, blocks, rnames, qnames)
+    del blocks
+
+    if triggered:
+        rivs = regions(rwin, rnames, rsizes, a)
+        qivs = regions(qwin, qnames, qsizes, a)
+        write_bed(f"{a.prefix}.reference.bed", rivs)
+        write_bed(f"{a.prefix}.query.bed", qivs)
+        out = a.out if a.mode == "filter" else None
+        if out:
+            os.makedirs(out, exist_ok=True)
+        state.update(rflag=flags(rivs, a.window), qflag=flags(qivs, a.window), out=out, drop_regions=True)
+        del rwin, qwin
+
+        # Pass 2: the anchors inside the regions (and, filtering, the rest written out).
+        m, dropped, _masked, written = sift_all(work, threads, state)
+        if m != n:
+            sys.exit(f"dense_windows.py: pass 2 read {m} anchors, pass 1 read {n}")
+        report += region_report(rivs, qivs, dropped, n)
+        if out:
+            report += [("anchors_kept", n - dropped), ("files_kept", written)]
+
+    finish(a, report, triggered)
+
+
+def scan(work, threads, state):
+    """Pass 1 over every file: anchors, and anchors per block and per window."""
     n = 0
     blocks, rwin, qwin = collections.Counter(), collections.Counter(), collections.Counter()
     with mp.Pool(threads, initializer=init, initargs=(state,)) as pool:
@@ -215,12 +320,23 @@ def main():
             blocks.update(b)
             rwin.update(r)
             qwin.update(q)
+    return n, blocks, rwin, qwin
 
+
+def sift_all(work, threads, state):
+    """Pass 2 over every file: anchors read, in the regions, masked, files written."""
+    m = dropped = masked = written = 0
+    with mp.Pool(threads, initializer=init, initargs=(state,)) as pool:
+        for k, d, x, w in pool.imap_unordered(sift, work):
+            m, dropped, masked, written = m + k, dropped + d, masked + x, written + w
+    return m, dropped, masked, written
+
+
+def verdict(a, paths, n, blocks, rnames, qnames):
+    """The report's scan lines and whether the densest block triggers."""
     best_key, best = max(blocks.items(), key=lambda kv: kv[1], default=(None, 0))
     dense = sum(1 for v in blocks.values() if v >= a.block_anchors)
     triggered = best >= a.block_anchors
-    del blocks
-
     report = [
         ("mode", a.mode),
         ("segments_files", len(paths)),
@@ -236,39 +352,72 @@ def main():
         where = f"{t}:{tb * a.block}-{(tb + 1) * a.block} x {q}:{qb * a.block}-{(qb + 1) * a.block} ({strand})"
         report.append(("densest_block", where))
     report += [("densest_block_anchors", best), ("dense_blocks", dense), ("triggered", "yes" if triggered else "no")]
+    return report, triggered
 
-    if triggered:
-        rivs = regions(rwin, rnames, rsizes, a)
-        qivs = regions(qwin, qnames, qsizes, a)
-        write_bed(f"{a.prefix}.reference.bed", rivs)
-        write_bed(f"{a.prefix}.query.bed", qivs)
-        out = a.out if a.mode == "filter" else None
-        if out:
-            os.makedirs(out, exist_ok=True)
-        state.update(rflag=flags(rivs, a.window), qflag=flags(qivs, a.window), out=out)
+
+def region_report(rivs, qivs, dropped, n):
+    rbp = sum(e - s for v in rivs.values() for s, e in v)
+    qbp = sum(e - s for v in qivs.values() for s, e in v)
+    return [
+        ("reference_regions", sum(map(len, rivs.values()))),
+        ("reference_regions_bp", rbp),
+        ("query_regions", sum(map(len, qivs.values()))),
+        ("query_regions_bp", qbp),
+        ("anchors_in_regions", dropped),
+        ("anchors_in_regions_pct", f"{100 * dropped / max(n, 1):.2f}"),
+    ]
+
+
+def main_masked(a, paths, work, threads, state, rsizes, qsizes, rnames, qnames):
+    """--mask-reference-bed: its anchors are dropped in every mode, the scan (unless --mode off)
+    runs as without it, and the found regions are dropped too with --mode filter. Writes the
+    kept anchors of every file, and what was dropped as mask_reference.bed / mask_query.bed."""
+    mask, unknown = read_bed(a.mask_reference_bed, rsizes)
+    report, triggered, rivs, qivs = [], False, {}, {}
+    n = None
+    if a.mode != "off":
+        n, blocks, rwin, qwin = scan(work, threads, state)
+        report, triggered = verdict(a, paths, n, blocks, rnames, qnames)
+        del blocks
+        if triggered:
+            rivs = regions(rwin, rnames, rsizes, a)
+            qivs = regions(qwin, qnames, qsizes, a)
+            write_bed(f"{a.prefix}.reference.bed", rivs)
+            write_bed(f"{a.prefix}.query.bed", qivs)
         del rwin, qwin
+    drop_regions = triggered and a.mode == "filter"
+    os.makedirs(a.out, exist_ok=True)
+    state.update(
+        rflag=flags(rivs, a.window), qflag=flags(qivs, a.window), out=a.out, drop_regions=drop_regions,
+        mask={c: ([s for s, _ in v], [e for _, e in v]) for c, v in mask.items()},
+    )
 
-        # Pass 2: the anchors inside the regions (and, filtering, the rest written out).
-        m = dropped = written = 0
-        with mp.Pool(threads, initializer=init, initargs=(state,)) as pool:
-            for k, d, w in pool.imap_unordered(sift, work):
-                m, dropped, written = m + k, dropped + d, written + w
-        if m != n:
-            sys.exit(f"dense_windows.py: pass 2 read {m} anchors, pass 1 read {n}")
+    # Pass 2: the BED's anchors are dropped; the regions' too with --mode filter.
+    m, dropped, masked, written = sift_all(work, threads, state)
+    if n is None:
+        n = m
+        report = [("mode", a.mode), ("segments_files", len(paths)), ("anchors", n)]
+    elif m != n:
+        sys.exit(f"dense_windows.py: pass 2 read {m} anchors, pass 1 read {n}")
+    if triggered:
+        report += region_report(rivs, qivs, dropped, n)
+    mask_ref = union(mask, rivs) if drop_regions else mask
+    write_bed(f"{a.prefix}.mask_reference.bed", mask_ref)
+    write_bed(f"{a.prefix}.mask_query.bed", qivs if drop_regions else {})
+    report += [
+        ("mask_reference_bed", os.path.basename(a.mask_reference_bed)),
+        ("mask_reference_regions", sum(map(len, mask.values()))),
+        ("mask_reference_regions_bp", sum(e - s for v in mask.values() for s, e in v)),
+        ("mask_reference_unknown_chrom_intervals", unknown),
+        ("anchors_in_mask", masked),
+        ("anchors_in_mask_pct", f"{100 * masked / max(n, 1):.2f}"),
+        ("anchors_kept", n - masked - (dropped if drop_regions else 0)),
+        ("files_kept", written),
+    ]
+    finish(a, report, triggered)
 
-        rbp = sum(e - s for v in rivs.values() for s, e in v)
-        qbp = sum(e - s for v in qivs.values() for s, e in v)
-        report += [
-            ("reference_regions", sum(map(len, rivs.values()))),
-            ("reference_regions_bp", rbp),
-            ("query_regions", sum(map(len, qivs.values()))),
-            ("query_regions_bp", qbp),
-            ("anchors_in_regions", dropped),
-            ("anchors_in_regions_pct", f"{100 * dropped / max(n, 1):.2f}"),
-        ]
-        if out:
-            report += [("anchors_kept", n - dropped), ("files_kept", written)]
 
+def finish(a, report, triggered):
     with open(f"{a.prefix}.dense_windows.tsv", "w") as fh:
         for k, v in report:
             fh.write(f"{k}\t{v}\n")

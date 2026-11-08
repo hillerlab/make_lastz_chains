@@ -14,6 +14,8 @@
     "window_masking_recovery": false,
     "//0d": "dense_windows (--aligner hspz): report|filter|fail|off for satellite arrays shared by both genomes, found in hspZ's anchors before lastz; filter drops their anchors and soft-masks them downstream; recommended filter for very close species",
     "dense_windows": "report",
+    "//0e": "mask_reference_regions_bed (--aligner hspz): BED of reference regions whose anchors are always dropped before lastz and soft-masked downstream (satellite arrays too sparse for dense_windows to trigger); empty: none",
+    "mask_reference_regions_bed": "",
     "use_container": true,
 
     "//1": "── Checkpoint entry point inputs ───────────────────────────────────────",

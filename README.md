@@ -336,6 +336,32 @@ Recommended: `filter` for very close species. It also applies to `--from segment
 nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz --dense_windows filter
 ```
 
+### Known satellite arrays of the reference: `--mask_reference_regions_bed` (hspZ)
+
+Some arrays never trigger `--dense_windows`. hs1's HSat3 (chr15 short arm, chrY)
+is 97.5% soft-masked, and the anchors in its unmasked islands are too sparse for
+any block to reach 100k (elephants peak at 28k). Each of them still makes lastz
+extend through megabases of soft-masked satellite: alignments of 1.7 Mb, cut off
+by lastz's traceback memory, and LASTZ jobs that time out at 1 h, 4 h and 8 h.
+
+`--mask_reference_regions_bed` names such regions on the reference. In every
+`--dense_windows` mode (also `off`), whether or not the scan triggers,
+`DENSE_WINDOWS` drops the anchors whose reference span overlaps them, and
+chaining, fill and clean read the reference with them soft-masked. The dropped
+regions are published as `*.mask_reference.bed` in `02_hspz/dense_windows/`.
+Alignments that start outside a region can still extend into it.
+
+For hs1, the T2T censat annotation's HSat1A, HSat1B, HSat2, HSat3, beta-satellite and rDNA
+arrays (315 intervals, 145 Mb) drop 20.0 M of HLloxAfr5A's 62.3 M anchors in 41 s, and every
+anchor of the six LASTZ jobs that had run more than 4.8 h. On species without the problem they
+drop 0.1–1.9%. Alpha satellite is primate-specific (0.001–0.005% of anchors against other
+mammals), so it is left out of the BED unless the query is a primate.
+
+```bash
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz \
+    --mask_reference_regions_bed hs1.satellite_arrays.bed
+```
+
 ### Big genomes (whose .2bit would exceed the v0 32-bit layout)
 
 | backend    | reference ≤ ~16 Gbp, query < 6 GB | bigger than that |
@@ -401,7 +427,7 @@ results/
 ├── 02_kegalign_psl/     *.psl              ← --aligner kegalign, --save_psl only
 ├── 02_hspz/                                ← --aligner hspz
 ├─── • segments/         *.segments         ← checkpoint for --from segments
-├─── • dense_windows/    *.dense_windows.tsv, regions *.bed, *.dense.2bit  ← --dense_windows
+├─── • dense_windows/    *.dense_windows.tsv, regions *.bed, *.dense.2bit  ← --dense_windows, --mask_reference_regions_bed
 ├─── • psl/              <chrom>/*.psl.gz   ← --save_psl only
 ├── 03_psl/              *.psl              ← per-chr psl files (lastz, kegalign), --save_psl only
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat

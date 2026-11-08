@@ -26,6 +26,10 @@ Distributed under the terms of the Apache License, Version 2.0.
       fail   — stop the run before any lastz job starts
       off    — skip it
     A query without a dense block keeps its own segments in every mode.
+    --mask_reference_regions_bed: reference regions whose anchors are dropped
+    in every mode (also off), triggered or not, and which the later steps read
+    soft-masked. Every query then waits for DENSE_WINDOWS and takes its kept
+    files.
 
     Emits: psl_by_chrom — (meta(id, query), reference chromosome, psl.gz), one
            item per file, the CHAIN_BUILD input that skips PSLTOOLS_SPLIT.
@@ -53,6 +57,9 @@ workflow SEGMENTS_TO_PSL {
 
     main:
     def dense_mode         = params.dense_windows.toString()
+    def mask_bed           = params.mask_reference_regions_bed ?
+        file(params.mask_reference_regions_bed, checkIfExists: true) : []
+    def masking            = params.mask_reference_regions_bed as boolean
     ch_versions            = Channel.empty()
     ch_query_prepared      = query_genomes.map { q, tb, cs, _d -> [ q, tb, cs ] }
     ch_extend              = ch_segments
@@ -60,7 +67,7 @@ workflow SEGMENTS_TO_PSL {
     chain_query_prepared   = ch_query_prepared
 
     // ── --dense_windows: shared satellite arrays, one task per query ────────
-    if (dense_mode != 'off') {
+    if (dense_mode != 'off' || masking) {
         DENSE_WINDOWS (
             ch_segments
                 .map { meta, segment -> [ meta.query, meta.reference, segment ] }
@@ -68,11 +75,13 @@ workflow SEGMENTS_TO_PSL {
                 .map { q, refs, segments -> [ q, refs[0], segments ] }
                 .join( query_genomes.map { q, _tb, cs, _d -> [ q, cs ] } ),
             reference_sizes,
-            dense_mode
+            dense_mode,
+            mask_bed
         )
         ch_versions = ch_versions.mix( DENSE_WINDOWS.out.versions )
 
-        // (query, triggered); the warning or error names what was found.
+        // (query, filtered): the query's segments are replaced by its kept files.
+        // The warning or error names what was found.
         ch_dense = DENSE_WINDOWS.out.status
             .join( DENSE_WINDOWS.out.report )
             .map { q, triggered, report ->
@@ -94,20 +103,30 @@ workflow SEGMENTS_TO_PSL {
                                  "clean read the genomes with the regions soft-masked."
                     }
                 }
-                [ q, triggered == 'yes' ]
+                if (masking) {
+                    def r = report.readLines().collectEntries { l -> def f = l.split('\t', 2); [ (f[0]): f[1] ] }
+                    log.info "mask_reference_regions_bed: ${q}: ${r.anchors_in_mask} anchors (${r.anchors_in_mask_pct}%) " +
+                             "in ${r.mask_reference_regions} regions (${r.mask_reference_regions_bp} bp) of ${r.mask_reference_bed} dropped"
+                    if ((r.mask_reference_regions as long) == 0) {
+                        log.warn "mask_reference_regions_bed: none of ${r.mask_reference_bed}'s intervals is on a " +
+                                 "chromosome of the reference; nothing is masked"
+                    }
+                }
+                [ q, masking || (triggered == 'yes' && dense_mode == 'filter'), triggered == 'yes' ]
             }
 
-        // filter / fail: lastz waits for the verdict, and a query without a
-        // dense block keeps its own files. report: nothing waits.
-        if (dense_mode != 'report') {
+        // filter / fail, or the BED: lastz waits for the verdict, and a query
+        // without a dense block (and no BED) keeps its own files. report:
+        // nothing waits.
+        if (dense_mode != 'report' || masking) {
             ch_extend = ch_segments
                 .map { meta, segment -> [ meta.query, meta, segment ] }
                 .combine( ch_dense, by: 0 )
-                .filter { _q, _meta, _segment, triggered -> !triggered }
-                .map { _q, meta, segment, _t -> [ meta, segment ] }
+                .filter { _q, _meta, _segment, filtered, _triggered -> !filtered }
+                .map { _q, meta, segment, _f, _t -> [ meta, segment ] }
         }
 
-        if (dense_mode == 'filter') {
+        if (dense_mode == 'filter' || masking) {
             // A glob output that matched one file arrives as a bare Path.
             ch_extend = ch_extend.mix(
                 DENSE_WINDOWS.out.kept.flatMap { q, ref, kept ->
@@ -117,12 +136,19 @@ workflow SEGMENTS_TO_PSL {
 
             // The regions, soft-masked into the genomes the later steps read:
             // each query gets its own, the reference the union over its queries.
+            // With the BED: what DENSE_WINDOWS dropped (the BED, plus the regions
+            // with filter); a query with nothing dropped keeps its genome.
+            def ch_mask_regions = masking ? DENSE_WINDOWS.out.mask : DENSE_WINDOWS.out.regions
             DENSE_MASK_QUERY (
                 query_genomes.map { q, tb, _cs, _d -> [ q, tb ] }
-                    .join( DENSE_WINDOWS.out.regions.map { q, _ref, _rbed, qbed -> [ q, qbed ] } )
+                    .join(
+                        ch_mask_regions
+                            .map { q, _ref, _rbed, qbed -> [ q, qbed ] }
+                            .filter { _q, qbed -> !masking || qbed.size() > 0 }
+                    )
             )
             DENSE_MASK_REFERENCE (
-                DENSE_WINDOWS.out.regions
+                ch_mask_regions
                     .map { _q, ref, rbed, _qbed -> [ ref, rbed ] }
                     .groupTuple()
                     .combine( reference_twobit )
