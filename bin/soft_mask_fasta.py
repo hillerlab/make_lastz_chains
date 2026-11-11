@@ -12,13 +12,21 @@ import sys
 
 
 def read_intervals(path: str) -> dict[str, list[tuple[int, int]]]:
-    """BED (0-based, half-open) intervals per sequence name."""
+    """BED (0-based, half-open) intervals per sequence name.
+
+    Comment, track and browser lines are skipped and a negative start is 0, as
+    dense_windows.py reads --mask_reference_regions_bed: the user's BED comes
+    here unchanged (REFERENCE_MASK_BED).
+    """
     intervals: dict[str, list[tuple[int, int]]] = collections.defaultdict(list)
     with open(path) as bed:
         for line in bed:
             fields = line.split()
-            if len(fields) >= 3:
-                intervals[fields[0]].append((int(fields[1]), int(fields[2])))
+            if len(fields) < 3 or fields[0] in ("track", "browser") or fields[0].startswith("#"):
+                continue
+            start, end = max(0, int(fields[1])), int(fields[2])
+            if end > start:
+                intervals[fields[0]].append((start, end))
     return intervals
 
 
