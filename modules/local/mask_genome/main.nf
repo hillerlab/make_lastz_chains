@@ -9,6 +9,8 @@
     (chaining, anti-repeat, fill, clean).
     --dense_windows filter (DENSE_MASK_*, ext.suffix 'dense'): the shared
     satellite arrays DENSE_WINDOWS found, for the steps after LASTZ_SEGMENTED.
+    --mask_reference_regions_bed (REFERENCE_MASK_BED, 'masked'): the BED, once
+    per run. --dust_masking (DUST_MASK, 'dust'): DUSTMASKER's tracts.
     The .2bit keeps the original's format: v1 (-long) stays v1.
     Output: <name>.<ext.suffix, default wmsdust>.2bit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -25,7 +27,7 @@ process MASK_GENOME {
     tuple val(genome_name), path(twobit), path(mask_bed)             // one BED, or a list
 
     output:
-    tuple val(genome_name), path("${genome_name}.*.2bit"), emit: twobit
+    tuple val(genome_name), path("${genome_name}.${task.ext.suffix ?: 'wmsdust'}.2bit"), emit: twobit
     path "versions.yml",                                   emit: versions
 
     script:

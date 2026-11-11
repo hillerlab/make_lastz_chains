@@ -11,7 +11,7 @@ Distributed under the terms of the Apache License, Version 2.0.
     and a query record with the same name, gap-local, plus strand (the query is
     reverse-complemented for '-' chains) and uppercased unless skip_fill_unmask
     (RepeatFiller's lastz [unmask]). Gaps, not chains, are cut into
-    min(num_fill_jobs, gaps) shards, so one dominant chain no longer holds a
+    min(shards, gaps) shards (--fill_hspz_shards), so one dominant chain no longer holds a
     whole fill task. At least one (possibly empty) shard is always written.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
@@ -33,7 +33,7 @@ process FILL_GAPS {
     val   fill_gap_max_size_q
     val   fill_gap_min_size_t
     val   fill_gap_min_size_q
-    val   num_fill_jobs
+    val   shards
     val   skip_fill_unmask
 
     output:
@@ -53,7 +53,7 @@ process FILL_GAPS {
         --gap-max-t ${fill_gap_max_size_t} \\
         --gap-min-q ${fill_gap_min_size_q} \\
         --gap-max-q ${fill_gap_max_size_q} \\
-        --shards ${num_fill_jobs} \\
+        --shards ${shards} \\
         ${unmask}
 
     cat <<-END_VERSIONS > versions.yml

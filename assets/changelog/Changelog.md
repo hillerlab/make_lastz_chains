@@ -428,6 +428,73 @@ densest block holds 28k against a threshold of 100k), even though each extension
     run without the BED had 288 jobs time out at 1 h and 72 at 4 h, and was still running after 13 h (about 950 CPU
     h of LASTZ so far). Final chains: 15.9 M, largest 82.9 Mb aligned, and 0.03 Mb of aligned bases inside the BED.
 
+### Low-complexity seeding, cached reference files and measured resources
+
+The hs1 campaign (510 pairs published) showed where the time went and what broke.
+
+- **`--dust_masking`** (default off; `--dust_min_tract`, default 100). Counting hspZ anchors per 1 kb of hs1 over 37
+  pairs showed that hot bins are the norm: 30 of 37 pairs had bins with ≥ 50,000 anchors, in 18 they held 30–88% of
+  all anchors, and 37 bins were that hot in 20 or more pairs. They are GA/CT-rich tandem repeats (16–35 bp period,
+  0.5–1 kb) that hs1 leaves in uppercase; their ~500 bp HSPs score far above the K–3K band where hspZ applies its
+  entropy correction. dustmasker tracts ≥ 100 bp cover all of them, while their unmasked part is 0.5% of the genome.
+  - `DUSTMASKER` (new module, BLAST+ 2.17.0 image) writes `<name>.dust.bed`: dustmasker intervals joined across gaps
+    ≤ 10 bp, tracts ≥ `dust_min_tract`. `PREPARE_GENOMES` soft-masks them into each genome (`DUST_MASK`, a
+    `MASK_GENOME` alias) before chrom extraction, so seeding, chaining, fill and clean read the same genome.
+  - On hs1: 382,679 tracts, 118 Mb; they overlap 0.56% of RefSeq coding bases, 415 of 242,357 coding exons mostly.
+    Anchors mostly inside a tract: dugong 21%, dolphin 49%, bear 61%, duiker 74%, HLvamSpec2A 93%, a marsupial 96%.
+- **`--reference_cache_dir`** (default off) keeps what is built from the reference alone, by `storeDir`:
+  `REFERENCE_TO_FA`, the reference's `DUST_TO_FA` / `DUSTMASKER` / `DUST_MASK`, and `REFERENCE_MASK_BED`.
+  - Key: `<reference name>.<file size>.<mtime>[.dust<N>]/<step>`, plus the BED's md5 for the masked copy.
+  - These tasks run with `scratch = false` and their results are moved into the cache, a rename on one filesystem.
+- **`REFERENCE_MASK_BED`**: `--mask_reference_regions_bed` is soft-masked into the reference once per run
+  (`<ref>.masked.2bit`, not published; it was `02_hspz/dense_windows/<ref>.dense.2bit`), instead of per query through `DENSE_MASK_REFERENCE`. With `--dense_windows
+  filter`, `DENSE_MASK_REFERENCE` adds a triggered query's regions on top, as before. `MASK_GENOME` now declares its
+  exact output name.
+- **`--save_segments`** (default off): `02_hspz/segments` is published only on request, like `--save_psl`. Nextflow
+  hands a task's outputs on only after publishing them; on a slow shared filesystem the ~10,000 symlinks held every
+  pair for 20–90 min between hspZ and `DENSE_WINDOWS`. `--from segments` needs a first run with `--save_segments`.
+- **`--fill_hspz_shards`** (default 100) sizes the hspz fill engine; `num_fill_jobs` (1000) keeps sizing the lastz
+  engine. 1000 shards meant 1000 `LASTZ_FILL` tasks of ~3 s per pair (0.9 CPU h in all).
+- **Resources**, from the traces of the 510 pairs (CPU time used / allocated; peak RSS p50 / p99 / max):
+
+  | step | was | now | measured |
+  |---|---|---|---|
+  | `AXT_CHAIN` | 8 CPUs, 50 GB | 2 CPUs, 16 GB | 12% used; 2.7 / 17.1 / 50.5 GB |
+  | `CHAINTOOLS_ANTIREPEAT` | 16 CPUs, 50 GB | 4 CPUs, 8 GB | 8% used; 2.5 / 3.7 / 5.6 GB |
+  | `CHAINTOOLS_MERGE`, `…_MERGE_FILLED_CHAINS` | 8 CPUs, 50 GB | 2 CPUs, 16 GB | 10–12% used; 1.9 / 7.0 / 12.6 GB |
+  | `FILL_GAPS` | 8 CPUs, 50 GB | 1 CPU, 16 GB | 12% used; 6.9 / 14.3 / 24.4 GB |
+  | `FILL_SPLICE` | 8 CPUs, 50 GB | 1 CPU, 4 GB | 11% used; 0.5 / 0.9 / 1.3 GB |
+  | `CHAINTOOLS_SCORE` (hspz fill) | 8 CPUs, 50 GB | 4 CPUs, 16 GB | 16% used; 7.5 / 13.8 / 20.4 GB |
+  | `CHAINC` | 8 CPUs, 80 GB | 4 CPUs, 24 GB | 19% used; 11.7 / 21.2 / 34.0 GB |
+  | `DENSE_WINDOWS` | 16 CPUs | 8 CPUs | 27% used |
+  | `LASTZ_SEGMENTED` | 24 GB | 4 GB | 0.9 / 2.9 / 8.4 GB |
+  | `LASTZ_FILL` | 24 GB | 2 GB | max 0.1 GB |
+  | `REFERENCE_TO_FA`, `QUERY_TO_FA` (hspz) | 24 GB | 4 GB | max 1.3 GB |
+  | `EXTRACT_CHROMS` | 24 GB | 8 GB | — |
+
+  Memory still multiplies with `task.attempt`, so a task above the first request retries with more.
+- **slurm profile:** `DENSE_WINDOWS` writes in place (`scratch = false`). With `--mask_reference_regions_bed` every
+  pair writes `kept/*.segments`, and the copy back from node scratch lists them in one `ls`, which fails with
+  `Argument list too long` past ~45,000 files (seen at 48,233).
+- **Verification** (pipeline image 4.0.0-rc2, Nextflow 25.10.4, previous commit = 3ea0b6b):
+  Fixtures `test_segments` (`--from segments`), `test_hspz` (hspZ on a local GPU) and `test` (lastz); every published
+  file compared by md5 (gzip content).
+  - Defaults, previous commit against this one: `test_segments` and `test` identical (14 and 15 files); `test_hspz`
+    identical except `02_hspz/segments/` (4 files, no longer published), and identical with `--save_segments`.
+  - `--mask_reference_regions_bed`: `--dense_windows filter` and `off` give the final chains of the previous commit
+    (md5 04f702dc4180…) with `REFERENCE_MASK_BED` run once. On the hspZ path every published file equals the previous
+    commit's; missing are `02_hspz/segments/` and `02_hspz/dense_windows/<ref>.dense.2bit`, the BED-masked reference.
+  - `--reference_cache_dir`: the second run skips `REFERENCE_MASK_BED` (19 → 18 tasks); on the hspZ path with
+    `--dust_masking`, `REFERENCE_TO_FA` and the three DUST steps (28 → 24); with the BED, `--dense_windows filter` and
+    the hspz fill engine as well, all five (56 → 51). Outputs identical to the first run and to a run without the cache.
+  - `--fill_hspz_shards` 3, 100 and 1000 give identical outputs, equal to the previous commit's; `LASTZ_FILL` tasks
+    3, 32 and 32 (the fixture yields at most 32 non-empty shards).
+  - `--dust_masking --dust_min_tract 0` runs on the three paths (815 and 1,149 intervals in the 600 kb fixture
+    genomes); the lastz and hspZ paths give the same final chains with it (7c64e7c5cb34…), as they do without.
+  - Campaign (Delta): the allocations above and `DENSE_WINDOWS` in place run in production since 2026-11-11 through
+    the campaign's own config; hs1 with satellite arrays and DUST tracts soft-masked (176 Mb, same bases) is the
+    reference for pairs started after 14:45.
+
 ### PSL step: no AXT, no split pass for hspZ, no bundle copies
 
 HLmyoMyot9A × HLmyoDau2 (two Myotis bats, hspZ path) failed at `PSL_BUNDLE`. The run had written 5.2 TB of AXT, then 502 GB of PSL, and split that into 502 GB of per-chromosome PSL. SUPER_13's 406 GB file then ran `psl_bundle.py` out of memory, because it read each file whole. Every byte between `lastz` and `axtChain` was written two or three times, and on SLURM's BeeGFS scratch it was copied back once more.

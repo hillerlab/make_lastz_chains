@@ -29,7 +29,9 @@ Distributed under the terms of the Apache License, Version 2.0.
     --mask_reference_regions_bed: reference regions whose anchors are dropped
     in every mode (also off), triggered or not, and which the later steps read
     soft-masked. Every query then waits for DENSE_WINDOWS and takes its kept
-    files.
+    files. REFERENCE_MASK_BED soft-masks the BED into the reference once per
+    run (it does not depend on the queries, so --reference_cache_dir keeps it);
+    with filter, DENSE_MASK_REFERENCE adds the found regions on top.
 
     Emits: psl_by_chrom — (meta(id, query), reference chromosome, psl.gz), one
            item per file, the CHAIN_BUILD input that skips PSLTOOLS_SPLIT.
@@ -42,6 +44,7 @@ Distributed under the terms of the Apache License, Version 2.0.
 include { LASTZ_SEGMENTED } from '../../../modules/local/lastz_segmented/main'
 include { DENSE_WINDOWS   } from '../../../modules/local/dense_windows/main'
 include { MASK_GENOME as DENSE_MASK_REFERENCE } from '../../../modules/local/mask_genome/main'
+include { MASK_GENOME as REFERENCE_MASK_BED   } from '../../../modules/local/mask_genome/main'
 include { MASK_GENOME as DENSE_MASK_QUERY     } from '../../../modules/local/mask_genome/main'
 
 workflow SEGMENTS_TO_PSL {
@@ -133,32 +136,40 @@ workflow SEGMENTS_TO_PSL {
                     [ kept ].flatten().collect { f -> [ [ id: f.baseName, reference: ref, query: q ], f ] }
                 }
             )
+        }
 
-            // The regions, soft-masked into the genomes the later steps read:
-            // each query gets its own, the reference the union over its queries.
-            // With the BED: what DENSE_WINDOWS dropped (the BED, plus the regions
-            // with filter); a query with nothing dropped keeps its genome.
-            def ch_mask_regions = masking ? DENSE_WINDOWS.out.mask : DENSE_WINDOWS.out.regions
+        // The BED, soft-masked into the reference the later steps read: once per
+        // run, whatever the queries are.
+        if (masking) {
+            REFERENCE_MASK_BED (
+                reference_twobit.map { tb -> [ params.reference_name.toString(), tb, mask_bed ] }
+            )
+            ch_versions = ch_versions.mix( REFERENCE_MASK_BED.out.versions )
+            // A value channel whether reference_twobit is one or a queue of one.
+            chain_reference_twobit = REFERENCE_MASK_BED.out.twobit.collect { _n, tb -> tb }.map { tbs -> tbs[0] }
+        }
+
+        if (dense_mode == 'filter') {
+            // The found regions, soft-masked into the genomes the later steps
+            // read: each query gets its own, the reference the union over its
+            // queries (on top of the BED's mask when there is one).
+            def ch_reference_base = chain_reference_twobit
             DENSE_MASK_QUERY (
                 query_genomes.map { q, tb, _cs, _d -> [ q, tb ] }
-                    .join(
-                        ch_mask_regions
-                            .map { q, _ref, _rbed, qbed -> [ q, qbed ] }
-                            .filter { _q, qbed -> !masking || qbed.size() > 0 }
-                    )
+                    .join( DENSE_WINDOWS.out.regions.map { q, _ref, _rbed, qbed -> [ q, qbed ] } )
             )
             DENSE_MASK_REFERENCE (
-                ch_mask_regions
+                DENSE_WINDOWS.out.regions
                     .map { _q, ref, rbed, _qbed -> [ ref, rbed ] }
                     .groupTuple()
-                    .combine( reference_twobit )
+                    .combine( ch_reference_base )
                     .map { ref, beds, tb -> [ ref, tb, beds ] }
             )
             ch_versions = ch_versions.mix( DENSE_MASK_REFERENCE.out.versions, DENSE_MASK_QUERY.out.versions )
 
             // 'NONE' when no query had a dense block: the inputs stay.
             ch_masked_ref = DENSE_MASK_REFERENCE.out.twobit.map { _n, tb -> tb }.ifEmpty('NONE')
-            chain_reference_twobit = reference_twobit
+            chain_reference_twobit = ch_reference_base
                 .combine( ch_masked_ref )
                 .map { tb, masked -> masked == 'NONE' ? tb : masked }
                 .first()

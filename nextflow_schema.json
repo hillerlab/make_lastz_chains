@@ -84,6 +84,39 @@
                     ],
                     "fa_icon": "fas fa-th"
                 },
+                "dust_masking": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Soft-mask low-complexity tracts (NCBI dustmasker, window 64, level 20) into both genomes before any other step, on top of their own masking. Intervals are joined across gaps <= 10 bp; tracts shorter than --dust_min_tract are left alone. For genomes whose masking misses simple tandem repeats: on hs1 the unmasked part of these tracts (0.5% of the genome) held 21-96% of all hspZ anchors against 37 mammals.",
+                    "fa_icon": "fas fa-mask"
+                },
+                "dust_min_tract": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 0,
+                    "description": "--dust_masking: shortest low-complexity tract (bp, after joining intervals across gaps <= 10 bp) that is masked; 0 masks every dustmasker interval.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "reference_cache_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "default": "",
+                    "description": "Directory that keeps what is built from the reference alone (its FASTA, its --dust_masking files, its --mask_reference_regions_bed copy), so runs of many queries against one reference build them once. Keyed by the reference file's name, size and modification time; put it on the work directory's filesystem.",
+                    "fa_icon": "fas fa-database"
+                },
+                "save_segments": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "--aligner hspz: publish hspZ's *.segments (02_hspz/segments, symlinks into work/), the checkpoint --from segments reads. Off by default: thousands of links per query, published before the run can go on.",
+                    "fa_icon": "fas fa-save"
+                },
+                "fill_hspz_shards": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "description": "--repeat_filler_engine hspz: shards the chain gaps are cut into, one LASTZ_FILL task each. The result does not depend on it.",
+                    "fa_icon": "fas fa-th-large"
+                },
                 "mask_reference_regions_bed": {
                     "type": "string",
                     "format": "file-path",

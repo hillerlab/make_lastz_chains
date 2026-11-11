@@ -57,7 +57,7 @@ workflow FILL_CHAINS_HSPZ {
         params.fill_gap_max_size_q,
         params.fill_gap_min_size_t,
         params.fill_gap_min_size_q,
-        params.num_fill_jobs,
+        params.fill_hspz_shards,
         params.skip_fill_unmask,
     )
 

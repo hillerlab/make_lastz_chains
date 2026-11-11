@@ -11,6 +11,10 @@ Distributed under the terms of the Apache License, Version 2.0.
     directly — see modules/local/extract_chroms/main.nf). For v0 .2bit the
     chroms_dir is empty and lastz reads the .2bit natively.
 
+    --dust_masking: low-complexity tracts (DUSTMASKER) are soft-masked into the
+    .2bit first, on top of its own masking, so every later step — seeding,
+    chroms_dir, chaining, fill, clean — reads the same masked genome.
+
     Emits:
       prepared   — (genome_name, twobit_file, chrom_sizes_file)
       chroms_dir — (genome_name, dir_of_<chrom>.fa)   empty dir for v0
@@ -20,6 +24,9 @@ Distributed under the terms of the Apache License, Version 2.0.
 include { FA_TO_TWO_BIT  } from '../../../modules/local/fa_to_two_bit/main'
 include { CHROMSIZE      } from '../../../modules/local/chromsize/main'
 include { EXTRACT_CHROMS } from '../../../modules/local/extract_chroms/main'
+include { TWO_BIT_TO_FA as DUST_TO_FA } from '../../../modules/local/two_bit_to_fa/main'
+include { DUSTMASKER     } from '../../../modules/local/dustmasker/main'
+include { MASK_GENOME as DUST_MASK    } from '../../../modules/local/mask_genome/main'
 
 workflow PREPARE_GENOMES {
     take:
@@ -46,6 +53,16 @@ workflow PREPARE_GENOMES {
     twobit_ch = ch_genomes.twobit.map { n, p -> [ n, file(p) ] }.mix( FA_TO_TWO_BIT.out.twobit )
 
     ch_versions = ch_versions.mix(FA_TO_TWO_BIT.out.versions)
+
+    // --dust_masking: the genome with its low-complexity tracts soft-masked
+    // replaces the input for everything below.
+    if (params.dust_masking) {
+        DUST_TO_FA ( twobit_ch )
+        DUSTMASKER ( DUST_TO_FA.out.fasta, params.dust_min_tract )
+        DUST_MASK ( twobit_ch.join( DUSTMASKER.out.bed ) )
+        twobit_ch = DUST_MASK.out.twobit
+        ch_versions = ch_versions.mix( DUST_TO_FA.out.versions, DUSTMASKER.out.versions, DUST_MASK.out.versions )
+    }
 
     // Join twobit and chrom_sizes on genome_name
     prepared_ch = twobit_ch.join( CHROMSIZE.out.chrom_sizes )

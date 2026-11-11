@@ -120,6 +120,7 @@ Resume runs from checkpoints [segments, chain_antirepeat, fill_chains, clean_cha
 ```bash
 
 # Restart after hspZ GPU seeding but before gapped extension [ 02_hspz/segments ]
+# (the first run needs --save_segments: the segments are not published by default)
 nextflow run main.nf --from segments -profile <PROFILE> -params-file params.json \
     --segments_path  results/02_hspz/segments
 
@@ -347,9 +348,11 @@ by lastz's traceback memory, and LASTZ jobs that time out at 1 h, 4 h and 8 h.
 `--mask_reference_regions_bed` names such regions on the reference. In every
 `--dense_windows` mode (also `off`), whether or not the scan triggers,
 `DENSE_WINDOWS` drops the anchors whose reference span overlaps them, and
-chaining, fill and clean read the reference with them soft-masked. The dropped
-regions are published as `*.mask_reference.bed` in `02_hspz/dense_windows/`.
-Alignments that start outside a region can still extend into it.
+chaining, fill and clean read the reference with them soft-masked
+(`REFERENCE_MASK_BED`, once per run). The dropped regions are published as
+`*.mask_reference.bed` in `02_hspz/dense_windows/`; the masked reference itself
+is not (it is the reference plus the BED). Alignments that start outside a
+region can still extend into it.
 
 For hs1, the T2T censat annotation's HSat1A, HSat1B, HSat2, HSat3, beta-satellite and rDNA
 arrays (315 intervals, 145 Mb) drop 20.0 M of HLloxAfr5A's 62.3 M anchors in 41 s, and every
@@ -361,6 +364,46 @@ mammals), so it is left out of the BED unless the query is a primate.
 nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz \
     --mask_reference_regions_bed hs1.satellite_arrays.bed
 ```
+
+### Low-complexity tandem repeats: `--dust_masking`
+
+A genome's soft-masking can miss simple tandem repeats. hs1 leaves GA- and
+CT-rich minisatellites (16–35 bp period, 0.5–1 kb) in uppercase, and each one
+seeds against every similar tract of the query. Counted over 37 hs1 × mammal
+pairs, the unmasked part of such tracts — 0.5% of the genome — held 21–96% of
+all hspZ anchors and every 1 kb bin with ≥ 50,000 anchors; pairs with the most
+ran axtChain for more than 8 h on millions of 25–100 bp chains.
+
+`--dust_masking` runs NCBI `dustmasker` (window 64, level 20) on the reference
+and on every query, joins its intervals across gaps ≤ 10 bp, and soft-masks the
+tracts of at least `--dust_min_tract` bp (default 100; 0 masks every interval)
+into the genomes, on top of their own masking, before any other step. Seeding,
+chaining, fill and clean then all read the same masked genomes; lastz still
+extends alignments through masked sequence from anchors outside it. The tracts
+are published as `00_genome_prep/dust/*.dust.bed`.
+
+On hs1 the tracts ≥ 100 bp are 382,679 intervals (118 Mb), 81–87% of it already
+lowercase. They overlap 0.56% of RefSeq coding bases, and 415 of 242,357 coding
+exons lie mostly inside one. dustmasker takes 8 min for hs1 on one core.
+It works with every `--aligner`.
+
+```bash
+nextflow run main.nf -params-file params.json -profile docker,gpu --aligner hspz --dust_masking
+```
+
+### Many runs against one reference: `--reference_cache_dir`
+
+Each run rebuilds what depends on the reference alone: its FASTA (3 GB for a
+human genome), its `--dust_masking` files and its `--mask_reference_regions_bed`
+copy. `--reference_cache_dir DIR` keeps them in `DIR` and later runs take them
+from there instead of running the tasks (Nextflow reports them as *Stored*).
+
+Entries sit in `DIR/<reference name>.<file size>.<modification time>[.dust<N>]/`,
+one subdirectory per step, and the masked copy is keyed by the BED's md5, so a
+changed reference file, DUST setting or BED gets its own entry. The tasks write
+in the work directory and move the result into the cache; keep the cache on the
+work directory's filesystem, where that move is a rename and concurrent runs
+never see a half-written file.
 
 ### Big genomes (whose .2bit would exceed the v0 32-bit layout)
 
@@ -399,8 +442,9 @@ same gaps (chain score ≥ `min_chain_score`, gap sizes within
   all of them in one GPU task at `fill_lastz_k`; lastz then extends from those
   anchors (`fill_lastz_l`) and axtChain chains each shard from its FASTAs, and the
   best mini-chains are spliced back. Gaps, not chains, are split over
-  `num_fill_jobs` shards, so one dominant chain no longer holds a whole task. Needs
-  `-profile gpu` (or `zluda`); works with any `--aligner`.
+  `fill_hspz_shards` shards (default 100), so one dominant chain no longer holds a
+  whole task; the filled chains do not depend on the count. Needs `-profile gpu`
+  (or `zluda`); works with any `--aligner`.
 
 ```bash
 nextflow run main.nf -params-file params.json -profile docker,gpu --repeat_filler_engine hspz
@@ -422,12 +466,13 @@ took 0.20 h and 2.7 CPU hours instead of 1.44 h and 57.5.
 ```
 results/
 ├── 00_genome_prep/      reference.2bit, query.2bit, *.chrom.sizes
+├─── • dust/             *.dust.bed         ← --dust_masking
 ├── 01_partition/        *_partitions.txt
 ├── 02_lastz_psl/        *.psl              ← --aligner lastz, --save_psl only
 ├── 02_kegalign_psl/     *.psl              ← --aligner kegalign, --save_psl only
 ├── 02_hspz/                                ← --aligner hspz
-├─── • segments/         *.segments         ← checkpoint for --from segments
-├─── • dense_windows/    *.dense_windows.tsv, regions *.bed, *.dense.2bit  ← --dense_windows, --mask_reference_regions_bed
+├─── • segments/         *.segments         ← checkpoint for --from segments, --save_segments only
+├─── • dense_windows/    *.dense_windows.tsv, regions *.bed  ← --dense_windows, --mask_reference_regions_bed; *.dense.2bit with filter
 ├─── • psl/              <chrom>/*.psl.gz   ← --save_psl only
 ├── 03_psl/              *.psl              ← per-chr psl files (lastz, kegalign), --save_psl only
 ├── 04_axtchain/         *.chain            ← checkpoint for --from chain_antirepeat
