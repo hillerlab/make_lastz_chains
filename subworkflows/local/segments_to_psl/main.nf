@@ -32,6 +32,8 @@ Distributed under the terms of the Apache License, Version 2.0.
     files. REFERENCE_MASK_BED soft-masks the BED into the reference once per
     run (it does not depend on the queries, so --reference_cache_dir keeps it);
     with filter, DENSE_MASK_REFERENCE adds the found regions on top.
+    --lastz_segments_per_job N: N segments files per LASTZ_SEGMENTED task
+    instead of one; each file runs as it does alone, so the PSL is the same.
 
     Emits: psl_by_chrom — (meta(id, query), reference chromosome, psl.gz), one
            item per file, the CHAIN_BUILD input that skips PSLTOOLS_SPLIT.
@@ -181,9 +183,33 @@ workflow SEGMENTS_TO_PSL {
 
     expected_n = ch_extend.count()
 
-    // Each segments file rides with its own query's .2bit, sizes and chroms
+    // --lastz_segments_per_job N: a query's files, sorted by name, are dealt
+    // out over ceil(files / N) tasks in turn. Neighbouring files (the same
+    // stretch of the reference) land in different tasks, so the tasks are of
+    // similar length, and the batches are the same in a resumed run. 1: one
+    // file per task, as the files arrive.
+    def per_job = (params.lastz_segments_per_job ?: 1) as int
+    if (per_job < 1) {
+        error "--lastz_segments_per_job must be 1 or more (got ${params.lastz_segments_per_job})"
+    }
+    def ch_tasks = ch_extend
+    if (per_job > 1) {
+        ch_tasks = ch_extend
+            .map { meta, segment -> [ meta.query, meta.reference, segment ] }
+            .groupTuple()
+            .flatMap { q, refs, segments ->
+                def files   = segments.sort { f -> f.name }
+                def n_tasks = Math.ceil(files.size() / per_job) as int
+                (0..<n_tasks).collect { i ->
+                    def batch = (i..<files.size()).step(n_tasks).collect { k -> files[k] }
+                    [ [ id: "batch${i + 1}of${n_tasks}".toString(), reference: refs[0], query: q ], batch ]
+                }
+            }
+    }
+
+    // Each task's segments ride with their own query's .2bit, sizes and chroms
     // dir; multiMap keeps the separate process inputs paired item for item.
-    ch_lastz = ch_extend
+    ch_lastz = ch_tasks
         .map { meta, segment -> [ meta.query, meta, segment ] }
         .combine( query_genomes, by: 0 )
         .multiMap { _q, meta, segment, twobit, sizes, chroms_dir ->
@@ -205,9 +231,10 @@ workflow SEGMENTS_TO_PSL {
         lastz_l,
         lastz_y
     )
-    // versions.yml is written by every task that completed; the PSL output is
-    // optional (no alignments, no file), so it cannot be the count.
-    actual_n = LASTZ_SEGMENTED.out.versions.count()
+    // Every completed task reports the segments files it ran (the script
+    // stops unless it ran them all); the PSL output is optional (no
+    // alignments, no file), so it cannot be the count.
+    actual_n = LASTZ_SEGMENTED.out.n_segments.map { n -> n as int }.reduce(0) { a, b -> a + b }
 
     // Every partition must have run exactly once -- the same last-line
     // defence LASTZ_ALIGNMENT keeps over its NxK pair list.

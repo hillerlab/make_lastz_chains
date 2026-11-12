@@ -405,6 +405,26 @@ in the work directory and move the result into the cache; keep the cache on the
 work directory's filesystem, where that move is a rename and concurrent runs
 never see a half-written file.
 
+### Fewer, longer LASTZ jobs: `--lastz_segments_per_job` (hspZ)
+
+hspZ writes thousands of segments files for a mammal pair, and by default each
+is its own `LASTZ_SEGMENTED` task: about 7,000 scheduler jobs of 10–50 s. On
+SLURM each of them spends another 8–16 s starting and finishing, which is 24–41%
+of the core time such a job holds, and a few pairs fill the scheduler's job
+table (`MaxJobCount`).
+
+`--lastz_segments_per_job N` gives one task N segments files, which it runs one
+after another. Each file runs exactly as it does alone (the same lastz calls,
+the same `psl/<chrom>/<file>.r<n>.psl.gz`), so the PSL and the chains are the
+same for any N. A query's files are dealt out over the tasks in turn, so the
+tasks are of similar length and a resumed run makes the same ones. A task that
+fails or times out reruns all of its files.
+
+```bash
+nextflow run main.nf -params-file params.json -profile slurm,apptainer,gpu --aligner hspz \
+    --lastz_segments_per_job 20
+```
+
 ### Big genomes (whose .2bit would exceed the v0 32-bit layout)
 
 | backend    | reference ≤ ~16 Gbp, query < 6 GB | bigger than that |

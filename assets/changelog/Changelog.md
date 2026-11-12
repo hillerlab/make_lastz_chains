@@ -428,6 +428,42 @@ densest block holds 28k against a threshold of 100k), even though each extension
     run without the BED had 288 jobs time out at 1 h and 72 at 4 h, and was still running after 13 h (about 950 CPU
     h of LASTZ so far). Final chains: 15.9 M, largest 82.9 Mb aligned, and 0.03 Mb of aligned bases inside the BED.
 
+### Several segments files per LASTZ job
+
+- **`--lastz_segments_per_job N`** (default 1: one file per task, as before). hspZ writes ~7,000 segments files for
+  a mammal pair and each was its own `LASTZ_SEGMENTED` task. Measured on the hs1 campaign (SLURM, per job):
+
+  | reference | jobs per pair | core held | lastz script | start and finish of the job |
+  |---|---|---|---|---|
+  | hs1 with satellites and DUST tracts masked (HLhylUnde1B) | 7,111 | 19.7 s | 11.7 s | 8.0 s (41%) |
+  | hs1 as distributed (HLursThi1) | 5,663 | 64.9 s | 49.2 s | 15.7 s (24%) |
+
+  In two hours with the batch partition 89–90% full, 112,000 such jobs an hour held 1,540–1,840 cores while ~660 sat
+  idle with 40,000 of them pending: the scheduler starts 20-second jobs no faster. The controller keeps at most
+  60,000 jobs for all users (`MaxJobCount`, array tasks counted), which is the LASTZ of 8 pairs.
+  - With N > 1, `SEGMENTS_TO_PSL` sorts a query's files by name and deals them out over ceil(files / N) tasks in
+    turn, so neighbouring files (the same stretch of the reference) land in different tasks, the tasks are of similar
+    length, and a resumed run makes the same ones.
+  - `LASTZ_SEGMENTED` takes one file or a list and runs each through the same commands in a shell function: the same
+    lastz calls and the same `psl/<chrom>/<file>.r<n>.psl.gz` names, numbered per file. It stops unless it ran every
+    file, and reports the number (`n_segments`); the integrity check sums it over the tasks instead of counting them.
+  - A task that fails or times out reruns all of its files.
+- **Fix: comment lines in `--mask_reference_regions_bed`.** `REFERENCE_MASK_BED` (previous entry) hands the user's
+  BED to `soft_mask_fasta.py`, which read every line with three fields as an interval and stopped on a `#` header
+  (`ValueError`). It now skips comment, `track` and `browser` lines and takes a negative start as 0, as
+  `dense_windows.py` does. A BED without such lines (the campaign's) was not affected.
+- **Verification**:
+  - Fixtures, every published file compared by md5 (gzip content), PSL included (`--save_psl`): defaults equal
+    2cd98d8 on `test_segments` and `test_hspz`. Five segments files through `--from segments`: N = 1 equals
+    2cd98d8; N = 2, 3 and 100 (3, 2 and 1 tasks, integrity check 5/5) equal N = 1; so does N = 3 with a mask BED and
+    `--dense_windows filter`. `test_hspz` with the hspz fill engine: N = 2 (one task) equals N = 1.
+  - Delta, hs1 × HLursThi1, 60 of its 5,663 hspZ segments files (598,790 anchors), mask BED and
+    `--dense_windows filter` as in the campaign, chain build without fill and clean: N = 1 (60 tasks), N = 20
+    (3 tasks) and 2cd98d8 (60 tasks) publish the same 221 files: 167 PSL, 25 chain bundles, 25 anti-repeat chains,
+    the chain statistics. LASTZ CPU time 20.7, 20.6 and 20.7 min.
+  - A BED with a comment, a `track` and a `browser` line: 2cd98d8 stops in `REFERENCE_MASK_BED`; now the run
+    finishes with the files of the plain BED.
+
 ### Low-complexity seeding, cached reference files and measured resources
 
 The hs1 campaign (510 pairs published) showed where the time went and what broke.

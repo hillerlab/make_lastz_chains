@@ -18,6 +18,8 @@
     "dense_windows": "report",
     "//0e": "mask_reference_regions_bed (--aligner hspz): BED of reference regions whose anchors are always dropped before lastz and soft-masked downstream (satellite arrays too sparse for dense_windows to trigger); empty: none",
     "mask_reference_regions_bed": "",
+    "//0e2": "lastz_segments_per_job (--aligner hspz): segments files one LASTZ_SEGMENTED task runs, one after another; same PSL and chains for any value, N times fewer scheduler jobs",
+    "lastz_segments_per_job": 1,
     "//0f": "dust_masking: soft-mask low-complexity tracts (dustmasker; >= dust_min_tract bp) into both genomes before any other step; for genomes whose masking misses simple tandem repeats",
     "dust_masking": false,
     "dust_min_tract": 100,

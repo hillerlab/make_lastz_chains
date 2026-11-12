@@ -382,7 +382,7 @@ workflow FULL_RUN {
 
       Reference : ${params.reference_name}  (${params.reference_genome})
       Query  : ${params.array ? "${queries.size()} queries from ${params.array} (one hspZ --query-list batch)" : "${params.query_name}   (${params.query_genome})"}
-      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}${params.aligner == 'hspz' ? " (${params.hspz_gpus} GPU${params.hspz_gpus.toString() == '1' ? '' : 's'}${params.dense_windows.toString() == 'report' ? '' : ", dense windows: ${params.dense_windows}"}${params.mask_reference_regions_bed ? ", masked reference regions: ${file(params.mask_reference_regions_bed.toString()).name}" : ''})" : ''}${params.aligner == 'lastz' && params.window_masking_recovery ? ' (window-masking recovery)' : ''}
+      Aligner: ${params.aligner}${params.aligner == 'kegalign' ? " (${params.kegalign_executor}${(params.kegalign_mps_workers as int) > 1 ? ", MPS x${params.kegalign_mps_workers}" : ''})" : ''}${params.aligner == 'hspz' ? " (${params.hspz_gpus} GPU${params.hspz_gpus.toString() == '1' ? '' : 's'}${params.dense_windows.toString() == 'report' ? '' : ", dense windows: ${params.dense_windows}"}${params.mask_reference_regions_bed ? ", masked reference regions: ${file(params.mask_reference_regions_bed.toString()).name}" : ''}${(params.lastz_segments_per_job as int) > 1 ? ", ${params.lastz_segments_per_job} segments files per lastz job" : ''})" : ''}${params.aligner == 'lastz' && params.window_masking_recovery ? ' (window-masking recovery)' : ''}
       Outdir : ${params.outdir}${params.dust_masking ? "\n      DUST   : low-complexity tracts >= ${params.dust_min_tract} bp soft-masked into both genomes (--dust_masking)" : ''}${params.reference_cache_dir ? "\n      Cache  : ${params.reference_cache_dir} (--reference_cache_dir)" : ''}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
@@ -518,7 +518,7 @@ workflow FROM_SEGMENTS {
       Reference : ${params.reference_name}
       Query  : ${params.query_name}
       Input  : ${params.segments_path}
-      Dense  : ${params.dense_windows} (--dense_windows)${params.mask_reference_regions_bed ? "\n      Mask   : ${params.mask_reference_regions_bed} (--mask_reference_regions_bed)" : ''}
+      Dense  : ${params.dense_windows} (--dense_windows)${params.mask_reference_regions_bed ? "\n      Mask   : ${params.mask_reference_regions_bed} (--mask_reference_regions_bed)" : ''}${(params.lastz_segments_per_job as int) > 1 ? "\n      LASTZ  : ${params.lastz_segments_per_job} segments files per job (--lastz_segments_per_job)" : ''}
       Outdir : ${params.outdir}
       Fill   : ${params.skip_fill_chains ? 'SKIPPED' : 'enabled'}
       Clean  : ${params.skip_clean_chain ? 'SKIPPED' : 'enabled'}
