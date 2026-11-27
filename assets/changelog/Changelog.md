@@ -429,6 +429,28 @@ densest block holds 28k against a threshold of 100k), even though each extension
     run without the BED had 288 jobs time out at 1 h and 72 at 4 h, and was still running after 13 h (about 950 CPU
     h of LASTZ so far). Final chains: 15.9 M, largest 82.9 Mb aligned, and 0.03 Mb of aligned bases inside the BED.
 
+### FILL_GAPS one shard at a time
+
+- **Why.** `fill_gaps.py extract` held the sequences of every gap of a query in memory before writing the shards.
+  On the Delta campaigns that set the memory of the step: wheat × oat needed 265 GB; close rodents against the mouse
+  needed 150–200 GB, so the 16 GB × attempt ladder ran out at its last attempt (144 GB) and the pairs failed.
+- **Change.** `extract` now fetches and writes one shard at a time (`write_shard()`): the shard's own gap regions go to
+  twoBitToFa (sorted, as before) and its records to `shards/shard_NNNNN.{t,q}.fa`. `--workers N` writes N shards at
+  once (a fork pool, `imap` in shard order), and `gaps.tsv` is written in shard order either way. The shards, their
+  records, the gap ids and `gaps.tsv` are the same as before for any `--workers`. The module passes
+  `--workers ${task.cpus}`; FILL_GAPS keeps 1 CPU by default, so raise its `cpus` for large genome pairs.
+- **Verification** (pipeline image 4.0.0-rc3, the HEAD version against the new one, md5 of every output file):
+
+  | chain (allfilled, as input) | gaps | HEAD | `--workers 1` | `--workers 16` | files identical |
+  |---|---|---|---|---|---|
+  | hs1 × HLmicTal1 | 1,176,015 | 16 m 3 s, 9.98 GB | 4 m 19 s – 6 m 36 s, 0.54 GB | 2 m 33 s, 0.54 GB | 201 / 201 |
+  | HLPpinTabu1 × HLPpinAlbi1 (pines) | 1,740,159 | 8 m 25 s, 12.25 GB | 19 m 9 s, 0.89 GB | — | 201 / 201 |
+
+  - One worker is slower than HEAD on the pines: every shard calls twoBitToFa on its own, and each call sets up the
+    17 chromosomes of 1.0–2.1 Gb again. Use several workers there.
+  - End to end: HLpodMur1 × anoCar2 through `--from chain_antirepeat` with `--workers 16` gives the same filled,
+    cleaned and final chains and stats as its SLURM run with the HEAD version.
+
 ### Several segments files per LASTZ job
 
 - **`--lastz_segments_per_job N`** (default 1: one file per task, as before). hspZ writes ~7,000 segments files for

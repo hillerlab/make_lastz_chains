@@ -54,6 +54,7 @@ process FILL_GAPS {
         --gap-min-q ${fill_gap_min_size_q} \\
         --gap-max-q ${fill_gap_max_size_q} \\
         --shards ${shards} \\
+        --workers ${task.cpus} \\
         ${unmask}
 
     cat <<-END_VERSIONS > versions.yml

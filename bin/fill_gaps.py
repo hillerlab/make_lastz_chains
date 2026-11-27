@@ -23,6 +23,7 @@ frame on both sides and splicing is a plain offset.
 
 import argparse
 import gzip
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -70,9 +71,8 @@ def two_bit_regions(two_bit, regions, unmask, workdir, tag):
     given order. twoBitToFa is asked for them in genome order: it does costly
     per-sequence work whenever the sequence changes, and gaps come in chain
     (score) order. 100k hg38 gap regions take 30.7 s in that order and 1.6 s
-    sorted.
-    ponytail: every gap sequence is held in memory at once; stream per shard
-    if that matters."""
+    sorted. extract calls it once per shard, so only that shard's sequences are
+    held in memory."""
     if not regions:
         return []
     order = sorted(range(len(regions)), key=lambda i: regions[i])
@@ -102,32 +102,48 @@ def write_fasta(fh, name, seq):
         fh.write(seq[i:i + 60] + "\n")
 
 
+def write_shard(job):
+    """Writes shard k (the gaps lo..lo+len(part), in chain order) and returns its gaps.tsv lines.
+    A shard fetches only its own gap sequences, so a worker holds one shard at a time
+    instead of every gap of the genome; records, gap ids and their order are the same
+    whether the shards are written one after another or by several workers."""
+    k, lo, part, width, a = job
+    t_seqs = two_bit_regions(a.t2bit, [(g[1], g[2], g[3]) for g in part], a.unmask, a.out, f"t{k:05d}")
+    # Query regions on the forward strand; '-' chains are reverse-complemented below.
+    q_regions = [(g[4], g[8] - g[6], g[8] - g[5]) if g[7] == "-" else (g[4], g[5], g[6])
+                 for g in part]
+    q_seqs = two_bit_regions(a.q2bit, q_regions, a.unmask, a.out, f"q{k:05d}")
+    lines = []
+    stem = os.path.join(a.out, "shards", f"shard_{k:05d}")
+    with open(f"{stem}.t.fa", "w") as tf, open(f"{stem}.q.fa", "w") as qf:
+        for j, g in enumerate(part):
+            gid = f"{k:05d}_{lo + j:0{width}d}"
+            qs = q_seqs[j].translate(COMP)[::-1] if g[7] == "-" else q_seqs[j]
+            if len(t_seqs[j]) != g[3] - g[2] or len(qs) != g[6] - g[5]:
+                sys.exit(f"fill_gaps: gap {gid} region length mismatch")
+            write_fasta(tf, gid, t_seqs[j])
+            write_fasta(qf, gid, qs)
+            lines.append(f"{gid}\t{g[0]}\t{g[3] - g[2]}\t{g[6] - g[5]}\n")
+    return "".join(lines)
+
+
 def extract(a):
     gaps = list(fillable_gaps(a.chain, a))
     n = len(gaps)
     shards = max(1, min(a.shards, n))
     os.makedirs(os.path.join(a.out, "shards"), exist_ok=True)
-    t_seqs = two_bit_regions(a.t2bit, [(g[1], g[2], g[3]) for g in gaps], a.unmask, a.out, "t")
-    # Query regions on the forward strand; '-' chains are reverse-complemented below.
-    q_regions = [(g[4], g[8] - g[6], g[8] - g[5]) if g[7] == "-" else (g[4], g[5], g[6])
-                 for g in gaps]
-    q_seqs = two_bit_regions(a.q2bit, q_regions, a.unmask, a.out, "q")
-
     width = len(str(max(n - 1, 0)))
+    jobs = ((k, k * n // shards, gaps[k * n // shards:(k + 1) * n // shards], width, a)
+            for k in range(shards))
     with open(os.path.join(a.out, "gaps.tsv"), "w") as tsv:
-        for k in range(shards):
-            lo, hi = k * n // shards, (k + 1) * n // shards
-            stem = os.path.join(a.out, "shards", f"shard_{k:05d}")
-            with open(f"{stem}.t.fa", "w") as tf, open(f"{stem}.q.fa", "w") as qf:
-                for i in range(lo, hi):
-                    g = gaps[i]
-                    gid = f"{k:05d}_{i:0{width}d}"
-                    qs = q_seqs[i].translate(COMP)[::-1] if g[7] == "-" else q_seqs[i]
-                    if len(t_seqs[i]) != g[3] - g[2] or len(qs) != g[6] - g[5]:
-                        sys.exit(f"fill_gaps: gap {gid} region length mismatch")
-                    write_fasta(tf, gid, t_seqs[i])
-                    write_fasta(qf, gid, qs)
-                    tsv.write(f"{gid}\t{g[0]}\t{g[3] - g[2]}\t{g[6] - g[5]}\n")
+        if a.workers > 1 and shards > 1:
+            # imap keeps shard order, so gaps.tsv is written exactly as by one process
+            with multiprocessing.get_context("fork").Pool(min(a.workers, shards)) as pool:
+                for text in pool.imap(write_shard, jobs):
+                    tsv.write(text)
+        else:
+            for job in jobs:
+                tsv.write(write_shard(job))
     print(f"fill_gaps extract: {n} gaps in {shards} shards", file=sys.stderr)
 
 
@@ -204,6 +220,8 @@ def main():
     ex.add_argument("--shards", type=int, required=True)
     ex.add_argument("--unmask", action="store_true")
     ex.add_argument("--out", default=".")
+    ex.add_argument("--workers", type=int, default=1,
+                    help="shards written at the same time (same output for any value)")
     sp = sub.add_parser("splice")
     sp.add_argument("--chain", required=True)
     sp.add_argument("--gaps", required=True)
