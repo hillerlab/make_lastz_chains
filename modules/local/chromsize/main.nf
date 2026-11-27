@@ -8,6 +8,8 @@ Distributed under the terms of the Apache License, Version 2.0.
     CHROMSIZE — Generate chromosome size files from genome FASTA.
     Extracts sequence lengths from a FASTA genome and outputs a chrom.sizes
     file required by many UCSC tools.
+    No stub on purpose: PARTITION runs for real under -stub-run, and an empty
+    sizes file left LASTZ with no jobs.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -41,18 +43,6 @@ process CHROMSIZE {
 
     mv ${prefix}/chrom.sizes ${prefix}/${prefix}.chrom.sizes
         
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        chromsize: \$(chromsize --version | sed -e "s/chromsize v//g")
-    END_VERSIONS
-    """
-
-    stub:
-    def prefix = task.ext.prefix ?: "${genome_name}"
-    """
-    touch ${prefix}
-    touch ${prefix}/${prefix}.chrom.sizes
-
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         chromsize: \$(chromsize --version | sed -e "s/chromsize v//g")

@@ -8,6 +8,8 @@ Distributed under the terms of the Apache License, Version 2.0.
     CHAINTOOLS_SPLIT — Split chains into multiple chain files/chunks.
     Splits input chains into multiple chain files/chunks according to the 
     specified number of chunks/files. Output is always under chains/ directory.
+    Chains are shuffled across chunks with a fixed seed, so the same input
+    always gives the same chunks.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -41,6 +43,7 @@ process CHAINTOOLS_SPLIT {
         --files $num_chunks \\
         --outdir . \\
         --randomize \\
+        --seed 42 \\
         --threads ${task.cpus}
 
     cat <<-END_VERSIONS > versions.yml
@@ -51,6 +54,7 @@ process CHAINTOOLS_SPLIT {
 
     stub:
     """
+    mkdir -p chains
     touch chains/*.chain
     touch chains/*.chain.gz
 

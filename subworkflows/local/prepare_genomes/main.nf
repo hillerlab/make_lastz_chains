@@ -11,6 +11,10 @@ Distributed under the terms of the Apache License, Version 2.0.
     directly — see modules/local/extract_chroms/main.nf). For v0 .2bit the
     chroms_dir is empty and lastz reads the .2bit natively.
 
+    --dust_masking: low-complexity tracts (DUSTMASKER) are soft-masked into the
+    .2bit first, on top of its own masking, so every later step — seeding,
+    chroms_dir, chaining, fill, clean — reads the same masked genome.
+
     Emits:
       prepared   — (genome_name, twobit_file, chrom_sizes_file)
       chroms_dir — (genome_name, dir_of_<chrom>.fa)   empty dir for v0
@@ -20,32 +24,44 @@ Distributed under the terms of the Apache License, Version 2.0.
 include { FA_TO_TWO_BIT  } from '../../../modules/local/fa_to_two_bit/main'
 include { CHROMSIZE      } from '../../../modules/local/chromsize/main'
 include { EXTRACT_CHROMS } from '../../../modules/local/extract_chroms/main'
+include { TWO_BIT_TO_FA as DUST_TO_FA } from '../../../modules/local/two_bit_to_fa/main'
+include { DUSTMASKER     } from '../../../modules/local/dustmasker/main'
+include { MASK_GENOME as DUST_MASK    } from '../../../modules/local/mask_genome/main'
 
 workflow PREPARE_GENOMES {
     take:
-    genome_name    // val: e.g. 'hg38'
-    genome_path    // val: path to genome file (FASTA or .2bit)
+    genome_name    // val: e.g. 'hg38', or a list of names (--array queries)
+    genome_path    // val: path to genome file (FASTA or .2bit), or a list matching genome_name
     extract_chroms // val: true/false
 
     main:
     ch_versions = Channel.empty()
 
+    // One item per genome. Names become Strings: they key per-query channels
+    // downstream, where an Integer name (--query_name 1) would never match.
+    ch_genomes = Channel
+        .fromList( [ [ genome_name ].flatten()*.toString(), [ genome_path ].flatten() ].transpose() )
+        .branch { _n, p ->
+            twobit: p.toString().endsWith('.2bit')   // already .2bit — staged directly
+            fasta:  true                              // FASTA → .2bit
+        }
+
     // Generate chrom.sizes format agnostic
-    CHROMSIZE ( Channel.of( [ genome_name, genome_path ] ) )
+    CHROMSIZE ( ch_genomes.twobit.mix( ch_genomes.fasta ) )
 
-    // Determine if the input is already a .2bit file
-    def is_twobit = genome_path.endsWith('.2bit')
+    FA_TO_TWO_BIT ( ch_genomes.fasta.map { n, p -> [ n, file(p) ] } )
+    twobit_ch = ch_genomes.twobit.map { n, p -> [ n, file(p) ] }.mix( FA_TO_TWO_BIT.out.twobit )
 
-    if (is_twobit) {
-        // Already .2bit — stage the file directly
-        twobit_ch = Channel.of( [ genome_name, file(genome_path) ] )
-    } else {
-        // Convert FASTA → .2bit
-        fa_ch = Channel.of( [ genome_name, file(genome_path) ] )
-        FA_TO_TWO_BIT ( fa_ch )
-        twobit_ch = FA_TO_TWO_BIT.out.twobit
+    ch_versions = ch_versions.mix(FA_TO_TWO_BIT.out.versions)
 
-        ch_versions = ch_versions.mix(FA_TO_TWO_BIT.out.versions)
+    // --dust_masking: the genome with its low-complexity tracts soft-masked
+    // replaces the input for everything below.
+    if (params.dust_masking) {
+        DUST_TO_FA ( twobit_ch )
+        DUSTMASKER ( DUST_TO_FA.out.fasta, params.dust_min_tract )
+        DUST_MASK ( twobit_ch.join( DUSTMASKER.out.bed ) )
+        twobit_ch = DUST_MASK.out.twobit
+        ch_versions = ch_versions.mix( DUST_TO_FA.out.versions, DUSTMASKER.out.versions, DUST_MASK.out.versions )
     }
 
     // Join twobit and chrom_sizes on genome_name

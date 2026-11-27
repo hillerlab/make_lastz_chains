@@ -16,7 +16,7 @@ process REPEAT_FILLER {
         'ghcr.io/hillerlab/repeat_filler:latest' }"
 
     input:
-    path chain_chunk         // one infill_chain_N file
+    tuple val(meta), path(chain_chunk)  // one infill_chain_N file
     path target_twobit
     path query_twobit
     val  chain_min_score
@@ -31,8 +31,8 @@ process REPEAT_FILLER {
     val  skip_fill_unmask
 
     output:
-    path "${chain_chunk.name}.filled.chain", emit: filled_chain
-    path "versions.yml",                      emit: versions
+    tuple val(meta), path("${chain_chunk.name}.filled.chain"), emit: filled_chain
+    path "versions.yml",                                        emit: versions
 
     script:
     def unmask_arg = skip_fill_unmask ? '' : '--unmask'
